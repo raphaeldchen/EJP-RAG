@@ -1,0 +1,8 @@
+# API Keys
+.env
+# Virtual Environments
+venv/
+.venv/
+env/
+# Local Data
+data_files/

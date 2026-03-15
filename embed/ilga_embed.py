@@ -112,7 +112,7 @@ embed_model = OllamaEmbedding(
     base_url="http://localhost:11434",
 )
 
-CHECKPOINT_FILE = "ilga_embedded_chunks.txt"
+CHECKPOINT_FILE = "data_files/ilga_embedded_chunks.txt"
 BATCH_SIZE = 200
 
 cfg = get_config()
