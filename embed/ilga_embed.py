@@ -7,6 +7,7 @@ from typing import Generator
 from dotenv import load_dotenv
 import re
 from llama_index.embeddings.ollama import OllamaEmbedding
+from supabase import create_client, Client
 
 load_dotenv()
 
@@ -29,6 +30,8 @@ def get_config() -> dict:
         "chunked_bucket":_require_env("CHUNKED_S3_BUCKET"),
         "chunked_key":os.getenv("ILCS_CHUNKED_OBJECT_KEY", f"{ilcs_prefix}/ilcs_chunks.jsonl"),
         "aws_region":os.getenv("AWS_REGION"),
+        "supabase_url": _require_env("SUPABASE_URL"),
+        "supabase_key": _require_env("SUPABASE_SERVICE_KEY")
     }
 
 def read_raw_corpus_s3(bucket: str, key: str, region: str | None) -> str:
@@ -60,10 +63,57 @@ def clean_chunk_text(text: str) -> str:
     text = re.sub(r'\(Source:[^)]*\)', '', text)
     return re.sub(r'\n{3,}', '\n\n', text).strip()
 
+def load_checkpoint() -> set[str]:
+    if not os.path.exists(CHECKPOINT_FILE):
+        log.info("No checkpoint file found, starting fresh.")
+        return set()
+    with open(CHECKPOINT_FILE, "r") as f:
+        ids = {line.strip() for line in f if line.strip()}
+    log.info("Loaded %d processed chunk IDs from checkpoint.", len(ids))
+    return ids
+
+def save_checkpoint(chunk_ids: list[str]) -> None:
+    with open(CHECKPOINT_FILE, "a") as f:
+        for chunk_id in chunk_ids:
+            f.write(chunk_id + "\n")
+
+def build_payload(record: dict, embedding: list[float], enriched_text: str) -> dict:
+    m = record["metadata"]
+    return {
+        "chunk_id":         record["chunk_id"],
+        "parent_id":        record.get("parent_id"),
+        "chunk_index":      record.get("chunk_index"),
+        "chunk_total":      record.get("chunk_total"),
+        "source":           m.get("source"),
+        "section_citation": m.get("section_citation"),
+        "chapter_num":      m.get("chapter_num"),
+        "act_id":           m.get("act_id"),
+        "major_topic":      m.get("major_topic"),
+        "text":             record["text"],
+        "enriched_text":    enriched_text,
+        "metadata":         m,
+        "embedding":        embedding,
+    }
+
+def flush_batch(supabase: Client, batch: list[dict]) -> list[str]:
+    if not batch:
+        return []
+    chunk_ids = [p["chunk_id"] for p in batch]
+    try:
+        supabase.table("ilcs_chunks").upsert(batch).execute()
+        log.info("Flushed %d chunks to Supabase.", len(batch))
+        return chunk_ids
+    except Exception as e:
+        log.error("Failed to flush batch of %d chunks: %s", len(batch), e)
+        return []
+
 embed_model = OllamaEmbedding(
     model_name="nomic-embed-text",  # mxbai-embed-large for better quality embedding (slower)
     base_url="http://localhost:11434",
 )
+
+CHECKPOINT_FILE = "ilga_embedded_chunks.txt"
+BATCH_SIZE = 200
 
 cfg = get_config()
 data = read_raw_corpus_s3(
@@ -71,9 +121,31 @@ data = read_raw_corpus_s3(
     key=cfg["chunked_key"],
     region=cfg["aws_region"]
 )
+supabase: Client = create_client(cfg["supabase_url"], cfg["supabase_key"])
+
+processed = load_checkpoint()
+batch = []
+skipped = 0
+total = 0
 
 for record in iter_records(data):
-    chunk_text = build_chunk(record)
-    embedding = embed_model.get_text_embedding(chunk_text)
-    # create txt file of processed chunk_id's
-    # store embedding and metadata directly in supabase
+    chunk_id = record["chunk_id"]
+    if chunk_id in processed:
+        skipped += 1
+        continue
+    cleaned_text = clean_chunk_text(record["text"])
+    record["text"] = cleaned_text
+    enriched_text = build_chunk(record)
+    embedding = embed_model.get_text_embedding(enriched_text)
+    payload = build_payload(record, embedding, enriched_text)
+    batch.append(payload)
+    total += 1
+    if len(batch) >= BATCH_SIZE:
+        flushed_ids = flush_batch(supabase, batch)
+        save_checkpoint(flushed_ids)
+        processed.update(flushed_ids)
+        batch = []
+if batch:
+    flushed_ids = flush_batch(supabase, batch)
+    save_checkpoint(flushed_ids)
+log.info("Done. Embedded %d chunks, skipped %d already processed.", total, skipped)
