@@ -136,26 +136,36 @@ if prompt := st.chat_input("Send a message"):
         st.markdown(prompt)
 
     with st.chat_message("assistant", avatar="⚖️"):
-        with st.spinner("Researching…"):
-            raw = query(engine, prompt)
+        try:
+            with st.spinner("Researching…"):
+                raw = query(engine, prompt)
 
-        sources = []
-        if "\n\nSources:\n" in raw:
-            answer, sources_block = raw.split("\n\nSources:\n", 1)
-            sources = [
-                line.strip().lstrip("•").strip()
-                for line in sources_block.splitlines()
-                if line.strip()
-            ]
-        else:
-            answer = raw
+            sources = []
+            if "\n\nSources:\n" in raw:
+                answer, sources_block = raw.split("\n\nSources:\n", 1)
+                sources = [
+                    line.strip().lstrip("•").strip()
+                    for line in sources_block.splitlines()
+                    if line.strip()
+                ]
+            else:
+                answer = raw
 
-        st.markdown(answer)
-        if sources:
-            st.markdown(
-                " ".join(f'<span class="source-pill">{s}</span>' for s in sources),
-                unsafe_allow_html=True,
-            )
+            st.markdown(answer)
+            if sources:
+                st.markdown(
+                    " ".join(f'<span class="source-pill">{s}</span>' for s in sources),
+                    unsafe_allow_html=True,
+                )
+
+        except Exception as exc:
+            error_type = type(exc).__name__
+            if "Connect" in error_type or "connect" in str(exc).lower():
+                answer = "_Connection to the database failed. Please try again in a moment._"
+            else:
+                answer = f"_An error occurred: {error_type}. Please try again._"
+            sources = []
+            st.markdown(answer)
 
     st.session_state.messages.append({
         "role": "assistant",

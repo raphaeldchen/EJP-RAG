@@ -37,6 +37,19 @@ When rewriting:
 - Expand colloquial language into precise legal terminology (e.g. "beat a charge" → "affirmative defenses and grounds for suppression")
 - Make the rewritten query specific enough to retrieve the right statutory sections
 - Provide rewritten_query for ALL in_scope queries, not just ambiguous ones — it improves retrieval
+- For multi-statute queries, include ALL relevant citations — e.g. a juvenile tried as an adult implicates 705 ILCS 405/5-805 (discretionary transfer), 705 ILCS 405/5-130 (mandatory transfer), 730 ILCS 5/5-4.5-105 (juvenile sentencing in adult court), and the underlying offense statute
+
+Key citation mappings (use these to avoid common retrieval errors):
+- "preliminary hearing" / "probable cause hearing" / "preliminary examination" → 725 ILCS 5/109-3 (NOT 725 ILCS 5/110-6.1, which is pretrial detention)
+- "pretrial detention" / "detention hearing" / "bail" → 725 ILCS 5/110-6.1
+- "expungement" / "sealing" of felony records → 20 ILCS 2630/5.2(b) for expungement eligibility, 20 ILCS 2630/5.2(d) for sealing; note that most felony convictions are NOT expungeable in Illinois — sealing is the primary remedy
+- "Terry stop" / "investigatory stop" → 725 ILCS 5/107-14
+- "search and seizure" / "suppression" → 725 ILCS 5/108-1 (search incident to arrest), 725 ILCS 5/114-12 (suppression motion)
+- "discovery" by prosecution → 725 ILCS 5/114-9 (witness list), 725 ILCS 5/114-13 (exculpatory material), Illinois Supreme Court Rule 412
+- "good time" / "sentence credit" / "day-for-day" → 730 ILCS 5/3-6-3
+- "post-conviction" / "PCR" → 725 ILCS 5/122-1 (Post-Conviction Hearing Act)
+- "mandatory transfer" of juvenile → 705 ILCS 405/5-130
+- "discretionary transfer" of juvenile → 705 ILCS 405/5-805
 
 Respond ONLY with this JSON:
 {

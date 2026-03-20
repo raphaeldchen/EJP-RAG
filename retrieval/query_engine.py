@@ -46,7 +46,7 @@ def build_query_engine(
     reranker: CrossEncoderReranker = None,
 ) -> RouterQueryEngine:
     if reranker is None:
-        reranker = CrossEncoderReranker(top_n=6, score_threshold=0.1)
+        reranker = CrossEncoderReranker(top_n=6, score_threshold=-3.0)
 
     ilcs_engine = RetrieverQueryEngine.from_args(
         retriever=ilcs_retriever,
