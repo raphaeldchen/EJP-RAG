@@ -121,11 +121,6 @@ FOOTER_MARKERS = [
 ]
 
 def strip_footer(text: str) -> str:
-    """
-    Remove boilerplate footer text that appears at the bottom of every ILCS page.
-    Searches for the earliest marker occurrence so we don't accidentally truncate
-    statute content that contains similar phrases.
-    """
     earliest = len(text)
     for marker in FOOTER_MARKERS:
         idx = text.find(marker)
@@ -246,21 +241,6 @@ def is_type_b(soup: BeautifulSoup) -> bool:
                                href=re.compile(r"details", re.I)))
 
 def parse_article_links(art_soup: BeautifulSoup) -> list[dict]:
-    """
-    Collect per-article detail page URLs from a Type B TOC page.
-
-    FIX 2: The original code unconditionally skipped any link containing
-    "FullText" or labelled "View Entire".  Those full-text links load the
-    entire act in one page, which is exactly what we want — they prevent
-    section content from being split across article-boundary SeqStart/SeqEnd
-    windows (which caused subsections like (1) and (2) in 5/1-5 to go missing
-    when they fell at a page boundary between two article fetches).
-
-    Strategy (in priority order):
-      1. If a "View Entire Act" / FullText link exists, use ONLY that link —
-         it returns all sections in one shot and avoids boundary gaps entirely.
-      2. Otherwise fall back to the per-article detail links (original behaviour).
-    """
     # Priority 1: look for a single full-text link
     fulltext_links = []
     for a in art_soup.find_all("a", class_="list-group-item",
