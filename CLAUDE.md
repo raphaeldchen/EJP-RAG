@@ -23,10 +23,15 @@ The system is being developed toward:
 ## Running the Pipeline
 
 ```bash
-# Full pipeline (run in order)
+# Full local pipeline (no S3 required)
 python ingest/ilga_ingest.py --chapters 720 730 --no-upload --delay 0.75
-python chunk/ilga_chunk.py --local-only
-python embed/ilga_embed.py
+python chunk/ilga_chunk.py --local-input ilcs_corpus.jsonl        # → chunked_output/ilcs_chunks.jsonl
+python embed/ilga_embed.py --local-input chunked_output/ilcs_chunks.jsonl
+
+# Full S3 pipeline (production)
+python ingest/ilga_ingest.py --chapters 720 730 --delay 0.75      # uploads to S3
+python chunk/ilga_chunk.py                                         # reads/writes S3
+python embed/ilga_embed.py                                         # reads S3, writes Supabase
 
 # Query the system (runs built-in test queries)
 python -m retrieval.main

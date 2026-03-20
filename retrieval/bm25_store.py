@@ -19,20 +19,22 @@ class BM25Retriever:
     def __init__(self, client: Client):
         self.chunk_ids: list[str] = []
         self.texts: list[str] = []
+        self._metadata: list[dict] = []
         self.bm25: BM25Okapi | None = None
         self._load(client)
 
     def _load(self, client: Client):
         print("[BM25] Loading corpus from Supabase...")
 
-        def fetch_all(table: str) -> list[dict]:
+        def fetch_all(table: str, extra_cols: list[str]) -> list[dict]:
             rows = []
             page_size = 1000
             offset = 0
+            cols = ", ".join(["chunk_id", "text"] + extra_cols)
             while True:
                 batch = (
                     client.table(table)
-                    .select("chunk_id, text")
+                    .select(cols)
                     .not_.is_("text", "null")
                     .range(offset, offset + page_size - 1)
                     .execute()
@@ -44,9 +46,15 @@ class BM25Retriever:
                 offset += page_size
             return rows
 
-        all_rows = fetch_all("ilcs_chunks") + fetch_all("court_rule_chunks")
+        ilcs_rows = fetch_all("ilcs_chunks", ["section_citation"])
+        iscr_rows = fetch_all("court_rule_chunks", ["rule_number", "rule_title"])
+        all_rows = ilcs_rows + iscr_rows
         self.chunk_ids = [r["chunk_id"] for r in all_rows]
         self.texts = [r["text"] for r in all_rows]
+        self._metadata = [
+            {k: v for k, v in r.items() if k not in ("chunk_id", "text") and v is not None}
+            for r in all_rows
+        ]
 
         tokenized = [_tokenize(t) for t in self.texts]
         self.bm25 = BM25Okapi(tokenized)
@@ -65,10 +73,11 @@ class BM25Retriever:
         for idx in top_indices:
             if scores[idx] == 0:
                 continue  # skip zero-score results entirely
+            metadata = {"bm25_score": float(scores[idx]), **self._metadata[idx]}
             node = TextNode(
                 id_=self.chunk_ids[idx],
                 text=self.texts[idx],
-                metadata={"bm25_score": float(scores[idx])},
+                metadata=metadata,
             )
             nodes.append(node)
 

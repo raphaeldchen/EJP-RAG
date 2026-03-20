@@ -54,7 +54,7 @@ class CrossEncoderReranker(BaseNodePostprocessor):
     """
     model_name: str = _CROSS_ENCODER_MODEL
     top_n: int = 6
-    score_threshold: float = 0.1
+    score_threshold: float = -3.0  # ms-marco scores legal text in roughly -10..+10; 0.1 was too aggressive
     _model: CrossEncoder | None = None
 
     class Config:

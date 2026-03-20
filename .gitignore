@@ -6,3 +6,6 @@ venv/
 env/
 # Local Data
 data_files/
+# Python bytecode
+__pycache__/
+*.pyc

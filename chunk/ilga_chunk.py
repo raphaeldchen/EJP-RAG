@@ -245,14 +245,18 @@ def write_chunks_s3(chunks: list[dict], bucket: str, key: str, region: str | Non
     )
     log.info("Upload complete.")
 
-def run(local_only: bool = False, limit: int = 0) -> None:
+def run(local_only: bool = False, local_input: Path | None = None, limit: int = 0) -> None:
     log.info("=== ILCS chunking pipeline starting ===")
     log.info(
         "Config: CHUNK_SIZE=%d  CHUNK_OVERLAP=%d  MIN_CHUNK_SIZE=%d  MIN_MERGE_TOKENS=%d",
         CHUNK_SIZE, CHUNK_OVERLAP, MIN_CHUNK_SIZE, MIN_MERGE_TOKENS,
     )
-    cfg = get_config()
-    raw = read_raw_corpus_s3(cfg["raw_bucket"], cfg["raw_key"], cfg["aws_region"])
+    if local_input:
+        log.info("Reading raw corpus from local file: %s", local_input)
+        raw = local_input.read_text(encoding="utf-8")
+    else:
+        cfg = get_config()
+        raw = read_raw_corpus_s3(cfg["raw_bucket"], cfg["raw_key"], cfg["aws_region"])
     records = list(iter_records(raw))
     log.info("Loaded %d raw sections", len(records))
     if limit:
@@ -276,10 +280,11 @@ def run(local_only: bool = False, limit: int = 0) -> None:
         "Single-chunk sections: %d  |  Multi-chunk sections: %d",
         single_chunk_sections, multi_chunk_parents,
     )
-    if local_only:
+    if local_only or local_input:
         write_chunks_local(all_chunks, LOCAL_OUTPUT_DIR / "ilcs_chunks.jsonl")
         log.info("Output in: %s", LOCAL_OUTPUT_DIR.resolve())
     else:
+        cfg = get_config()
         write_chunks_s3(all_chunks, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
         log.info("Output at s3://%s/%s", cfg["chunked_bucket"], cfg["chunked_key"])
     log.info("=== ILCS chunking pipeline complete ===")
@@ -291,10 +296,14 @@ def main() -> None:
     parser.add_argument(
         "--local-only",
         action="store_true",
-        help=(
-            "Write output locally to ./chunked_output/ilcs_chunks.jsonl "
-            "instead of uploading to S3. Input is always read from S3."
-        ),
+        help="Write output locally to ./chunked_output/ilcs_chunks.jsonl instead of S3.",
+    )
+    parser.add_argument(
+        "--local-input",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Read raw corpus from a local JSONL file instead of S3. Implies --local-only for output.",
     )
     parser.add_argument(
         "--limit",
@@ -303,7 +312,7 @@ def main() -> None:
         help="Process only the first N sections (0 = all). For testing.",
     )
     args = parser.parse_args()
-    run(local_only=args.local_only, limit=args.limit)
+    run(local_only=args.local_only, local_input=args.local_input, limit=args.limit)
 
 if __name__ == "__main__":
     main()
