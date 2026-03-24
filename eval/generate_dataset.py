@@ -5,11 +5,13 @@ Process:
   1. Queries Supabase for the actual citations present in the corpus
   2. Samples diverse citations across chapters/rule ranges
   3. Calls Claude to generate realistic test queries for each citation (and multi-citation combos)
-  4. Saves to eval/dataset.json
+  4. Validates every expected_citation against Supabase — drops any case where a citation
+     doesn't exist in the DB (catches LLM hallucinations and format mismatches)
+  5. Saves validated cases to data_files/eval_files/dataset.json
 
 Usage:
     python -m eval.generate_dataset
-    python -m eval.generate_dataset --n 80 --output eval/dataset.json
+    python -m eval.generate_dataset --n 80 --output path/to/dataset.json
 """
 
 import json
@@ -163,6 +165,85 @@ def generate(n: int) -> list[dict]:
     return dataset
 
 
+def _validate_citations(dataset: list[dict], client) -> list[dict]:
+    """
+    Drops cases where any expected_citation doesn't exist in Supabase.
+
+    Does two bulk queries (one ILCS, one ISCR) rather than one per citation,
+    so validation is fast regardless of dataset size.
+    """
+    # Collect all unique citations needed across the dataset
+    ilcs_needed: set[str] = set()
+    iscr_needed: set[str] = set()  # just the rule number, e.g. "412"
+
+    for case in dataset:
+        if case.get("corpus") == "out_of_scope":
+            continue
+        for cit in case.get("expected_citations", []):
+            if cit.upper().startswith("RULE "):
+                iscr_needed.add(cit[5:].strip())
+            else:
+                ilcs_needed.add(cit)
+
+    # Bulk-check ILCS citations
+    valid_ilcs: set[str] = set()
+    if ilcs_needed:
+        rows = (
+            client.table("ilcs_chunks")
+            .select("section_citation")
+            .in_("section_citation", list(ilcs_needed))
+            .execute()
+            .data
+        )
+        valid_ilcs = {r["section_citation"] for r in rows if r.get("section_citation")}
+
+    # Bulk-check ISCR rule numbers (stored as int or string in DB)
+    valid_iscr: set[str] = set()
+    if iscr_needed:
+        rows = (
+            client.table("court_rule_chunks")
+            .select("rule_number")
+            .in_("rule_number", list(iscr_needed))
+            .execute()
+            .data
+        )
+        valid_iscr = {str(r["rule_number"]) for r in rows if r.get("rule_number") is not None}
+
+    # Filter cases — drop any case where at least one citation wasn't found
+    valid_cases: list[dict] = []
+    dropped: list[tuple[str, list[str]]] = []
+
+    for case in dataset:
+        if case.get("corpus") == "out_of_scope":
+            valid_cases.append(case)
+            continue
+
+        missing = []
+        for cit in case.get("expected_citations", []):
+            if cit.upper().startswith("RULE "):
+                if cit[5:].strip() not in valid_iscr:
+                    missing.append(cit)
+            else:
+                if cit not in valid_ilcs:
+                    missing.append(cit)
+
+        if missing:
+            dropped.append((case.get("id", "?"), missing))
+        else:
+            valid_cases.append(case)
+
+    # Report
+    print(f"\n[Validate] Checked {len(ilcs_needed)} ILCS + {len(iscr_needed)} ISCR citations")
+    if dropped:
+        print(f"[Validate] Dropped {len(dropped)}/{len(dataset)} cases — citations not found in DB:")
+        for case_id, missing_cits in dropped:
+            print(f"  [{case_id}] {missing_cits}")
+    else:
+        print(f"[Validate] All citations verified ✓  ({len(valid_cases)} cases kept)")
+
+    return valid_cases
+
+
 def _print_summary(dataset: list[dict]):
     by_diff: dict[str, int] = defaultdict(int)
     by_corpus: dict[str, int] = defaultdict(int)
@@ -188,13 +269,17 @@ def main():
     args = parser.parse_args()
 
     dataset = generate(args.n)
+    print(f"\n[Dataset] Generated {len(dataset)} cases (pre-validation)")
+
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    dataset = _validate_citations(dataset, supabase)
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(dataset, f, indent=2)
 
-    print(f"\n[Dataset] Saved {len(dataset)} cases → {out_path}")
+    print(f"[Dataset] Saved {len(dataset)} validated cases → {out_path}")
     _print_summary(dataset)
 
 
