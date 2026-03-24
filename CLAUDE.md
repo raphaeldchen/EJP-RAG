@@ -111,6 +111,59 @@ Query → reflection.py (classify + rewrite) → query_engine.py (route ILCS vs 
 
 RPC functions: `match_ilcs_chunks(query_embedding, match_count)`, `match_court_rule_chunks(query_embedding, match_count)`
 
+## Retrieval Evaluation
+
+Test suite lives in `eval/`. Two-step workflow:
+
+```bash
+# 1. Generate golden dataset from actual Supabase citations (one-time, ~30s + API cost)
+python -m eval.generate_dataset           # → eval/dataset.json (65 cases)
+
+# 2. Run evaluation across pipeline stages
+python -m eval.run_eval                            # all 4 stages
+python -m eval.run_eval --with-reflection          # add reflection/rewriting as 5th stage
+python -m eval.run_eval --scope                    # test out-of-scope rejection accuracy
+python -m eval.run_eval --filter-difficulty hard --failures  # drill into worst cases
+```
+
+**Target benchmarks** (reranked stage, macro-averaged):
+
+| Metric    | Demo threshold | Refined product |
+|-----------|---------------|-----------------|
+| Hit@6     | ≥ 0.72        | ≥ 0.88          |
+| MRR       | ≥ 0.58        | ≥ 0.73          |
+| Recall@6  | ≥ 0.55        | ≥ 0.70          |
+| nDCG@6    | ≥ 0.60        | ≥ 0.75          |
+| Scope acc.| ≥ 0.90        | ≥ 0.97          |
+
+**Eval validity warning — citation pinning and hardcoded mappings inflate scores:**
+- The key citation mappings in `reflection.py` are baked into the same LLM that generates `eval/dataset.json`, so the dataset will over-represent patterns the system already handles perfectly.
+- Citation pinning in `indexes.py` bypasses ranking entirely for queries where reflection rewrites to an explicit ILCS citation — those cases score trivially well.
+- Always compare "reranked" vs. "reflected" stage scores. A large positive delta means you're measuring the hardcoded lookup table, not retrieval quality.
+- TODO: add `--no-pinning` flag to `eval/run_eval.py` to measure true retrieval quality independent of citation pinning.
+
+## Planned Improvements
+
+### High priority (largest accuracy impact)
+
+- [ ] **Domain-adapted embeddings** — swap `nomic-embed-text` for a legal-domain model (e.g. fine-tune on ILCS/ISCR text, or evaluate `BAAI/bge-large-en-v1.5` as a drop-in). Single highest-leverage change; expect +5–8 nDCG points.
+- [ ] **Expand reranker candidate window** — increase `top_n` from 6 to 10 in `CrossEncoderReranker`. Improves Recall@6 on hard multi-statute queries by giving more candidates a chance to survive reranking.
+- [ ] **Larger/better reranker** — `cross-encoder/ms-marco-electra-base` over `ms-marco-MiniLM-L-6-v2`. ~3x latency cost but meaningful precision gains, especially on legal text the small model wasn't trained on.
+- [ ] **Embed CourtListener opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent.
+
+### Architecture (planned evolution)
+
+- [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1").
+- [ ] **Harvard Caselaw Access Project** — opinions through 2018 as a bulk corpus supplement to CourtListener.
+- [ ] **Query decomposition** — for hard multi-statute queries, decompose into sub-queries, retrieve separately, merge results. Would directly address low Recall@6 on hard cases.
+
+### Eval / measurement
+
+- [ ] **`--no-pinning` flag in `eval/run_eval.py`** — disable citation pinning during eval to isolate true retrieval quality from hardcoded heuristics. The gap between pinned and unpinned scores reveals dependence on the lookup table.
+- [x] **Removed hardcoded citation mappings from `reflection.py`** — reflection now relies on the LLM's own knowledge of Illinois law for citation rewriting. Citation pinning in `indexes.py` remains as a safety net. Mappings were brittle, didn't generalize, and inflated eval scores.
+- [ ] **Human-verified eval subset** — manually validate ~20 hard cases in `eval/dataset.json` against the actual statute text, since LLM-generated expected citations may have errors on obscure sections.
+- [ ] **Baseline comparison script** — run the same eval queries through Claude/ChatGPT without RAG and measure citation accuracy, to quantify the RAG system's improvement over the general-purpose baseline.
+
 ## Key Implementation Notes
 
 - The scraper rate-limits at 0.75s/request by default (`--delay` flag)

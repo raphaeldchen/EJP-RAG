@@ -2,8 +2,9 @@ import json
 from enum import Enum
 from dataclasses import dataclass
 import anthropic
+import ollama
 
-from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, OLLAMA_BASE_URL
 
 
 class QueryIntent(str, Enum):
@@ -33,23 +34,11 @@ Classify as exactly one of:
 - ambiguous: genuinely unclear whether the topic is within scope — needs clarification
 
 When rewriting:
-- Always include the most specific ILCS or Rule citation you know (e.g. "730 ILCS 5/5-4.5-30" for Class 1 felony sentencing, "720 ILCS 5/7-1" for self-defense, "705 ILCS 405/5-805" for juvenile transfer)
+- Include the most specific ILCS or Rule citation you know based on your knowledge of Illinois law
 - Expand colloquial language into precise legal terminology (e.g. "beat a charge" → "affirmative defenses and grounds for suppression")
 - Make the rewritten query specific enough to retrieve the right statutory sections
 - Provide rewritten_query for ALL in_scope queries, not just ambiguous ones — it improves retrieval
-- For multi-statute queries, include ALL relevant citations — e.g. a juvenile tried as an adult implicates 705 ILCS 405/5-805 (discretionary transfer), 705 ILCS 405/5-130 (mandatory transfer), 730 ILCS 5/5-4.5-105 (juvenile sentencing in adult court), and the underlying offense statute
-
-Key citation mappings (use these to avoid common retrieval errors):
-- "preliminary hearing" / "probable cause hearing" / "preliminary examination" → 725 ILCS 5/109-3 (NOT 725 ILCS 5/110-6.1, which is pretrial detention)
-- "pretrial detention" / "detention hearing" / "bail" → 725 ILCS 5/110-6.1
-- "expungement" / "sealing" of felony records → 20 ILCS 2630/5.2(b) for expungement eligibility, 20 ILCS 2630/5.2(d) for sealing; note that most felony convictions are NOT expungeable in Illinois — sealing is the primary remedy
-- "Terry stop" / "investigatory stop" → 725 ILCS 5/107-14
-- "search and seizure" / "suppression" → 725 ILCS 5/108-1 (search incident to arrest), 725 ILCS 5/114-12 (suppression motion)
-- "discovery" by prosecution → 725 ILCS 5/114-9 (witness list), 725 ILCS 5/114-13 (exculpatory material), Illinois Supreme Court Rule 412
-- "good time" / "sentence credit" / "day-for-day" → 730 ILCS 5/3-6-3
-- "post-conviction" / "PCR" → 725 ILCS 5/122-1 (Post-Conviction Hearing Act)
-- "mandatory transfer" of juvenile → 705 ILCS 405/5-130
-- "discretionary transfer" of juvenile → 705 ILCS 405/5-805
+- For multi-statute queries, include ALL relevant citations you know
 
 Respond ONLY with this JSON:
 {
@@ -59,17 +48,29 @@ Respond ONLY with this JSON:
 }"""
 
 
-def reflect(query: str) -> ReflectionResult:
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    response = client.messages.create(
-        model=ANTHROPIC_MODEL,
-        max_tokens=256,
-        temperature=0,
-        system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Process this query: {query}"}],
-    )
-
-    raw = response.content[0].text.strip()
+def reflect(query: str, use_local: bool = False) -> ReflectionResult:
+    if use_local:
+        client = ollama.Client(host=OLLAMA_BASE_URL)
+        response = client.chat(
+            model="llama3.2",
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": f"Process this query: {query}"},
+            ],
+            format="json",
+            options={"temperature": 0},
+        )
+        raw = response.message.content.strip()
+    else:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model=ANTHROPIC_MODEL,
+            max_tokens=512,
+            temperature=0,
+            system=_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": f"Process this query: {query}"}],
+        )
+        raw = response.content[0].text.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
