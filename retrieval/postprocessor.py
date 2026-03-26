@@ -7,11 +7,38 @@ from sentence_transformers import CrossEncoder
 _CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 
+def merge_ranked_lists(
+    ranked_lists: list[list[NodeWithScore]],
+    k: int = 60,
+    top_n: int = 40,
+) -> list[NodeWithScore]:
+    """
+    RRF over N pre-ranked NodeWithScore lists (e.g. results from multiple queries).
+    Each list is treated as an independent ranking signal.
+    """
+    scores: dict[str, float] = {}
+    node_map: dict[str, NodeWithScore] = {}
+
+    for ranked in ranked_lists:
+        for rank, node_with_score in enumerate(ranked):
+            chunk_id = node_with_score.node.node_id
+            scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (rank + k)
+            if chunk_id not in node_map:
+                node_map[chunk_id] = node_with_score
+
+    ranked_ids = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    return [
+        NodeWithScore(node=node_map[cid].node, score=s)
+        for cid, s in ranked_ids
+        if cid in node_map
+    ]
+
+
 def reciprocal_rank_fusion(
     vector_nodes: list[NodeWithScore],
     bm25_nodes: list[TextNode],
     k: int = 60,
-    top_n: int = 20,
+    top_n: int = 40,
 ) -> list[NodeWithScore]:
     """
     Merge two ranked lists using RRF.

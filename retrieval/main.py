@@ -24,7 +24,7 @@ def build_rag(use_local: bool = False) -> tuple:
 
     # Warm up reranker at startup so first query isn't slow
     from retrieval.postprocessor import CrossEncoderReranker
-    reranker = CrossEncoderReranker(top_n=6, score_threshold=-3.0)
+    reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
     reranker._get_model()  # force load now
 
     retrievers = build_all_retrievers(client, bm25)
@@ -34,10 +34,10 @@ def build_rag(use_local: bool = False) -> tuple:
         llm=llm,
         reranker=reranker,  # pass the warmed instance
     )
-    return engine
+    return engine, retrievers
 
 
-def query(engine, question: str, use_local: bool = False) -> str:
+def query(engine, retrievers: dict, question: str, use_local: bool = False) -> str:
     result = reflect(question, use_local=use_local)
     print(f"\n[Reflection] intent={result.intent.value} | {result.reasoning}")
 
@@ -47,11 +47,24 @@ def query(engine, question: str, use_local: bool = False) -> str:
             "I can only answer questions about Illinois criminal law and court procedure."
         )
 
-    effective_query = result.rewritten_query or question
+    # Multi-query: primary = original (better semantic embedding with nomic-embed-text),
+    # secondary = rewritten (adds citation keyword signals for BM25 + citation pinning).
+    # Citation pinning scans both queries, so citations in the rewrite still get pinned.
+    # If reflection produced no rewrite, single-query mode as before.
     if result.rewritten_query:
         print(f"[Reflection] rewritten → '{result.rewritten_query}'")
+        for r in retrievers.values():
+            r._secondary_query = result.rewritten_query
+        primary_query = question
+    else:
+        primary_query = question
 
-    response = engine.query(effective_query)
+    try:
+        response = engine.query(primary_query)
+    finally:
+        # Always clear secondary query so it doesn't bleed into the next call
+        for r in retrievers.values():
+            r._secondary_query = None
 
     # Extract citations from source nodes
     citations = _extract_citations(response)
@@ -96,7 +109,7 @@ if __name__ == "__main__":
     parser.add_argument("--local", action="store_true", help="Use local Ollama model instead of Anthropic API")
     args = parser.parse_args()
 
-    engine = build_rag(use_local=args.local)
+    engine, retrievers = build_rag(use_local=args.local)
 
     test_queries = [
         # --- Deterministic rewrite rules (should trigger fast-path rewrites) ---
@@ -119,4 +132,4 @@ if __name__ == "__main__":
         print(f"\n{'='*60}")
         print(f"Q: {q}")
         print("-" * 60)
-        print(query(engine, q, use_local=args.local))
+        print(query(engine, retrievers, q, use_local=args.local))

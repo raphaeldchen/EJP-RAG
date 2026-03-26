@@ -142,7 +142,7 @@ def build_components() -> dict:
     bm25 = BM25Retriever(client)
 
     print("[Eval] Loading CrossEncoder reranker...")
-    reranker = CrossEncoderReranker(top_n=6, score_threshold=-3.0)
+    reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
     reranker._get_model()
 
     print("[Eval] Building vector indexes...")
@@ -440,10 +440,21 @@ def main():
             if stage == "reflected":
                 refl = reflect(query)
                 if refl.intent == QueryIntent.OUT_OF_SCOPE:
+                    print(f"  [OOS] '{query}'")
                     retrieved = []
+                elif refl.rewritten_query:
+                    # Multi-query: primary = original (better semantic embedding),
+                    # secondary = rewritten (citation keyword signals + citation pinning)
+                    retriever = components.get(f"{corpus}_retriever")
+                    if retriever:
+                        retriever._secondary_query = refl.rewritten_query
+                    try:
+                        retrieved = retrieve_citations(components, query, corpus, "reranked")
+                    finally:
+                        if retriever:
+                            retriever._secondary_query = None
                 else:
-                    effective = refl.rewritten_query or query
-                    retrieved = retrieve_citations(components, effective, corpus, "reranked")
+                    retrieved = retrieve_citations(components, query, corpus, "reranked")
             else:
                 retrieved = retrieve_citations(components, query, corpus, stage)
 

@@ -17,7 +17,7 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 # Retrieval
-DEFAULT_TOP_K = 10
+DEFAULT_TOP_K = 20
 SIMILARITY_THRESHOLD = 0.5
 
 # Table / function names

@@ -95,14 +95,36 @@ def build_payload(record: dict, embedding: list[float], enriched_text: str) -> d
         "embedding":          embedding,
     }
 
-def load_checkpoint() -> set[str]:
-    if not os.path.exists(CHECKPOINT_FILE):
-        log.info("No checkpoint file found, starting fresh.")
-        return set()
-    with open(CHECKPOINT_FILE, "r") as f:
-        ids = {line.strip() for line in f if line.strip()}
-    log.info("Loaded %d processed chunk IDs from checkpoint.", len(ids))
-    return ids
+def load_checkpoint(supabase: Client) -> set[str]:
+    """
+    Returns the set of chunk_ids already present in Supabase.
+
+    Uses the DB as the authoritative source so the local checkpoint file
+    can't drift out of sync (e.g. after a crash or a run on a different machine).
+    """
+    db_ids: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        rows = (
+            supabase.table("court_rule_chunks")
+            .select("chunk_id")
+            .range(offset, offset + page_size - 1)
+            .execute()
+            .data
+        )
+        db_ids.update(r["chunk_id"] for r in rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    log.info("Found %d chunks already in Supabase.", len(db_ids))
+
+    if db_ids:
+        with open(CHECKPOINT_FILE, "w") as f:
+            for chunk_id in sorted(db_ids):
+                f.write(chunk_id + "\n")
+
+    return db_ids
 
 def save_checkpoint(chunk_ids: list[str]) -> None:
     with open(CHECKPOINT_FILE, "a") as f:
@@ -137,7 +159,7 @@ data = read_raw_corpus_s3(
 )
 supabase: Client = create_client(cfg["supabase_url"], cfg["supabase_key"])
 
-processed = load_checkpoint()
+processed = load_checkpoint(supabase)
 batch = []
 skipped = 0
 total = 0

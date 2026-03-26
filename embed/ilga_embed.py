@@ -3,6 +3,7 @@ import json
 import os
 import logging
 import sys
+import time
 import boto3
 from pathlib import Path
 from typing import Generator
@@ -21,6 +22,54 @@ log = logging.getLogger(__name__)
 
 CHECKPOINT_FILE = "data_files/ilga_embedded_chunks.txt"
 BATCH_SIZE = 20
+
+# ---------------------------------------------------------------------------
+# Scope filter — only embed chapters relevant to Illinois criminal justice
+# ---------------------------------------------------------------------------
+
+# All chapters with clear criminal justice relevance. Chapter 740 (Torts) is
+# the only chapter in the corpus with no meaningful criminal justice content.
+_ALLOWED_CHAPTERS = {
+    "20",   # Executive agencies — filtered further below by act
+    "50",   # Local Government (county jails, sheriff authority)
+    "225",  # Professions (licensing consequences of conviction)
+    "325",  # Employment (background checks, collateral consequences)
+    "410",  # Public Health (drug treatment, sexual assault procedures)
+    "430",  # Fire Safety — includes FOID Card Act and Concealed Carry Act
+    "625",  # Vehicles (DUI)
+    "705",  # Courts / Juvenile Justice
+    "720",  # Criminal Offenses
+    "725",  # Criminal Procedure
+    "730",  # Corrections and Sentencing
+    "735",  # Civil Procedure (post-conviction relief, habeas corpus)
+    "750",  # Family (domestic violence, orders of protection)
+    "775",  # Civil Rights
+}
+
+# Chapter 20 is a grab-bag of executive departments. Exclude acts that have no
+# connection to criminal justice (Commerce, Natural Resources, Lottery, DoIT,
+# Revenue, Investment). Everything else in chapter 20 is kept — DOC, DHS,
+# Prisoner Review Board, Expungement, Criminal Justice Information Authority, etc.
+_EXCLUDED_CHAPTER_20_ACT_PREFIXES = {
+    "20 ILCS 605",   # Department of Commerce and Economic Opportunity
+    "20 ILCS 1205",  # Department of Natural Resources
+    "20 ILCS 1370",  # Department of Innovation and Technology
+    "20 ILCS 1605",  # Illinois Lottery
+    "20 ILCS 2505",  # Department of Revenue
+    "20 ILCS 3205",  # Investment Officer
+}
+
+
+def _is_in_scope(record: dict) -> bool:
+    m = record.get("metadata", {})
+    chapter = m.get("chapter_num", "")
+    if chapter not in _ALLOWED_CHAPTERS:
+        return False
+    if chapter == "20":
+        citation = m.get("section_citation", "")
+        if any(citation.startswith(prefix) for prefix in _EXCLUDED_CHAPTER_20_ACT_PREFIXES):
+            return False
+    return True
 # nomic-embed-text (nomic-bert) hard limit is 2048 tokens; BERT tokenizer runs at ~1.5 chars/token
 # on legal text, so 2000 chars ≈ 1333 tokens — safely within the limit
 MAX_EMBED_CHARS = 2000
@@ -78,14 +127,39 @@ def clean_chunk_text(text: str) -> str:
     return re.sub(r'\n{3,}', '\n\n', text).strip()
 
 
-def load_checkpoint() -> set[str]:
-    if not os.path.exists(CHECKPOINT_FILE):
-        log.info("No checkpoint file found, starting fresh.")
-        return set()
-    with open(CHECKPOINT_FILE, "r") as f:
-        ids = {line.strip() for line in f if line.strip()}
-    log.info("Loaded %d processed chunk IDs from checkpoint.", len(ids))
-    return ids
+def load_checkpoint(supabase: Client) -> set[str]:
+    """
+    Returns the set of chunk_ids already present in Supabase.
+
+    Uses the DB as the authoritative source so the local checkpoint file
+    can't drift out of sync (e.g. after a crash or a run on a different machine).
+    The local file is kept as a fast-path cache but is always reconciled with the DB.
+    """
+    # Authoritative: fetch all chunk_ids already in Supabase
+    db_ids: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        rows = (
+            supabase.table("ilcs_chunks")
+            .select("chunk_id")
+            .range(offset, offset + page_size - 1)
+            .execute()
+            .data
+        )
+        db_ids.update(r["chunk_id"] for r in rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    log.info("Found %d chunks already in Supabase.", len(db_ids))
+
+    # Reconcile: rewrite local checkpoint to match DB state
+    if db_ids:
+        with open(CHECKPOINT_FILE, "w") as f:
+            for chunk_id in sorted(db_ids):
+                f.write(chunk_id + "\n")
+
+    return db_ids
 
 
 def save_checkpoint(chunk_ids: list[str]) -> None:
@@ -116,14 +190,23 @@ def build_payload(record: dict, embedding: list[float], enriched_text: str) -> d
 def flush_batch(supabase: Client, batch: list[dict]) -> list[str]:
     if not batch:
         return []
-    chunk_ids = [p["chunk_id"] for p in batch]
     try:
         supabase.table("ilcs_chunks").upsert(batch).execute()
         log.info("Flushed %d chunks to Supabase.", len(batch))
-        return chunk_ids
+        return [p["chunk_id"] for p in batch]
     except Exception as e:
-        log.error("Failed to flush batch of %d chunks: %s", len(batch), e)
-        return []
+        if len(batch) == 1:
+            log.error("Failed to flush chunk %s even as a single row: %s", batch[0]["chunk_id"], e)
+            return []
+        # Halve the batch and retry each half — handles statement timeouts where
+        # the batch is too large rather than the data itself being bad.
+        mid = len(batch) // 2
+        log.warning("Batch of %d failed (%s), splitting into %d + %d and retrying.",
+                    len(batch), e, mid, len(batch) - mid)
+        time.sleep(2)
+        left  = flush_batch(supabase, batch[:mid])
+        right = flush_batch(supabase, batch[mid:])
+        return left + right
 
 
 def run(local_input: Path | None = None) -> None:
@@ -140,15 +223,20 @@ def run(local_input: Path | None = None) -> None:
     else:
         data = read_raw_corpus_s3(cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
 
-    processed = load_checkpoint()
+    processed = load_checkpoint(supabase)
     batch = []
     skipped = 0
+    out_of_scope = 0
     total = 0
+    failed = 0
 
     for record in iter_records(data):
         chunk_id = record["chunk_id"]
         if chunk_id in processed:
             skipped += 1
+            continue
+        if not _is_in_scope(record):
+            out_of_scope += 1
             continue
         cleaned_text = clean_chunk_text(record["text"])
         record["text"] = cleaned_text
@@ -162,15 +250,17 @@ def run(local_input: Path | None = None) -> None:
         total += 1
         if len(batch) >= BATCH_SIZE:
             flushed_ids = flush_batch(supabase, batch)
+            failed += len(batch) - len(flushed_ids)
             save_checkpoint(flushed_ids)
             processed.update(flushed_ids)
             batch = []
 
     if batch:
         flushed_ids = flush_batch(supabase, batch)
+        failed += len(batch) - len(flushed_ids)
         save_checkpoint(flushed_ids)
 
-    log.info("Done. Embedded %d chunks, skipped %d already processed.", total, skipped)
+    log.info("Done. Embedded %d chunks, skipped %d already processed, %d out-of-scope filtered, %d failed.", total, skipped, out_of_scope, failed)
 
 
 def main() -> None:

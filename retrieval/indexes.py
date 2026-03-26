@@ -27,6 +27,13 @@ class FusionRetriever(BaseRetriever):
     """
     Runs vector search and BM25 in parallel, then injects any chunks that
     are explicitly cited in the query by section_citation (citation pinning).
+
+    Set _secondary_query before calling retrieve() to enable multi-query mode:
+    retrieval runs for both queries independently and results are merged via RRF.
+    Intended usage: primary = original natural-language query (better semantic
+    embedding), secondary = reflection-rewritten query (citation keyword signals).
+    Citation pinning scans both queries so ILCS citations in the rewrite still
+    get injected regardless of which is primary.
     """
     def __init__(
         self,
@@ -41,26 +48,42 @@ class FusionRetriever(BaseRetriever):
         self._bm25 = bm25
         self._client = supabase_client
         self._top_k = top_k
+        self._secondary_query: str | None = None
         super().__init__()
 
     def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
-        from retrieval.postprocessor import reciprocal_rank_fusion
+        from retrieval.postprocessor import reciprocal_rank_fusion, merge_ranked_lists
 
         query_str = query_bundle.query_str
 
+        # Primary retrieval
         vector_nodes = self._vector_retriever.retrieve(query_bundle)
         bm25_nodes = self._bm25.retrieve(query_str, top_k=self._top_k)
-
-        fused = reciprocal_rank_fusion(
+        primary_fused = reciprocal_rank_fusion(
             vector_nodes=vector_nodes,
             bm25_nodes=bm25_nodes,
-            top_n=20,
+            top_n=40,
         )
 
-        # Citation pinning: inject chunks for any ILCS sections explicitly named in the query.
-        # This ensures that when reflection rewrites to include e.g. "730 ILCS 5/5-4.5-30",
-        # those exact statute chunks always reach the cross-encoder regardless of embedding similarity.
-        citations = _ILCS_CITATION_RE.findall(query_str)
+        # Secondary retrieval (multi-query: original query alongside rewritten)
+        if self._secondary_query:
+            sec_bundle = QueryBundle(query_str=self._secondary_query)
+            sec_vector = self._vector_retriever.retrieve(sec_bundle)
+            sec_bm25 = self._bm25.retrieve(self._secondary_query, top_k=self._top_k)
+            secondary_fused = reciprocal_rank_fusion(
+                vector_nodes=sec_vector,
+                bm25_nodes=sec_bm25,
+                top_n=40,
+            )
+            fused = merge_ranked_lists([primary_fused, secondary_fused], top_n=40)
+        else:
+            fused = primary_fused
+
+        # Citation pinning: inject chunks for any ILCS sections explicitly named in either
+        # the primary or secondary query. Citations typically appear in the rewritten query,
+        # but scanning both ensures nothing is missed regardless of which is primary.
+        combined = query_str + (" " + self._secondary_query if self._secondary_query else "")
+        citations = _ILCS_CITATION_RE.findall(combined)
         if citations:
             existing_ids = {n.node.node_id for n in fused}
             pinned = self._fetch_by_citation(citations, exclude_ids=existing_ids)

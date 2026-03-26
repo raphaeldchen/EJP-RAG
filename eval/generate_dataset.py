@@ -130,6 +130,34 @@ def _sample_iscr_rules(client) -> list[str]:
     return rules[:_MAX_ISCR_RULES]
 
 
+_BATCH_SIZE = 30  # cases per API call — keeps output well within token limits
+
+
+def _call_claude(ai: anthropic.Anthropic, prompt: str, n: int) -> list[dict]:
+    """Single Claude call; raises if response can't be parsed as a JSON array."""
+    response = ai.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=16384,
+        temperature=0.4,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    stop_reason = response.stop_reason
+    raw = response.content[0].text.strip()
+
+    if stop_reason == "max_tokens":
+        print(f"[Dataset] Warning: response hit max_tokens limit — output may be truncated")
+
+    # Strip markdown code fences if present
+    if raw.startswith("```"):
+        raw = raw.split("```", 2)[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    return json.loads(raw)
+
+
 def generate(n: int) -> list[dict]:
     supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -138,30 +166,38 @@ def generate(n: int) -> list[dict]:
     iscr_rules = _sample_iscr_rules(supabase)
     print(f"[Dataset] {len(ilcs_cits)} ILCS citations, {len(iscr_rules)} ISCR rules sampled")
 
-    prompt = _GENERATION_PROMPT.format(
-        ilcs_citations="\n".join(ilcs_cits),
-        iscr_rules="\n".join(iscr_rules),
-        n=n,
-    )
+    if len(ilcs_cits) == 0:
+        raise RuntimeError("No ILCS citations found in Supabase — is the corpus ingested?")
 
-    print(f"[Dataset] Calling Claude ({ANTHROPIC_MODEL}) to generate {n} cases...")
     ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    response = ai.messages.create(
-        model=ANTHROPIC_MODEL,
-        max_tokens=8192,
-        temperature=0.4,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    dataset: list[dict] = []
+    id_counter = 1
 
-    raw = response.content[0].text.strip()
-    # Strip markdown code fences if present
-    if raw.startswith("```"):
-        raw = raw.split("```", 2)[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
+    # Generate in batches so each response fits comfortably within token limits
+    remaining = n
+    batch_num = 0
+    while remaining > 0:
+        batch_n = min(remaining, _BATCH_SIZE)
+        batch_num += 1
+        print(f"[Dataset] Batch {batch_num}: generating {batch_n} cases "
+              f"({n - remaining + batch_n}/{n} total)...")
 
-    dataset = json.loads(raw)
+        prompt = _GENERATION_PROMPT.format(
+            ilcs_citations="\n".join(ilcs_cits),
+            iscr_rules="\n".join(iscr_rules),
+            n=batch_n,
+        )
+
+        batch = _call_claude(ai, prompt, batch_n)
+
+        # Re-sequence IDs to be globally unique across batches
+        for case in batch:
+            case["id"] = f"q{id_counter:03d}"
+            id_counter += 1
+
+        dataset.extend(batch)
+        remaining -= batch_n
+
     return dataset
 
 

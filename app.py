@@ -104,7 +104,7 @@ st.markdown("""
 def load_engine():
     return build_rag()
 
-engine = load_engine()
+engine, retrievers = load_engine()
 
 # ── Session state ─────────────────────────────────────────────────────────────
 if "messages" not in st.session_state:
@@ -138,7 +138,7 @@ if prompt := st.chat_input("Send a message"):
     with st.chat_message("assistant", avatar="⚖️"):
         try:
             with st.spinner("Researching…"):
-                raw = query(engine, prompt)
+                raw = query(engine, retrievers, prompt)
 
             sources = []
             if "\n\nSources:\n" in raw:
