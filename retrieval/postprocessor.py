@@ -11,18 +11,27 @@ def merge_ranked_lists(
     ranked_lists: list[list[NodeWithScore]],
     k: int = 60,
     top_n: int = 40,
+    weights: list[float] | None = None,
 ) -> list[NodeWithScore]:
     """
     RRF over N pre-ranked NodeWithScore lists (e.g. results from multiple queries).
-    Each list is treated as an independent ranking signal.
+
+    weights: per-list multipliers applied to each list's RRF contribution.
+             Defaults to 1.0 for all lists (equal weighting). Use values < 1.0
+             to downweight noisier signals (e.g. a rewritten secondary query).
     """
+    if weights is None:
+        weights = [1.0] * len(ranked_lists)
+    if len(weights) != len(ranked_lists):
+        raise ValueError(f"weights length {len(weights)} != ranked_lists length {len(ranked_lists)}")
+
     scores: dict[str, float] = {}
     node_map: dict[str, NodeWithScore] = {}
 
-    for ranked in ranked_lists:
+    for ranked, weight in zip(ranked_lists, weights):
         for rank, node_with_score in enumerate(ranked):
             chunk_id = node_with_score.node.node_id
-            scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (rank + k)
+            scores[chunk_id] = scores.get(chunk_id, 0) + weight * (1 / (rank + k))
             if chunk_id not in node_map:
                 node_map[chunk_id] = node_with_score
 

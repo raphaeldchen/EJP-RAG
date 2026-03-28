@@ -142,7 +142,7 @@ def build_components() -> dict:
     bm25 = BM25Retriever(client)
 
     print("[Eval] Loading CrossEncoder reranker...")
-    reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
+    reranker = CrossEncoderReranker(top_n=15, score_threshold=-3.0)
     reranker._get_model()
 
     print("[Eval] Building vector indexes...")
@@ -165,12 +165,16 @@ def retrieve_citations(
     query: str,
     corpus: str,
     stage: str,
+    rerank_query: str | None = None,
 ) -> list[str]:
     """
     Run one retrieval stage and return deduplicated, ranked citation strings.
 
     corpus: "ilcs" | "iscr"
     stage:  "bm25" | "vector" | "fused" | "reranked"
+    rerank_query: if provided, the CrossEncoder scores candidates against this query
+                  instead of the primary query (used in the reflected stage to align
+                  the reranker with the rewritten statutory-language query).
     """
     retriever = components.get(f"{corpus}_retriever")
     bm25: BM25Retriever = components["bm25"]
@@ -191,7 +195,8 @@ def retrieve_citations(
 
     elif stage == "reranked":
         fused = retriever._retrieve(qb)
-        nodes = reranker._postprocess_nodes(fused, qb)
+        rerank_qb = QueryBundle(query_str=rerank_query) if rerank_query else qb
+        nodes = reranker._postprocess_nodes(fused, rerank_qb)
         raw = [_extract_citation(n) for n in nodes]
 
     else:
@@ -444,12 +449,17 @@ def main():
                     retrieved = []
                 elif refl.rewritten_query:
                     # Multi-query: primary = original (better semantic embedding),
-                    # secondary = rewritten (citation keyword signals + citation pinning)
+                    # secondary = rewritten (citation keyword signals + citation pinning).
+                    # Reranker uses the rewritten query so it scores candidates against
+                    # precise statutory language rather than the colloquial original.
                     retriever = components.get(f"{corpus}_retriever")
                     if retriever:
                         retriever._secondary_query = refl.rewritten_query
                     try:
-                        retrieved = retrieve_citations(components, query, corpus, "reranked")
+                        retrieved = retrieve_citations(
+                            components, query, corpus, "reranked",
+                            rerank_query=refl.rewritten_query,
+                        )
                     finally:
                         if retriever:
                             retriever._secondary_query = None

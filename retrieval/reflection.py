@@ -37,7 +37,7 @@ The corpus contains:
   - 325 ILCS — Employment, including background check restrictions and collateral consequences of conviction
   - 225 ILCS — Professions and Occupations, including licensing consequences of criminal convictions
   - 50 ILCS — Local Government, including county jail administration and sheriff authority
-  - 20 ILCS — Selected executive agency acts: Department of Corrections (20 ILCS 1005), Prisoner Review Board (20 ILCS 1405), expungement and sealing (20 ILCS 2630), Alcoholism and Drug Abuse Act (20 ILCS 301), Department of Human Services (20 ILCS 1305), and other criminal-justice-related departments
+  - 20 ILCS — Executive agency acts with any criminal-justice nexus (broadly construed): Department of Corrections (20 ILCS 1005), Prisoner Review Board (20 ILCS 1405), expungement and sealing (20 ILCS 2630), Alcoholism and Drug Abuse Act (20 ILCS 301), Department of Human Services (20 ILCS 1305), Department on Aging (20 ILCS 105), Illinois Violence Prevention Authority (20 ILCS 1335), Criminal Justice Information Authority (20 ILCS 3930), and many others. The 20 ILCS corpus is broad — when a query references any 20 ILCS chapter, default to in_scope unless it is unmistakably unrelated to criminal justice.
 - ISCR (Illinois Supreme Court Rules): procedural court rules covering appeals, filing deadlines, discovery, and jury selection
 
 Your job is to classify the query and, when needed, rewrite it into precise statutory language that will retrieve the most relevant chunks from the corpus.

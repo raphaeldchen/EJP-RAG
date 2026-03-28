@@ -75,7 +75,11 @@ class FusionRetriever(BaseRetriever):
                 bm25_nodes=sec_bm25,
                 top_n=40,
             )
-            fused = merge_ranked_lists([primary_fused, secondary_fused], top_n=40)
+            fused = merge_ranked_lists(
+                [primary_fused, secondary_fused],
+                top_n=40,
+                weights=[1.0, 0.5],
+            )
         else:
             fused = primary_fused
 
