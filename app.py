@@ -102,7 +102,7 @@ st.markdown("""
 # ── Load RAG engine (cached so it only initialises once) ─────────────────────
 @st.cache_resource(show_spinner="Loading legal database…")
 def load_engine():
-    return build_rag()
+    return build_rag(use_local=True)
 
 engine, retrievers = load_engine()
 

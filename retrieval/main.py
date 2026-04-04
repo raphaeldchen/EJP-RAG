@@ -126,6 +126,11 @@ if __name__ == "__main__":
 
         # --- Scope rejection (should be blocked as out-of-scope) ---
         "What are the federal sentencing guidelines for drug trafficking?",
+
+        # --- HEP Demo Queries ---
+        "What education or vocational programs are incarcerated individuals entitled to under Illinois law?",
+       
+        "Can a judge impose education requirements as a condition of probation in Illinois?"
     ]
 
     for q in test_queries:

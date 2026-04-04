@@ -1,0 +1,509 @@
+2026-03-30 13:16:14,164 [INFO] ILCS Scraper
+2026-03-30 13:16:14,164 [INFO]   Chapters     : ['730', '725']
+2026-03-30 13:16:14,164 [INFO]   Output       : ilcs_corpus.jsonl
+2026-03-30 13:16:14,164 [INFO]   Request delay: 0.5s
+2026-03-30 13:16:14,164 [INFO]   Skip repealed: True
+2026-03-30 13:16:14,165 [INFO]   S3 upload    : disabled
+2026-03-30 13:16:14,165 [INFO] Fetching chapters: https://ilga.gov/Legislation/ILCS/Chapters
+2026-03-30 13:16:14,855 [INFO] Found 68 chapters
+2026-03-30 13:16:14,855 [INFO] Filtered to 2 chapter(s): ['725', '730']
+2026-03-30 13:16:14,855 [INFO] 
+══ Chapter 725: CRIMINAL PROCEDURE
+2026-03-30 13:16:16,132 [INFO]   Found 42 acts
+2026-03-30 13:16:16,132 [INFO]   ── Act 1966: 725 ILCS 5/       Code of Criminal Procedure of 1963.
+2026-03-30 13:16:16,720 [INFO]     [Type B] TOC page detected
+2026-03-30 13:16:16,723 [INFO]     [Type B] 56 unique article pages to fetch
+2026-03-30 13:16:16,723 [INFO]     ── Title I - General Provisions
+2026-03-30 13:16:17,411 [INFO]       86 sections found
+2026-03-30 13:16:17,411 [INFO]     ── Article 100 - Title And Scope
+2026-03-30 13:16:17,986 [INFO]       2 sections found
+2026-03-30 13:16:17,986 [INFO]     ── Article 101 - General Purposes
+2026-03-30 13:16:18,559 [INFO]       1 sections found
+2026-03-30 13:16:18,560 [INFO]     ── Article 102 - General Definitions
+2026-03-30 13:16:19,155 [INFO]       28 sections found
+2026-03-30 13:16:19,155 [INFO]     ── Article 103 - Rights Of Accused
+2026-03-30 13:16:19,836 [INFO]       12 sections found
+2026-03-30 13:16:19,836 [INFO]     ── Article 104 - Fitness For Trial, To Plead Or To Be Sentenced
+2026-03-30 13:16:20,490 [INFO]       24 sections found
+2026-03-30 13:16:20,490 [INFO]     ── Article 104A - Diversion Of Unfit Misdemeanants
+2026-03-30 13:16:21,078 [INFO]       4 sections found
+2026-03-30 13:16:21,078 [INFO]     ── Article 106 - Witness Immunity
+2026-03-30 13:16:21,683 [INFO]       4 sections found
+2026-03-30 13:16:21,684 [INFO]     ── Article 106B - Victims Of Sexual Abuse: Children And Persons With Deve
+2026-03-30 13:16:22,280 [INFO]       3 sections found
+2026-03-30 13:16:22,280 [INFO]     ── Article 106C - (Repealed)
+2026-03-30 13:16:22,868 [INFO]       2 sections found
+2026-03-30 13:16:22,868 [INFO]     ── Article 106D - Closed Circuit Television Testimony
+2026-03-30 13:16:23,462 [INFO]       2 sections found
+2026-03-30 13:16:23,462 [INFO]     ── Article 106E - Task Force on Professional Practice in the Illinois Jus
+2026-03-30 13:16:24,059 [INFO]       3 sections found
+2026-03-30 13:16:24,059 [INFO]     ── Article 106F - Children Of Incarcerated Parents Task Force (Repealed b
+2026-03-30 13:16:24,642 [INFO]       0 sections found
+2026-03-30 13:16:24,642 [INFO]     ── Article 106G - Commission On Children Of Incarcerated Parents
+2026-03-30 13:16:25,245 [INFO]       1 sections found
+2026-03-30 13:16:25,245 [INFO]     ── Title II - Apprehension And Investigation
+2026-03-30 13:16:25,960 [INFO]       63 sections found
+2026-03-30 13:16:25,960 [INFO]     ── Article 107 - Arrest
+2026-03-30 13:16:26,596 [INFO]       16 sections found
+2026-03-30 13:16:26,597 [INFO]     ── Article 107A - Lineup and Photo Spread Procedure
+2026-03-30 13:16:27,221 [INFO]       4 sections found
+2026-03-30 13:16:27,221 [INFO]     ── Article 108 - Search And Seizure
+2026-03-30 13:16:27,831 [INFO]       15 sections found
+2026-03-30 13:16:27,831 [INFO]     ── Article 108A - Judicial Supervision Of The Use Of Eavesdropping Device
+2026-03-30 13:16:28,438 [INFO]       11 sections found
+2026-03-30 13:16:28,438 [INFO]     ── Article 108B - Electronic Criminal Surveillance
+2026-03-30 13:16:29,090 [INFO]       17 sections found
+2026-03-30 13:16:29,090 [INFO]     ── Title III - Proceedings After Arrest
+2026-03-30 13:16:29,759 [INFO]       33 sections found
+2026-03-30 13:16:29,759 [INFO]     ── Article 109 - Preliminary Examination
+2026-03-30 13:16:30,364 [INFO]       5 sections found
+2026-03-30 13:16:30,364 [INFO]     ── Article 110 - Pretrial release
+2026-03-30 13:16:31,034 [INFO]       28 sections found
+2026-03-30 13:16:31,034 [INFO]     ── Article 110A - Peace Bonds (Repealed)
+2026-03-30 13:16:31,628 [INFO]       0 sections found
+2026-03-30 13:16:31,628 [INFO]     ── Title IV - Proceedings To Commence Prosecution
+2026-03-30 13:16:32,365 [INFO]       66 sections found
+2026-03-30 13:16:32,365 [INFO]     ── Article 111 - Charging An Offense
+2026-03-30 13:16:32,965 [INFO]       9 sections found
+2026-03-30 13:16:32,966 [INFO]     ── Article 112 - Grand Jury
+2026-03-30 13:16:33,560 [INFO]       9 sections found
+2026-03-30 13:16:33,560 [INFO]     ── Article 112A - Protective Orders
+2026-03-30 13:16:34,279 [INFO]       48 sections found
+2026-03-30 13:16:34,279 [INFO]     ── Title V - Proceedings Prior To Trial
+2026-03-30 13:16:34,906 [INFO]       24 sections found
+2026-03-30 13:16:34,906 [INFO]     ── Article 113 - Arraignment
+2026-03-30 13:16:35,535 [INFO]       9 sections found
+2026-03-30 13:16:35,535 [INFO]     ── Article 114 - Pre-Trial Motions
+2026-03-30 13:16:36,168 [INFO]       15 sections found
+2026-03-30 13:16:36,168 [INFO]     ── Title VI - Proceedings At Trial
+2026-03-30 13:16:36,871 [INFO]       78 sections found
+2026-03-30 13:16:36,872 [INFO]     ── Article 115 - Trial
+2026-03-30 13:16:37,535 [INFO]       45 sections found
+2026-03-30 13:16:37,536 [INFO]     ── Article 116 - Post-Trial Motions
+2026-03-30 13:16:38,137 [INFO]       6 sections found
+2026-03-30 13:16:38,137 [INFO]     ── Article 117 - Probation
+2026-03-30 13:16:38,726 [INFO]       3 sections found
+2026-03-30 13:16:38,726 [INFO]     ── Article 118 - Sentence And Judgment
+2026-03-30 13:16:39,317 [INFO]       2 sections found
+2026-03-30 13:16:39,317 [INFO]     ── Article 119 - Execution Of Sentence
+2026-03-30 13:16:39,899 [INFO]       2 sections found
+2026-03-30 13:16:39,899 [INFO]     ── Article 120 - Appeal By The State
+2026-03-30 13:16:40,498 [INFO]       4 sections found
+2026-03-30 13:16:40,498 [INFO]     ── Article 121 - Appeal By Defendant
+2026-03-30 13:16:41,096 [INFO]       2 sections found
+2026-03-30 13:16:41,096 [INFO]     ── Article 121A - Pending Direct Appeal After Defendant's Death
+2026-03-30 13:16:41,685 [INFO]       2 sections found
+2026-03-30 13:16:41,685 [INFO]     ── Article 122 - Post-Conviction Hearing
+2026-03-30 13:16:42,302 [INFO]       12 sections found
+2026-03-30 13:16:42,302 [INFO]     ── Title VIII - Miscellaneous
+2026-03-30 13:16:42,892 [INFO]       0 sections found
+2026-03-30 13:16:42,892 [INFO]     ── Article 124A - Liens And Costs
+2026-03-30 13:16:43,494 [INFO]       4 sections found
+2026-03-30 13:16:43,494 [INFO]     ── Article 124B - Forfeiture
+2026-03-30 13:16:44,192 [INFO]       67 sections found
+2026-03-30 13:16:44,193 [INFO]     ── Part 5 - General Provisions
+2026-03-30 13:16:44,808 [INFO]       3 sections found
+2026-03-30 13:16:44,809 [INFO]     ── Part 100 - Standard Forfeiture Provisions
+2026-03-30 13:16:45,427 [INFO]       19 sections found
+2026-03-30 13:16:45,427 [INFO]     ── Part 300 - Forfeiture; Involuntary Servitude and Trafficking in Person
+2026-03-30 13:16:46,016 [INFO]       3 sections found
+2026-03-30 13:16:46,016 [INFO]     ── Part 400 - Obscenity
+2026-03-30 13:16:46,608 [INFO]       7 sections found
+2026-03-30 13:16:46,608 [INFO]     ── Part 500 - Other Sex Offenses
+2026-03-30 13:16:47,200 [INFO]       3 sections found
+2026-03-30 13:16:47,200 [INFO]     ── Part 600 - Computer Crime
+2026-03-30 13:16:47,786 [INFO]       4 sections found
+2026-03-30 13:16:47,786 [INFO]     ── Part 700 - WIC Fraud
+2026-03-30 13:16:48,385 [INFO]       5 sections found
+2026-03-30 13:16:48,385 [INFO]     ── Part 800 - Terrorism
+2026-03-30 13:16:48,979 [INFO]       7 sections found
+2026-03-30 13:16:48,979 [INFO]     ── Part 900 - Animals
+2026-03-30 13:16:49,594 [INFO]       9 sections found
+2026-03-30 13:16:49,594 [INFO]     ── Part 1000 - Unlawful Telecommunications Device
+2026-03-30 13:16:50,179 [INFO]       7 sections found
+2026-03-30 13:16:50,179 [INFO]     ── Article 125 - Construction And Effective Date
+2026-03-30 13:16:50,784 [INFO]       4 sections found
+2026-03-30 13:16:50,784 [INFO]     ── Article 126 - Repeal
+2026-03-30 13:16:51,368 [INFO]       1 sections found
+2026-03-30 13:16:51,368 [INFO]   Cleanup: removed 368 duplicate sections
+2026-03-30 13:16:51,373 [INFO]     Wrote 378 sections  (running total: 378)
+2026-03-30 13:16:51,373 [INFO]   ── Act 4626: 725 ILCS 100/       State Public Defender Act.
+2026-03-30 13:16:51,988 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:51,989 [INFO]     Wrote 17 sections  (running total: 395)
+2026-03-30 13:16:51,989 [INFO]   ── Act 1967: 725 ILCS 105/       State Appellate Defender Act.
+2026-03-30 13:16:52,599 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:52,600 [INFO]     Wrote 14 sections  (running total: 409)
+2026-03-30 13:16:52,600 [INFO]   ── Act 1968: 725 ILCS 110/       Arrest and Conviction of Out of State Murderers Ac
+2026-03-30 13:16:53,195 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:53,196 [INFO]     Wrote 2 sections  (running total: 411)
+2026-03-30 13:16:53,196 [INFO]   ── Act 1969: 725 ILCS 115/       Bill of Rights for Children.
+2026-03-30 13:16:53,774 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:53,775 [INFO]     Wrote 5 sections  (running total: 416)
+2026-03-30 13:16:53,775 [INFO]   ── Act 1970: 725 ILCS 120/       Rights of Crime Victims and Witnesses Act.
+2026-03-30 13:16:54,463 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:54,465 [INFO]     Wrote 12 sections  (running total: 428)
+2026-03-30 13:16:54,465 [INFO]   ── Act 1971: 725 ILCS 124/       Capital Crimes Litigation Act. (Repealed by P.A. 9
+2026-03-30 13:16:55,059 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:55,059 [WARNING]     No sections extracted from act 1971 (725 ILCS 124/       Capital Crimes Litigation Act.). Try --debug to inspect HTML.
+2026-03-30 13:16:55,060 [INFO]     Wrote 0 sections  (running total: 428)
+2026-03-30 13:16:55,060 [INFO]   ── Act 1972: 725 ILCS 125/       Criminal Jurisprudence Act. (Indictments and Witne
+2026-03-30 13:16:55,652 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:55,653 [WARNING]     No sections extracted from act 1972 (725 ILCS 125/       Criminal Jurisprudence Act. (I). Try --debug to inspect HTML.
+2026-03-30 13:16:55,653 [INFO]     Wrote 0 sections  (running total: 428)
+2026-03-30 13:16:55,653 [INFO]   ── Act 1973: 725 ILCS 130/       Criminal Jurisprudence Act. (Criminal Costs and Li
+2026-03-30 13:16:56,246 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:56,247 [WARNING]     No sections extracted from act 1973 (725 ILCS 130/       Criminal Jurisprudence Act. (C). Try --debug to inspect HTML.
+2026-03-30 13:16:56,247 [INFO]     Wrote 0 sections  (running total: 428)
+2026-03-30 13:16:56,247 [INFO]   ── Act 1974: 725 ILCS 135/       Criminal Jurisprudence Act. (Criminal Breach of Pe
+2026-03-30 13:16:56,845 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:56,845 [WARNING]     No sections extracted from act 1974 (725 ILCS 135/       Criminal Jurisprudence Act. (C). Try --debug to inspect HTML.
+2026-03-30 13:16:56,846 [INFO]     Wrote 0 sections  (running total: 428)
+2026-03-30 13:16:56,846 [INFO]   ── Act 3716: 725 ILCS 137/       Citizen Privacy Protection Act.
+2026-03-30 13:16:57,451 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:57,452 [INFO]     Wrote 5 sections  (running total: 433)
+2026-03-30 13:16:57,452 [INFO]   ── Act 1975: 725 ILCS 140/       Criminal Proceeding Interpreter Act.
+2026-03-30 13:16:58,048 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:58,050 [INFO]     Wrote 5 sections  (running total: 438)
+2026-03-30 13:16:58,050 [INFO]   ── Act 1976: 725 ILCS 145/       Criminal Victims' Asset Discovery Act.
+2026-03-30 13:16:58,650 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:58,651 [INFO]     Wrote 5 sections  (running total: 443)
+2026-03-30 13:16:58,651 [INFO]   ── Act 1977: 725 ILCS 150/       Drug Asset Forfeiture Procedure Act.
+2026-03-30 13:16:59,295 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:59,296 [INFO]     Wrote 28 sections  (running total: 471)
+2026-03-30 13:16:59,296 [INFO]   ── Act 1978: 725 ILCS 155/       Federal Prisoner Production Expense Act.
+2026-03-30 13:16:59,893 [INFO]     [Type A] Inline text page
+2026-03-30 13:16:59,894 [INFO]     Wrote 2 sections  (running total: 473)
+2026-03-30 13:16:59,894 [INFO]   ── Act 1979: 725 ILCS 160/       Fines Paid to Societies Act.
+2026-03-30 13:17:00,500 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:00,502 [INFO]     Wrote 3 sections  (running total: 476)
+2026-03-30 13:17:00,502 [INFO]   ── Act 1980: 725 ILCS 165/       Firearm Seizure Act.
+2026-03-30 13:17:01,100 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:01,101 [INFO]     Wrote 6 sections  (running total: 482)
+2026-03-30 13:17:01,101 [INFO]   ── Act 3520: 725 ILCS 167/       Freedom from Drone Surveillance Act.
+2026-03-30 13:17:01,721 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:01,722 [INFO]     Wrote 12 sections  (running total: 494)
+2026-03-30 13:17:01,722 [INFO]   ── Act 3582: 725 ILCS 168/       Freedom From Location Surveillance Act.
+2026-03-30 13:17:02,334 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:02,335 [INFO]     Wrote 8 sections  (running total: 502)
+2026-03-30 13:17:02,335 [INFO]   ── Act 1981: 725 ILCS 170/       Fugitive Apprehension Reward Act.
+2026-03-30 13:17:02,935 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:02,936 [INFO]     Wrote 6 sections  (running total: 508)
+2026-03-30 13:17:02,937 [INFO]   ── Act 1982: 725 ILCS 172/       Gang Crime Witness Protection Act. (Repealed by P.
+2026-03-30 13:17:03,529 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:03,529 [WARNING]     No sections extracted from act 1982 (725 ILCS 172/       Gang Crime Witness Protection ). Try --debug to inspect HTML.
+2026-03-30 13:17:03,529 [INFO]     Wrote 0 sections  (running total: 508)
+2026-03-30 13:17:03,529 [INFO]   ── Act 3496: 725 ILCS 173/       Violent Crime Witness Protection Act.
+2026-03-30 13:17:04,135 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:04,136 [INFO]     Wrote 8 sections  (running total: 516)
+2026-03-30 13:17:04,136 [INFO]   ── Act 1983: 725 ILCS 175/       Narcotics Profit Forfeiture Act.
+2026-03-30 13:17:04,758 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:04,759 [INFO]     Wrote 13 sections  (running total: 529)
+2026-03-30 13:17:04,759 [INFO]   ── Act 1984: 725 ILCS 180/       Park Ordinance Violation Procedure Act.
+2026-03-30 13:17:05,356 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:05,357 [INFO]     Wrote 2 sections  (running total: 531)
+2026-03-30 13:17:05,357 [INFO]   ── Act 1985: 725 ILCS 185/       Pretrial Services Act.
+2026-03-30 13:17:05,985 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:05,987 [INFO]     Wrote 38 sections  (running total: 569)
+2026-03-30 13:17:05,987 [INFO]   ── Act 4510: 725 ILCS 187/       Pretrial Success Act.
+2026-03-30 13:17:06,604 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:06,606 [INFO]     Wrote 22 sections  (running total: 591)
+2026-03-30 13:17:06,606 [INFO]   ── Act 1986: 725 ILCS 190/       Privacy of Child Victims of Criminal Sexual Offens
+2026-03-30 13:17:07,197 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:07,199 [INFO]     Wrote 3 sections  (running total: 594)
+2026-03-30 13:17:07,199 [INFO]   ── Act 4219: 725 ILCS 191/       Privacy of Adult Victims of Criminal Sexual Offens
+2026-03-30 13:17:07,809 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:07,810 [INFO]     Wrote 4 sections  (running total: 598)
+2026-03-30 13:17:07,810 [INFO]   ── Act 1987: 725 ILCS 195/       Quasi-criminal and Misdemeanor Pretrial Release Ac
+2026-03-30 13:17:08,410 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:08,411 [INFO]     Wrote 6 sections  (running total: 604)
+2026-03-30 13:17:08,411 [INFO]   ── Act 1988: 725 ILCS 200/       Sex Offense Victim Polygraph Act.
+2026-03-30 13:17:09,000 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:09,001 [INFO]     Wrote 2 sections  (running total: 606)
+2026-03-30 13:17:09,001 [INFO]   ── Act 3240: 725 ILCS 202/       Sexual Assault Evidence Submission Act.
+2026-03-30 13:17:09,605 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:09,606 [INFO]     Wrote 14 sections  (running total: 620)
+2026-03-30 13:17:09,606 [INFO]   ── Act 3731: 725 ILCS 203/       Sexual Assault Incident Procedure Act.
+2026-03-30 13:17:10,219 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:10,220 [INFO]     Wrote 16 sections  (running total: 636)
+2026-03-30 13:17:10,220 [INFO]   ── Act 1989: 725 ILCS 205/       Sexually Dangerous Persons Act.
+2026-03-30 13:17:10,804 [INFO]     [Type B] TOC page detected
+2026-03-30 13:17:10,805 [INFO]     [Type B] 1 unique article pages to fetch
+2026-03-30 13:17:10,805 [INFO]     ── Article 105 - Sexually Dangerous Persons
+2026-03-30 13:17:11,404 [INFO]       17 sections found
+2026-03-30 13:17:11,405 [INFO]     Wrote 17 sections  (running total: 653)
+2026-03-30 13:17:11,405 [INFO]   ── Act 1990: 725 ILCS 207/       Sexually Violent Persons Commitment Act.
+2026-03-30 13:17:12,052 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:12,054 [INFO]     Wrote 20 sections  (running total: 673)
+2026-03-30 13:17:12,054 [INFO]   ── Act 1991: 725 ILCS 210/       State's Attorneys Appellate Prosecutor's Act.
+2026-03-30 13:17:12,674 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:12,676 [INFO]     Wrote 33 sections  (running total: 706)
+2026-03-30 13:17:12,676 [INFO]   ── Act 1992: 725 ILCS 215/       Statewide Grand Jury Act.
+2026-03-30 13:17:13,295 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:13,296 [INFO]     Wrote 10 sections  (running total: 716)
+2026-03-30 13:17:13,296 [INFO]   ── Act 1993: 725 ILCS 220/       Uniform Act to Secure the Attendance of Witnesses 
+2026-03-30 13:17:13,897 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:13,898 [INFO]     Wrote 6 sections  (running total: 722)
+2026-03-30 13:17:13,898 [INFO]   ── Act 1994: 725 ILCS 225/       Uniform Criminal Extradition Act.
+2026-03-30 13:17:14,534 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:14,536 [INFO]     Wrote 32 sections  (running total: 754)
+2026-03-30 13:17:14,536 [INFO]   ── Act 1995: 725 ILCS 230/       Uniform Rendition of Accused Persons Act.
+2026-03-30 13:17:15,143 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:15,145 [INFO]     Wrote 6 sections  (running total: 760)
+2026-03-30 13:17:15,145 [INFO]   ── Act 1996: 725 ILCS 235/       Uniform Rendition of Prisoners as Witnesses in Cri
+2026-03-30 13:17:15,935 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:15,937 [INFO]     Wrote 11 sections  (running total: 771)
+2026-03-30 13:17:15,937 [INFO]   ── Act 1997: 725 ILCS 240/       Violent Crime Victims Assistance Act.
+2026-03-30 13:17:16,550 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:16,551 [INFO]     Wrote 11 sections  (running total: 782)
+2026-03-30 13:17:16,551 [INFO]   ── Act 1998: 725 ILCS 245/       Witness Protection Act.
+2026-03-30 13:17:17,150 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:17,151 [INFO]     Wrote 4 sections  (running total: 786)
+2026-03-30 13:17:17,151 [INFO] 
+══ Chapter 730: CORRECTIONS
+2026-03-30 13:17:17,774 [INFO]   Found 35 acts
+2026-03-30 13:17:17,774 [INFO]   ── Act 1999: 730 ILCS 5/       Unified Code of Corrections.
+2026-03-30 13:17:18,382 [INFO]     [Type B] TOC page detected
+2026-03-30 13:17:18,385 [INFO]     [Type B] 45 unique article pages to fetch
+2026-03-30 13:17:18,385 [INFO]     ── Chapter I - General Provisions
+2026-03-30 13:17:18,977 [INFO]       2 sections found
+2026-03-30 13:17:18,977 [INFO]     ── Article 1 - Short Title, Purposes
+2026-03-30 13:17:19,584 [INFO]       2 sections found
+2026-03-30 13:17:19,584 [INFO]     ── Chapter III - Department Of Corrections
+2026-03-30 13:17:20,662 [INFO]       207 sections found
+2026-03-30 13:17:20,663 [INFO]     ── Article 1 - Definitions
+2026-03-30 13:17:21,256 [INFO]       2 sections found
+2026-03-30 13:17:21,256 [INFO]     ── Article 2 - Organization Of Department
+2026-03-30 13:17:21,957 [INFO]       22 sections found
+2026-03-30 13:17:21,957 [INFO]     ── Article 2.5 - Department of Juvenile Justice
+2026-03-30 13:17:22,615 [INFO]       24 sections found
+2026-03-30 13:17:22,615 [INFO]     ── Article 2.7 - Department of Juvenile Justice Independent Juvenile Ombu
+2026-03-30 13:17:23,243 [INFO]       12 sections found
+2026-03-30 13:17:23,243 [INFO]     ── Article 3 - Parole and Pardon Board
+2026-03-30 13:17:23,924 [INFO]       24 sections found
+2026-03-30 13:17:23,924 [INFO]     ── Article 4 - Financial and Property Administration
+2026-03-30 13:17:24,532 [INFO]       5 sections found
+2026-03-30 13:17:24,532 [INFO]     ── Article 5 - Records and Reports
+2026-03-30 13:17:25,140 [INFO]       5 sections found
+2026-03-30 13:17:25,140 [INFO]     ── Article 6 - Institutions Facilities And Programs
+2026-03-30 13:17:25,760 [INFO]       17 sections found
+2026-03-30 13:17:25,760 [INFO]     ── Article 7 - Facilities
+2026-03-30 13:17:26,366 [INFO]       12 sections found
+2026-03-30 13:17:26,366 [INFO]     ── Article 8 - Adult Institutional Procedures
+2026-03-30 13:17:26,983 [INFO]       12 sections found
+2026-03-30 13:17:26,983 [INFO]     ── Article 9 - Programs of the Department of Juvenile Justice
+2026-03-30 13:17:27,598 [INFO]       8 sections found
+2026-03-30 13:17:27,598 [INFO]     ── Article 10 - Juvenile Procedures
+2026-03-30 13:17:28,213 [INFO]       13 sections found
+2026-03-30 13:17:28,213 [INFO]     ── Article 11 - Furloughs
+2026-03-30 13:17:28,794 [INFO]       1 sections found
+2026-03-30 13:17:28,794 [INFO]     ── Article 12 - Correctional Employment Programs
+2026-03-30 13:17:29,410 [INFO]       18 sections found
+2026-03-30 13:17:29,410 [INFO]     ── Article 12.5 - Prisoner Entrepreneur Education Program (Repealed)
+2026-03-30 13:17:30,022 [INFO]       0 sections found
+2026-03-30 13:17:30,022 [INFO]     ── Article 13 - Work and Day Release
+2026-03-30 13:17:30,637 [INFO]       6 sections found
+2026-03-30 13:17:30,638 [INFO]     ── Article 14 - Parole and After-Care
+2026-03-30 13:17:31,292 [INFO]       10 sections found
+2026-03-30 13:17:31,292 [INFO]     ── Article 15 - Field Services
+2026-03-30 13:17:31,895 [INFO]       4 sections found
+2026-03-30 13:17:31,895 [INFO]     ── Article 16 - Pilot Program For Selected Paroled Juvenile Offenders
+2026-03-30 13:17:32,494 [INFO]       1 sections found
+2026-03-30 13:17:32,494 [INFO]     ── Article 17 - Transitional Housing for Sex Offenders
+2026-03-30 13:17:33,091 [INFO]       2 sections found
+2026-03-30 13:17:33,091 [INFO]     ── Article 18 - Program of Reentry into Community
+2026-03-30 13:17:33,706 [INFO]       6 sections found
+2026-03-30 13:17:33,706 [INFO]     ── Article 19 - Methamphetamine Abusers Pilot Programs
+2026-03-30 13:17:34,297 [INFO]       3 sections found
+2026-03-30 13:17:34,297 [INFO]     ── Chapter V - Sentencing
+2026-03-30 13:17:35,480 [INFO]       170 sections found
+2026-03-30 13:17:35,480 [INFO]     ── Article 1 - General Definitions
+2026-03-30 13:17:36,088 [INFO]       27 sections found
+2026-03-30 13:17:36,088 [INFO]     ── Article 2 - Diversion For Specialized Treatment
+2026-03-30 13:17:36,698 [INFO]       4 sections found
+2026-03-30 13:17:36,698 [INFO]     ── Article 3 - Presentence Procedure
+2026-03-30 13:17:37,311 [INFO]       4 sections found
+2026-03-30 13:17:37,311 [INFO]     ── Article 4 - Sentencing
+2026-03-30 13:17:37,924 [INFO]       7 sections found
+2026-03-30 13:17:37,924 [INFO]     ── Article 4.5 - General Sentencing Provisions
+2026-03-30 13:17:38,556 [INFO]       31 sections found
+2026-03-30 13:17:38,556 [INFO]     ── Article 5 - Authorized Dispositions
+2026-03-30 13:17:39,314 [INFO]       15 sections found
+2026-03-30 13:17:39,314 [INFO]     ── Article 5.5 - Discretionary Relief From Forfeitures And Disabilities A
+2026-03-30 13:17:39,920 [INFO]       10 sections found
+2026-03-30 13:17:39,921 [INFO]     ── Article 6 - Sentences Of Probation And Conditional Discharge
+2026-03-30 13:17:40,584 [INFO]       13 sections found
+2026-03-30 13:17:40,584 [INFO]     ── Article 7 - Sentence Of Periodic Imprisonment
+2026-03-30 13:17:41,197 [INFO]       8 sections found
+2026-03-30 13:17:41,197 [INFO]     ── Article 8 - Imprisonment
+2026-03-30 13:17:41,876 [INFO]       11 sections found
+2026-03-30 13:17:41,876 [INFO]     ── Article 8A - Electronic Monitoring And Home Detention
+2026-03-30 13:17:42,487 [INFO]       13 sections found
+2026-03-30 13:17:42,487 [INFO]     ── Article 9 - Fines
+2026-03-30 13:17:43,094 [INFO]       27 sections found
+2026-03-30 13:17:43,094 [INFO]     ── Chapter VIII - Miscellaneous
+2026-03-30 13:17:43,679 [INFO]       0 sections found
+2026-03-30 13:17:43,679 [INFO]     ── Article 1 - Cumulative Effect
+2026-03-30 13:17:44,281 [INFO]       2 sections found
+2026-03-30 13:17:44,281 [INFO]     ── Article 2 - Savings Provisions
+2026-03-30 13:17:44,872 [INFO]       4 sections found
+2026-03-30 13:17:44,872 [INFO]     ── Article 3 - Chapter, Article Or Section Headings - Effect - References
+2026-03-30 13:17:45,464 [INFO]       2 sections found
+2026-03-30 13:17:45,465 [INFO]     ── Article 4 - Severability
+2026-03-30 13:17:46,098 [INFO]       1 sections found
+2026-03-30 13:17:46,098 [INFO]     ── Article 5 - Repeal
+2026-03-30 13:17:46,708 [INFO]       1 sections found
+2026-03-30 13:17:46,709 [INFO]     ── Article 6 - Effective Date
+2026-03-30 13:17:47,293 [INFO]       1 sections found
+2026-03-30 13:17:47,293 [INFO]   Cleanup: removed 353 duplicate sections
+2026-03-30 13:17:47,299 [INFO]     Wrote 353 sections  (running total: 1139)
+2026-03-30 13:17:47,299 [INFO]   ── Act 2000: 730 ILCS 105/       Open Parole Hearings Act.
+2026-03-30 13:17:47,905 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:47,907 [INFO]     Wrote 7 sections  (running total: 1146)
+2026-03-30 13:17:47,907 [INFO]   ── Act 2001: 730 ILCS 110/       Probation and Probation Officers Act.
+2026-03-30 13:17:48,522 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:48,524 [INFO]     Wrote 16 sections  (running total: 1162)
+2026-03-30 13:17:48,524 [INFO]   ── Act 2002: 730 ILCS 115/       Probation Community Service Act.
+2026-03-30 13:17:49,122 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:49,123 [INFO]     Wrote 2 sections  (running total: 1164)
+2026-03-30 13:17:49,123 [INFO]   ── Act 2003: 730 ILCS 120/       Probation Challenge Program Act.
+2026-03-30 13:17:49,730 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:49,731 [INFO]     Wrote 14 sections  (running total: 1178)
+2026-03-30 13:17:49,731 [INFO]   ── Act 2004: 730 ILCS 125/       County Jail Act.
+2026-03-30 13:17:50,361 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:50,363 [INFO]     Wrote 36 sections  (running total: 1214)
+2026-03-30 13:17:50,363 [INFO]   ── Act 2005: 730 ILCS 130/       County Jail Good Behavior Allowance Act.
+2026-03-30 13:17:50,977 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:50,978 [INFO]     Wrote 4 sections  (running total: 1218)
+2026-03-30 13:17:50,978 [INFO]   ── Act 2006: 730 ILCS 135/       Illinois Prison Inspection Act.
+2026-03-30 13:17:51,576 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:51,577 [INFO]     Wrote 6 sections  (running total: 1224)
+2026-03-30 13:17:51,577 [INFO]   ── Act 2007: 730 ILCS 140/       Private Correctional Facility Moratorium Act.
+2026-03-30 13:17:52,176 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:52,178 [INFO]     Wrote 4 sections  (running total: 1228)
+2026-03-30 13:17:52,178 [INFO]   ── Act 3990: 730 ILCS 141/       Private Detention Facility Moratorium Act.
+2026-03-30 13:17:52,771 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:52,773 [INFO]     Wrote 8 sections  (running total: 1236)
+2026-03-30 13:17:52,773 [INFO]   ── Act 2008: 730 ILCS 145/       Illinois Substance Abuse Treatment Program Act.
+2026-03-30 13:17:53,369 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:53,370 [INFO]     Wrote 5 sections  (running total: 1241)
+2026-03-30 13:17:53,370 [INFO]   ── Act 2621: 730 ILCS 148/       Arsonist Registry Act.
+2026-03-30 13:17:53,981 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:53,982 [INFO]     Wrote 9 sections  (running total: 1250)
+2026-03-30 13:17:53,982 [INFO]   ── Act 2009: 730 ILCS 150/       Sex Offender Registration Act.
+2026-03-30 13:17:54,644 [INFO]     [Type A] Inline text page
+2026-03-30 13:17:54,645 [INFO]     Wrote 19 sections  (running total: 1269)
+2026-03-30 13:17:54,645 [INFO]   ── Act 2010: 730 ILCS 152/       Sex Offender Community Notification Law.
+2026-03-30 13:17:55,259 [INFO]     [Type B] TOC page detected
+2026-03-30 13:17:55,261 [INFO]     [Type B] 7 unique article pages to fetch
+2026-03-30 13:17:55,261 [INFO]     ── Article 1 -
+2026-03-30 13:17:55,871 [INFO]       13 sections found
+2026-03-30 13:17:55,871 [INFO]     ── Article 2 - Amendatory Provisions (Amendatory Provisions)
+2026-03-30 13:17:56,463 [INFO]       0 sections found
+2026-03-30 13:17:56,463 [INFO]     ── Article 3 - The Environmental Impact Fee Law (This Article Of P.A. 89-
+2026-03-30 13:17:57,071 [INFO]       10 sections found
+2026-03-30 13:17:57,072 [INFO]     ── Article 4 - Amendatory Provisions
+2026-03-30 13:17:57,663 [INFO]       0 sections found
+2026-03-30 13:17:57,663 [INFO]     ── Article 5 - Amendatory Provisions (Amendatory Provisions)
+2026-03-30 13:17:58,250 [INFO]       0 sections found
+2026-03-30 13:17:58,251 [INFO]     ── Article 6 - Amendatory Provisions (Amendatory Provisions)
+2026-03-30 13:17:58,831 [INFO]       0 sections found
+2026-03-30 13:17:58,831 [INFO]     ── Article 9 - Severability And Effective Date
+2026-03-30 13:17:59,433 [INFO]       2 sections found
+2026-03-30 13:17:59,434 [INFO]     Wrote 24 sections  (running total: 1293)
+2026-03-30 13:17:59,434 [INFO]   ── Act 2802: 730 ILCS 154/       Murderer and Violent Offender Against Youth Regist
+2026-03-30 13:18:00,068 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:00,070 [INFO]     Wrote 32 sections  (running total: 1325)
+2026-03-30 13:18:00,070 [INFO]   ── Act 2011: 730 ILCS 155/       Prisoner Interchange Act.
+2026-03-30 13:18:00,674 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:00,675 [INFO]     Wrote 2 sections  (running total: 1327)
+2026-03-30 13:18:00,675 [INFO]   ── Act 2012: 730 ILCS 160/       Industrial Schools for Girls Act. (Repealed by P.A
+2026-03-30 13:18:01,277 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:01,277 [WARNING]     No sections extracted from act 2012 (730 ILCS 160/       Industrial Schools for Girls A). Try --debug to inspect HTML.
+2026-03-30 13:18:01,278 [INFO]     Wrote 0 sections  (running total: 1327)
+2026-03-30 13:18:01,278 [INFO]   ── Act 2013: 730 ILCS 165/       Training Schools for Boys Act. (Repealed by P.A. 9
+2026-03-30 13:18:01,881 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:01,881 [WARNING]     No sections extracted from act 2013 (730 ILCS 165/       Training Schools for Boys Act.). Try --debug to inspect HTML.
+2026-03-30 13:18:01,882 [INFO]     Wrote 0 sections  (running total: 1327)
+2026-03-30 13:18:01,882 [INFO]   ── Act 2014: 730 ILCS 166/       Drug Court Treatment Act.
+2026-03-30 13:18:02,508 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:02,509 [INFO]     Wrote 11 sections  (running total: 1338)
+2026-03-30 13:18:02,509 [INFO]   ── Act 3231: 730 ILCS 167/       Veterans and Servicemembers Court Treatment Act.
+2026-03-30 13:18:03,119 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:03,120 [INFO]     Wrote 13 sections  (running total: 1351)
+2026-03-30 13:18:03,120 [INFO]   ── Act 2947: 730 ILCS 168/       Mental Health Court Treatment Act.
+2026-03-30 13:18:03,736 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:03,738 [INFO]     Wrote 12 sections  (running total: 1363)
+2026-03-30 13:18:03,738 [INFO]   ── Act 3674: 730 ILCS 169/       Accelerated Resolution Program Act. (Repealed by P
+2026-03-30 13:18:04,326 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:04,327 [WARNING]     No sections extracted from act 3674 (730 ILCS 169/       Accelerated Resolution Program). Try --debug to inspect HTML.
+2026-03-30 13:18:04,328 [INFO]     Wrote 0 sections  (running total: 1363)
+2026-03-30 13:18:04,328 [INFO]   ── Act 2015: 730 ILCS 170/       Neighborhood Restoration and Alternative Sentencin
+2026-03-30 13:18:04,925 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:04,927 [INFO]     Wrote 4 sections  (running total: 1367)
+2026-03-30 13:18:04,927 [INFO]   ── Act 2016: 730 ILCS 175/       Secure Residential Youth Care Facility Licensing A
+2026-03-30 13:18:05,527 [INFO]     [Type B] TOC page detected
+2026-03-30 13:18:05,528 [INFO]     [Type B] 11 unique article pages to fetch
+2026-03-30 13:18:05,528 [INFO]     ── Article 5 - Juvenile Justice (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:06,116 [INFO]       0 sections found
+2026-03-30 13:18:06,116 [INFO]     ── Article 15 - Gangs (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:06,699 [INFO]       0 sections found
+2026-03-30 13:18:06,699 [INFO]     ── Article 20 - Alcohol Abuse (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:07,284 [INFO]       0 sections found
+2026-03-30 13:18:07,284 [INFO]     ── Article 25 - Drug Abuse (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:07,870 [INFO]       0 sections found
+2026-03-30 13:18:07,870 [INFO]     ── Article 30 - Firearms (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:08,484 [INFO]       0 sections found
+2026-03-30 13:18:08,484 [INFO]     ── Article 35 - (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:09,067 [INFO]       0 sections found
+2026-03-30 13:18:09,067 [INFO]     ── Article 40 - (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:09,654 [INFO]       0 sections found
+2026-03-30 13:18:09,654 [INFO]     ── Article 45 -
+2026-03-30 13:18:10,343 [INFO]       32 sections found
+2026-03-30 13:18:10,344 [INFO]     ── Article 50 - (Amendatory Provisions; Text Omitted)
+2026-03-30 13:18:10,931 [INFO]       0 sections found
+2026-03-30 13:18:10,931 [INFO]     ── Article 990 -
+2026-03-30 13:18:11,514 [INFO]       1 sections found
+2026-03-30 13:18:11,514 [INFO]     ── Article 999 -
+2026-03-30 13:18:12,104 [INFO]       1 sections found
+2026-03-30 13:18:12,105 [INFO]     Wrote 34 sections  (running total: 1401)
+2026-03-30 13:18:12,105 [INFO]   ── Act 2797: 730 ILCS 180/       Methamphetamine Manufacturer Registry Act.
+2026-03-30 13:18:12,711 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:12,712 [INFO]     Wrote 5 sections  (running total: 1406)
+2026-03-30 13:18:12,712 [INFO]   ── Act 3131: 730 ILCS 185/       Emergency Services Response Reimbursement for Crim
+2026-03-30 13:18:13,310 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:13,311 [INFO]     Wrote 6 sections  (running total: 1412)
+2026-03-30 13:18:13,311 [INFO]   ── Act 3156: 730 ILCS 190/       Illinois Crime Reduction Act of 2009.
+2026-03-30 13:18:13,979 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:13,981 [INFO]     Wrote 5 sections  (running total: 1417)
+2026-03-30 13:18:13,981 [INFO]   ── Act 3268: 730 ILCS 195/       Department of Juvenile Justice Mortality Review Te
+2026-03-30 13:18:14,602 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:14,604 [INFO]     Wrote 13 sections  (running total: 1430)
+2026-03-30 13:18:14,604 [INFO]   ── Act 4025: 730 ILCS 200/       Re-Entering Citizens Civics Education Act.
+2026-03-30 13:18:15,204 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:15,205 [INFO]     Wrote 11 sections  (running total: 1441)
+2026-03-30 13:18:15,205 [INFO]   ── Act 4074: 730 ILCS 205/       No Representation Without Population Act.
+2026-03-30 13:18:15,776 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:15,777 [WARNING]     No sections extracted from act 4074 (730 ILCS 205/       No Representation Without Popu). Try --debug to inspect HTML.
+2026-03-30 13:18:15,777 [INFO]     Wrote 0 sections  (running total: 1441)
+2026-03-30 13:18:15,777 [INFO]   ── Act 4075: 730 ILCS 210/       Reporting of Deaths in Custody Act.
+2026-03-30 13:18:16,353 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:16,354 [WARNING]     No sections extracted from act 4075 (730 ILCS 210/       Reporting of Deaths in Custody). Try --debug to inspect HTML.
+2026-03-30 13:18:16,354 [INFO]     Wrote 0 sections  (running total: 1441)
+2026-03-30 13:18:16,354 [INFO]   ── Act 4565: 730 ILCS 212/       Restrictive Housing Data Publication and Verificat
+2026-03-30 13:18:16,953 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:16,955 [INFO]     Wrote 4 sections  (running total: 1445)
+2026-03-30 13:18:16,955 [INFO]   ── Act 4415: 730 ILCS 215/       End Youth Solitary Confinement Act.
+2026-03-30 13:18:17,548 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:17,549 [INFO]     Wrote 3 sections  (running total: 1448)
+2026-03-30 13:18:17,549 [INFO]   ── Act 4430: 730 ILCS 220/       Faith Behind Bars Act.
+2026-03-30 13:18:18,151 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:18,153 [INFO]     Wrote 6 sections  (running total: 1454)
+2026-03-30 13:18:18,153 [INFO]   ── Act 4452: 730 ILCS 225/       Higher Education in Prison Act.
+2026-03-30 13:18:18,802 [INFO]     [Type A] Inline text page
+2026-03-30 13:18:18,804 [INFO]     Wrote 2 sections  (running total: 1456)
+2026-03-30 13:18:18,804 [INFO] 
+============================================================
+2026-03-30 13:18:18,804 [INFO] Scrape complete.
+2026-03-30 13:18:18,804 [INFO]   Acts processed  : 77
+2026-03-30 13:18:18,804 [INFO]   Sections written: 1456
+2026-03-30 13:18:18,804 [INFO]   Output          : ilcs_corpus.jsonl
