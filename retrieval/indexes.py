@@ -8,6 +8,7 @@ from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 from retrieval.config import (
     SUPABASE_URL,
     SUPABASE_SERVICE_KEY,
+    ILCS_TABLE,
     ILCS_RPC,
     ISCR_RPC,
     DEFAULT_TOP_K,
@@ -104,7 +105,7 @@ class FusionRetriever(BaseRetriever):
         for citation in citations:
             try:
                 rows = (
-                    self._client.table("ilcs_chunks")
+                    self._client.table(ILCS_TABLE)
                     .select("chunk_id, enriched_text, text, section_citation, major_topic")
                     .eq("section_citation", citation.strip())
                     .execute()
@@ -161,3 +162,44 @@ def build_all_retrievers(
         "ilcs": build_fusion_retriever(client, bm25, ILCS_RPC),
         "iscr": build_fusion_retriever(client, bm25, ISCR_RPC),
     }
+
+
+class DualFusionRetriever(BaseRetriever):
+    """
+    Runs both ILCS and ISCR FusionRetrievers in parallel and merges results
+    via RRF. Handles cross-domain queries (e.g. a statute question whose answer
+    spans both an ILCS section and an ISCR rule) without requiring a router.
+
+    Set _secondary_query before calling retrieve() to enable multi-query mode;
+    it is propagated to both sub-retrievers automatically.
+    """
+
+    def __init__(self, ilcs: FusionRetriever, iscr: FusionRetriever):
+        self._ilcs = ilcs
+        self._iscr = iscr
+        self._secondary_query: str | None = None
+        super().__init__()
+
+    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
+        from retrieval.postprocessor import merge_ranked_lists
+
+        self._ilcs._secondary_query = self._secondary_query
+        self._iscr._secondary_query = self._secondary_query
+        try:
+            ilcs_nodes = self._ilcs._retrieve(query_bundle)
+            iscr_nodes = self._iscr._retrieve(query_bundle)
+        finally:
+            self._ilcs._secondary_query = None
+            self._iscr._secondary_query = None
+
+        return merge_ranked_lists([ilcs_nodes, iscr_nodes], top_n=40)
+
+
+def build_dual_retriever(
+    client: Client,
+    bm25: BM25Retriever,
+    retrievers: dict[str, FusionRetriever] | None = None,
+) -> DualFusionRetriever:
+    if retrievers is None:
+        retrievers = build_all_retrievers(client, bm25)
+    return DualFusionRetriever(ilcs=retrievers["ilcs"], iscr=retrievers["iscr"])

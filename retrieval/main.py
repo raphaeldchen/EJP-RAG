@@ -4,7 +4,7 @@ from llama_index.core import Settings
 
 from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, OLLAMA_BASE_URL
 from retrieval.embeddings import get_embedding_model
-from retrieval.indexes import get_supabase_client, build_all_retrievers
+from retrieval.indexes import get_supabase_client, build_dual_retriever
 from retrieval.query_engine import build_query_engine
 from retrieval.bm25_store import BM25Retriever
 from retrieval.reflection import reflect, QueryIntent
@@ -27,17 +27,16 @@ def build_rag(use_local: bool = False) -> tuple:
     reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
     reranker._get_model()  # force load now
 
-    retrievers = build_all_retrievers(client, bm25)
+    dual_retriever = build_dual_retriever(client, bm25)
     engine = build_query_engine(
-        ilcs_retriever=retrievers["ilcs"],
-        iscr_retriever=retrievers["iscr"],
+        dual_retriever=dual_retriever,
         llm=llm,
-        reranker=reranker,  # pass the warmed instance
+        reranker=reranker,
     )
-    return engine, retrievers
+    return engine, dual_retriever
 
 
-def query(engine, retrievers: dict, question: str, use_local: bool = False) -> str:
+def query(engine, dual_retriever, question: str, use_local: bool = False) -> str:
     result = reflect(question, use_local=use_local)
     print(f"\n[Reflection] intent={result.intent.value} | {result.reasoning}")
 
@@ -49,22 +48,15 @@ def query(engine, retrievers: dict, question: str, use_local: bool = False) -> s
 
     # Multi-query: primary = original (better semantic embedding with nomic-embed-text),
     # secondary = rewritten (adds citation keyword signals for BM25 + citation pinning).
-    # Citation pinning scans both queries, so citations in the rewrite still get pinned.
-    # If reflection produced no rewrite, single-query mode as before.
+    # DualFusionRetriever propagates _secondary_query to both ILCS and ISCR sub-retrievers.
     if result.rewritten_query:
         print(f"[Reflection] rewritten → '{result.rewritten_query}'")
-        for r in retrievers.values():
-            r._secondary_query = result.rewritten_query
-        primary_query = question
-    else:
-        primary_query = question
+        dual_retriever._secondary_query = result.rewritten_query
 
     try:
-        response = engine.query(primary_query)
+        response = engine.query(question)
     finally:
-        # Always clear secondary query so it doesn't bleed into the next call
-        for r in retrievers.values():
-            r._secondary_query = None
+        dual_retriever._secondary_query = None
 
     # Extract citations from source nodes
     citations = _extract_citations(response)
@@ -109,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--local", action="store_true", help="Use local Ollama model instead of Anthropic API")
     args = parser.parse_args()
 
-    engine, retrievers = build_rag(use_local=args.local)
+    engine, dual_retriever = build_rag(use_local=args.local)
 
     test_queries = [
         # --- Deterministic rewrite rules (should trigger fast-path rewrites) ---
@@ -137,4 +129,4 @@ if __name__ == "__main__":
         print(f"\n{'='*60}")
         print(f"Q: {q}")
         print("-" * 60)
-        print(query(engine, retrievers, q, use_local=args.local))
+        print(query(engine, dual_retriever, q, use_local=args.local))

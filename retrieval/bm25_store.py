@@ -64,7 +64,6 @@ class BM25Retriever:
         tokens = _tokenize(query)
         scores = self.bm25.get_scores(tokens)
 
-        # Get top_k indices sorted by score descending
         top_indices = sorted(
             range(len(scores)), key=lambda i: scores[i], reverse=True
         )[:top_k]

@@ -1,15 +1,19 @@
+import argparse
 import json
 import os
 import logging
 import sys
 import boto3
+from pathlib import Path
 from typing import Generator
 from dotenv import load_dotenv
 import re
-from llama_index.embeddings.ollama import OllamaEmbedding
 from supabase import create_client, Client
 
 load_dotenv()
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from retrieval.embeddings import get_embedding_model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,12 +21,22 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+BATCH_SIZE = 200
+MAX_EMBED_CHARS = 1500  # mxbai-embed-large is BERT-based (512-token limit); legal text tokenizes
+                        # at ~3 chars/token, so 1500 chars ≈ 500 tokens — safely within the limit
+
+
+def _checkpoint_file(table: str) -> str:
+    return f"data_files/iscr_embedded_chunks_{table}.txt"
+
+
 def _require_env(key: str) -> str:
     val = os.environ.get(key)
     if not val:
         log.error(f"Required environment variable {key!r} is not set.")
         sys.exit(1)
     return val
+
 
 def get_config() -> dict:
     rules_prefix = os.getenv("SUPREME_COURT_RULES_S3_PREFIX", "illinois-supreme-court-rules").rstrip("/")
@@ -34,11 +48,13 @@ def get_config() -> dict:
         "supabase_key":   _require_env("SUPABASE_SERVICE_KEY"),
     }
 
+
 def read_raw_corpus_s3(bucket: str, key: str, region: str | None) -> str:
     log.info("Reading raw corpus from s3://%s/%s", bucket, key)
     kwargs = {"region_name": region} if region else {}
     obj = boto3.client("s3", **kwargs).get_object(Bucket=bucket, Key=key)
     return obj["Body"].read().decode("utf-8")
+
 
 def iter_records(source: str) -> Generator[dict, None, None]:
     for line_no, line in enumerate(source.splitlines(), start=1):
@@ -50,10 +66,12 @@ def iter_records(source: str) -> Generator[dict, None, None]:
         except json.JSONDecodeError as exc:
             log.warning("Skipping malformed line %d: %s", line_no, exc)
 
+
 def clean_chunk_text(text: str) -> str:
     text = re.sub(r'\[PAGE\s+\d+\]', '', text)
     text = re.sub(r'\n(?:Amended|Adopted|Effective)\s+[A-Za-z]+\s+\d{1,2},\s+\d{4}[^\n]*', '', text)
     return re.sub(r'\n{3,}', '\n\n', text).strip()
+
 
 def build_chunk(record: dict) -> str:
     parts = ["[Illinois Supreme Court Rules"]
@@ -71,6 +89,7 @@ def build_chunk(record: dict) -> str:
     if record.get("effective_date"):
         header += f"Effective: {record['effective_date']}\n"
     return header + "\n" + record["text"]
+
 
 def build_payload(record: dict, embedding: list[float], enriched_text: str) -> dict:
     return {
@@ -95,19 +114,14 @@ def build_payload(record: dict, embedding: list[float], enriched_text: str) -> d
         "embedding":          embedding,
     }
 
-def load_checkpoint(supabase: Client) -> set[str]:
-    """
-    Returns the set of chunk_ids already present in Supabase.
 
-    Uses the DB as the authoritative source so the local checkpoint file
-    can't drift out of sync (e.g. after a crash or a run on a different machine).
-    """
+def load_checkpoint(supabase: Client, table: str) -> set[str]:
     db_ids: set[str] = set()
     page_size = 1000
     offset = 0
     while True:
         rows = (
-            supabase.table("court_rule_chunks")
+            supabase.table(table)
             .select("chunk_id")
             .range(offset, offset + page_size - 1)
             .execute()
@@ -117,74 +131,94 @@ def load_checkpoint(supabase: Client) -> set[str]:
         if len(rows) < page_size:
             break
         offset += page_size
-    log.info("Found %d chunks already in Supabase.", len(db_ids))
+    log.info("Found %d chunks already in %s.", len(db_ids), table)
 
+    checkpoint = _checkpoint_file(table)
     if db_ids:
-        with open(CHECKPOINT_FILE, "w") as f:
+        with open(checkpoint, "w") as f:
             for chunk_id in sorted(db_ids):
                 f.write(chunk_id + "\n")
 
     return db_ids
 
-def save_checkpoint(chunk_ids: list[str]) -> None:
-    with open(CHECKPOINT_FILE, "a") as f:
+
+def save_checkpoint(chunk_ids: list[str], table: str) -> None:
+    with open(_checkpoint_file(table), "a") as f:
         for chunk_id in chunk_ids:
             f.write(chunk_id + "\n")
 
-def flush_batch(supabase: Client, batch: list[dict]) -> list[str]:
+
+def flush_batch(supabase: Client, batch: list[dict], table: str) -> list[str]:
     if not batch:
         return []
     chunk_ids = [p["chunk_id"] for p in batch]
     try:
-        supabase.table("court_rule_chunks").upsert(batch).execute()
-        log.info("Flushed %d chunks to Supabase.", len(batch))
+        supabase.table(table).upsert(batch).execute()
+        log.info("Flushed %d chunks to %s.", len(batch), table)
         return chunk_ids
     except Exception as e:
         log.error("Failed to flush batch of %d chunks: %s", len(batch), e)
         return []
 
-embed_model = OllamaEmbedding(
-    model_name="nomic-embed-text",
-    base_url="http://localhost:11434",
-)
 
-CHECKPOINT_FILE = "data_files/iscr_embedded_chunks.txt"
-BATCH_SIZE = 200
+def run(local_input: Path | None = None, table: str = "court_rule_chunks") -> None:
+    cfg = get_config()
+    supabase: Client = create_client(cfg["supabase_url"], cfg["supabase_key"])
+    embed_model = get_embedding_model()
+    log.info("Embedding into table %r using model %r", table, embed_model.__class__.__name__)
 
-cfg = get_config()
-data = read_raw_corpus_s3(
-    bucket=cfg["chunked_bucket"],
-    key=cfg["chunked_key"],
-    region=cfg["aws_region"]
-)
-supabase: Client = create_client(cfg["supabase_url"], cfg["supabase_key"])
+    if local_input:
+        log.info("Reading chunks from local file: %s", local_input)
+        data = local_input.read_text(encoding="utf-8")
+    else:
+        data = read_raw_corpus_s3(cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
 
-processed = load_checkpoint(supabase)
-batch = []
-skipped = 0
-total = 0
+    processed = load_checkpoint(supabase, table)
+    batch = []
+    skipped = 0
+    total = 0
 
-for record in iter_records(data):
-    chunk_id = record["chunk_id"]
-    if chunk_id in processed:
-        skipped += 1
-        continue
-    cleaned_text = clean_chunk_text(record["text"])
-    record["text"] = cleaned_text
-    enriched_text = build_chunk(record)
-    embed_text = enriched_text[:8000]
-    if len(enriched_text) > 8000:
-        log.warning("Chunk %s exceeded max length (%d chars), truncating for embedding.", chunk_id, len(enriched_text))
-    embedding = embed_model.get_text_embedding(embed_text)
-    payload = build_payload(record, embedding, enriched_text)
-    batch.append(payload)
-    total += 1
-    if len(batch) >= BATCH_SIZE:
-        flushed_ids = flush_batch(supabase, batch)
-        save_checkpoint(flushed_ids)
-        processed.update(flushed_ids)
-        batch = []
-if batch:
-    flushed_ids = flush_batch(supabase, batch)
-    save_checkpoint(flushed_ids)
-log.info("Done. Embedded %d chunks, skipped %d already processed.", total, skipped)
+    for record in iter_records(data):
+        chunk_id = record["chunk_id"]
+        if chunk_id in processed:
+            skipped += 1
+            continue
+        cleaned_text = clean_chunk_text(record["text"])
+        record["text"] = cleaned_text
+        enriched_text = build_chunk(record)
+        if len(enriched_text) > MAX_EMBED_CHARS:
+            log.warning("Chunk %s exceeded max length (%d chars), truncating.", chunk_id, len(enriched_text))
+            enriched_text = enriched_text[:MAX_EMBED_CHARS]
+        embedding = embed_model.get_text_embedding(enriched_text)
+        payload = build_payload(record, embedding, enriched_text)
+        batch.append(payload)
+        total += 1
+        if len(batch) >= BATCH_SIZE:
+            flushed_ids = flush_batch(supabase, batch, table)
+            save_checkpoint(flushed_ids, table)
+            processed.update(flushed_ids)
+            batch = []
+
+    if batch:
+        flushed_ids = flush_batch(supabase, batch, table)
+        save_checkpoint(flushed_ids, table)
+
+    log.info("Done. Embedded %d chunks, skipped %d already processed.", total, skipped)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Embed Illinois Supreme Court Rules chunks into Supabase"
+    )
+    parser.add_argument(
+        "--table",
+        default="court_rule_chunks",
+        metavar="TABLE",
+        help="Target Supabase table name (default: court_rule_chunks).",
+    )
+    args = parser.parse_args()
+    run(table=args.table)
+
+
+if __name__ == "__main__":
+    main()

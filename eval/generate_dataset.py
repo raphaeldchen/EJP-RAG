@@ -2,11 +2,13 @@
 Generates a golden retrieval evaluation dataset.
 
 Process:
-  1. Queries Supabase for the actual citations present in the corpus
-  2. Samples diverse citations across chapters/rule ranges
-  3. Calls Claude to generate realistic test queries for each citation (and multi-citation combos)
-  4. Validates every expected_citation against Supabase — drops any case where a citation
-     doesn't exist in the DB (catches LLM hallucinations and format mismatches)
+  1. Calls Claude to generate realistic test queries (query-first) — no citations shown,
+     so query diversity is unconstrained by what happens to be in the DB
+  2. Fetches all distinct citations from Supabase (paginated)
+  3. Calls Claude to annotate each query with the citations a correct retrieval system
+     must return, choosing only from the verified DB citations
+  4. Validates every expected_citation against Supabase — strips invalid citations, drops
+     cases only when no valid citations remain
   5. Saves validated cases to data_files/eval_files/dataset.json
 
 Usage:
@@ -17,7 +19,7 @@ Usage:
 import json
 import argparse
 import sys
-import random
+import time
 from pathlib import Path
 from collections import defaultdict
 
@@ -34,12 +36,44 @@ from retrieval.config import (
 
 DATASET_PATH = Path(__file__).parent.parent / "data_files" / "eval_files" / "dataset.json"
 
-# Max citations per ILCS chapter to include in the prompt (keeps prompt size manageable)
-_MAX_PER_CHAPTER = 18
-# Max ISCR rule numbers to include
 _MAX_ISCR_RULES = 40
+_FALLBACK_PER_CHAPTER = 5   # citations from chapters NOT detected as relevant to the batch
+_QUERY_BATCH_SIZE = 30      # queries generated per API call
+_ANNOTATION_BATCH_SIZE = 20 # queries annotated per API call
+_INTER_CALL_DELAY = 65      # seconds between API calls — stays under 10K input tokens/min limit
 
-_GENERATION_PROMPT = """\
+# Maps ILCS chapter prefix → keywords that signal a query is about that chapter.
+# When any keyword matches in the batch's query text, that chapter's full citation
+# list is included in the annotation prompt instead of the small fallback sample.
+_CHAPTER_KEYWORDS: dict[str, list[str]] = {
+    "720": [
+        "offense", "crime", "criminal", "assault", "battery", "theft", "murder",
+        "robbery", "burglary", "dui", "drug", "cannabis", "firearm", "weapon",
+        "sexual", "arson", "fraud", "stalking", "domestic", "homicide", "attempt",
+        "intimidation", "kidnap", "trespass", "disorderly",
+    ],
+    "725": [
+        "procedure", "arrest", "trial", "evidence", "bail", "speedy", "discovery",
+        "jury", "plea", "indictment", "subpoena", "search", "warrant",
+        "motion", "suppress", "hearing", "preliminary", "prosecution", "miranda",
+        "right to counsel", "speedy trial",
+    ],
+    "730": [
+        "sentence", "sentencing", "probation", "parole", "corrections", "prison",
+        "incarcerated", "incarceration", "good time", "good conduct", "supervised release",
+        "mandatory release", "class 1", "class 2", "class x", "extended term",
+        "felony", "misdemeanor", "correctional", "department of corrections",
+        "day-for-day", "truth in sentencing", "meritorious good time",
+    ],
+    "705": ["juvenile", "minor", "delinquent", "youth", "underage"],
+    "405": ["mental health", "mental illness", "involuntary", "fitness", "unfit", "competency"],
+    "20":  ["expunge", "seal", "expungement", "sealing", "record clearance"],
+}
+
+# Step 1 prompt: generate queries without seeing the citation list.
+# Corpus description only — no citation strings — so query diversity
+# is not anchored to whatever citations happen to be in the prompt.
+_QUERY_GENERATION_PROMPT = """\
 You are generating a retrieval evaluation dataset for an Illinois criminal law RAG system.
 
 The system's corpus contains:
@@ -47,35 +81,21 @@ The system's corpus contains:
   705 ILCS 405 (juvenile justice), 405 ILCS 5 (mental health), 20 ILCS 2630 (expungement/sealing)
 - Illinois Supreme Court Rules (appellate procedure, discovery, jury selection, filing deadlines)
 
-IMPORTANT: Only use citations from the exact lists below — these are the citations that exist
-in the database. Do NOT invent citations.
-
-Available ILCS section citations:
-{ilcs_citations}
-
-Available Illinois Supreme Court Rule numbers (format as "Rule <number>" in expected_citations):
-{iscr_rules}
-
 Generate a JSON array of exactly {n} test cases. Each object must have:
-  "id":                   sequential string like "q001"
-  "query":                a natural language question a criminal justice researcher or advocate might ask
-  "corpus":               "ilcs", "iscr", or "out_of_scope"
-  "expected_citations":   for ilcs/iscr: list of citation strings that MUST appear in retrieved results
-                          for out_of_scope: empty list []
-                          ILCS format: exactly as listed above (e.g. "730 ILCS 5/3-6-3")
-                          ISCR format: "Rule <number>" (e.g. "Rule 412")
-  "difficulty":           "easy" (1 citation, direct lookup), "medium" (2 citations, some synthesis),
-                          or "hard" (3+ citations, multi-statute reasoning)
-  "notes":                one sentence on what retrieval failure this case would catch
+  "id":         sequential string like "q001"
+  "query":      a natural language question a criminal justice researcher or advocate might ask
+  "corpus":     "ilcs", "iscr", or "out_of_scope"
+  "difficulty": "easy" (1 citation, direct lookup), "medium" (2 citations, some synthesis),
+                or "hard" (3+ citations, multi-statute reasoning)
 
 Distribution requirements:
-- Exactly 5 out_of_scope cases (federal law, civil matters, other states) — expected_citations: []
+- Exactly 5 out_of_scope cases (federal law, civil matters, other states)
 - At least 8 iscr cases
 - At least 12 hard multi-citation ilcs cases
 - Remaining cases: mix of easy and medium ilcs
 - Cover all ILCS chapter ranges: 720, 725, 730, 705, 405, 20 ILCS 2630
 
-Query type variety (spread across the non-out_of_scope cases):
+Query type variety (spread across non-out_of_scope cases):
 - ~15% colloquial/layperson ("can you beat a DUI if...", "how long do you stay in jail for...")
 - ~15% exact-citation lookups ("what does 730 ILCS 5/3-6-3 say about...")
 - ~15% procedure/routing edge cases (queries that could plausibly route to either ilcs or iscr)
@@ -84,41 +104,100 @@ Query type variety (spread across the non-out_of_scope cases):
 Respond with ONLY a valid JSON array — no markdown fences, no explanation.
 """
 
+# Step 2 prompt: given fixed queries + full citation list, predict which citations
+# a correct retrieval system must return.
+_ANNOTATION_PROMPT = """\
+You are annotating a retrieval evaluation dataset for an Illinois criminal law RAG system.
 
-def _sample_ilcs_citations(client) -> list[str]:
-    """
-    Fetch all distinct section_citations and sample up to _MAX_PER_CHAPTER per chapter.
-    Groups by leading chapter number (720, 725, 730, etc.).
-    """
-    rows = (
-        client.table("ilcs_chunks")
-        .select("section_citation")
-        .not_.is_("section_citation", "null")
-        .execute()
-        .data
-    )
-    all_cits = sorted(set(r["section_citation"] for r in rows if r.get("section_citation")))
+For each query below, list the ILCS section citations and/or Illinois Supreme Court Rule numbers
+that a correct retrieval system MUST return to fully answer the question. Only use citations
+from the exact lists provided — these are the only citations that exist in the database.
 
-    # Group by chapter prefix (first token before " ILCS")
+Available ILCS section citations (use ONLY these):
+{ilcs_citations}
+
+Available Illinois Supreme Court Rule numbers (format as "Rule <number>"):
+{iscr_rules}
+
+Queries to annotate:
+{queries}
+
+Return a JSON array with one object per query. Each object:
+  "id":                   the query id provided
+  "expected_citations":   list of citation strings that MUST appear in a correct answer.
+                          For out_of_scope queries: empty list [].
+                          Be conservative — only include citations directly required.
+                          1–4 citations per query is typical.
+                          ILCS format: exactly as listed (e.g. "730 ILCS 5/3-6-3")
+                          ISCR format: "Rule <number>"
+  "notes":                one sentence on what retrieval failure this case would catch
+
+Respond with ONLY a valid JSON array — no markdown fences, no explanation.
+"""
+
+
+def _fetch_all_ilcs_citations(client) -> list[str]:
+    """Fetch all distinct ILCS section citations — paginated, no sampling cap."""
+    all_cits: set[str] = set()
+    page_size = 1000
+    offset = 0
+    while True:
+        rows = (
+            client.table("ilcs_chunks")
+            .select("section_citation")
+            .not_.is_("section_citation", "null")
+            .range(offset, offset + page_size - 1)
+            .execute()
+            .data
+        )
+        for r in rows:
+            if r.get("section_citation"):
+                all_cits.add(r["section_citation"])
+        if len(rows) < page_size:
+            break
+        offset += page_size
+    return sorted(all_cits)
+
+
+def _group_citations_by_chapter(all_cits: list[str]) -> dict[str, list[str]]:
+    """Group a flat citation list by ILCS chapter prefix (first token before ' ILCS')."""
     by_chapter: dict[str, list[str]] = defaultdict(list)
     for c in all_cits:
-        parts = c.split()
-        chapter = parts[0] if parts else "other"
+        chapter = c.split()[0] if c.split() else "other"
         by_chapter[chapter].append(c)
+    return dict(by_chapter)
 
-    sampled = []
-    for chapter, cits in sorted(by_chapter.items()):
-        if len(cits) <= _MAX_PER_CHAPTER:
-            sampled.extend(cits)
+
+def _citations_for_batch(
+    queries: list[dict],
+    citations_by_chapter: dict[str, list[str]],
+) -> list[str]:
+    """
+    Build a focused citation list for an annotation batch.
+
+    Chapters detected as relevant to any query in the batch get their full
+    citation list. Undetected chapters get a small fallback sample so the
+    model can still recognise cross-chapter edge cases.
+    """
+    combined = " ".join(q["query"].lower() for q in queries)
+    relevant_chapters = {
+        chapter
+        for chapter, keywords in _CHAPTER_KEYWORDS.items()
+        if any(kw in combined for kw in keywords)
+    }
+
+    result = []
+    for chapter, cits in sorted(citations_by_chapter.items()):
+        if chapter in relevant_chapters:
+            result.extend(cits)  # full list for relevant chapters
         else:
-            # Evenly spaced sample to capture spread within the chapter
-            step = len(cits) // _MAX_PER_CHAPTER
-            sampled.extend(cits[::step][:_MAX_PER_CHAPTER])
+            step = max(1, len(cits) // _FALLBACK_PER_CHAPTER)
+            result.extend(cits[::step][:_FALLBACK_PER_CHAPTER])
 
-    return sampled
+    return result
 
 
-def _sample_iscr_rules(client) -> list[str]:
+def _fetch_iscr_rules(client) -> list[str]:
     rows = (
         client.table("court_rule_chunks")
         .select("rule_number")
@@ -130,25 +209,30 @@ def _sample_iscr_rules(client) -> list[str]:
     return rules[:_MAX_ISCR_RULES]
 
 
-_BATCH_SIZE = 30  # cases per API call — keeps output well within token limits
+def _call_claude(ai: anthropic.Anthropic, prompt: str, max_tokens: int = 8192, temperature: float = 0.4) -> list[dict]:
+    """Single Claude call with retry on rate limit. Raises if response can't be parsed as JSON."""
+    for attempt in range(5):
+        try:
+            response = ai.messages.create(
+                model=ANTHROPIC_MODEL,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            break
+        except anthropic.RateLimitError:
+            if attempt == 4:
+                raise
+            wait = 60 * (attempt + 1)
+            print(f"[RateLimit] Waiting {wait}s before retry {attempt + 2}/5...")
+            time.sleep(wait)
 
+    if response.stop_reason == "max_tokens":
+        print("[Warning] Response hit max_tokens limit — output may be truncated")
 
-def _call_claude(ai: anthropic.Anthropic, prompt: str, n: int) -> list[dict]:
-    """Single Claude call; raises if response can't be parsed as a JSON array."""
-    response = ai.messages.create(
-        model=ANTHROPIC_MODEL,
-        max_tokens=16384,
-        temperature=0.4,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    time.sleep(_INTER_CALL_DELAY)
 
-    stop_reason = response.stop_reason
     raw = response.content[0].text.strip()
-
-    if stop_reason == "max_tokens":
-        print(f"[Dataset] Warning: response hit max_tokens limit — output may be truncated")
-
-    # Strip markdown code fences if present
     if raw.startswith("```"):
         raw = raw.split("```", 2)[1]
         if raw.startswith("json"):
@@ -158,59 +242,76 @@ def _call_claude(ai: anthropic.Anthropic, prompt: str, n: int) -> list[dict]:
     return json.loads(raw)
 
 
-def generate(n: int) -> list[dict]:
-    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-
-    print("[Dataset] Fetching citations from Supabase...")
-    ilcs_cits = _sample_ilcs_citations(supabase)
-    iscr_rules = _sample_iscr_rules(supabase)
-    print(f"[Dataset] {len(ilcs_cits)} ILCS citations, {len(iscr_rules)} ISCR rules sampled")
-
-    if len(ilcs_cits) == 0:
-        raise RuntimeError("No ILCS citations found in Supabase — is the corpus ingested?")
-
-    ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    dataset: list[dict] = []
+def _generate_queries(ai: anthropic.Anthropic, n: int) -> list[dict]:
+    """Step 1: generate query stubs (id, query, corpus, difficulty) without citations."""
+    queries: list[dict] = []
     id_counter = 1
-
-    # Generate in batches so each response fits comfortably within token limits
     remaining = n
     batch_num = 0
+
     while remaining > 0:
-        batch_n = min(remaining, _BATCH_SIZE)
+        batch_n = min(remaining, _QUERY_BATCH_SIZE)
         batch_num += 1
-        print(f"[Dataset] Batch {batch_num}: generating {batch_n} cases "
+        print(f"[Queries] Batch {batch_num}: generating {batch_n} queries "
               f"({n - remaining + batch_n}/{n} total)...")
 
-        prompt = _GENERATION_PROMPT.format(
-            ilcs_citations="\n".join(ilcs_cits),
-            iscr_rules="\n".join(iscr_rules),
-            n=batch_n,
-        )
+        prompt = _QUERY_GENERATION_PROMPT.format(n=batch_n)
+        batch = _call_claude(ai, prompt, max_tokens=8192)[:batch_n]  # guard against over-generation
 
-        batch = _call_claude(ai, prompt, batch_n)
-
-        # Re-sequence IDs to be globally unique across batches
         for case in batch:
             case["id"] = f"q{id_counter:03d}"
             id_counter += 1
 
-        dataset.extend(batch)
-        remaining -= batch_n
+        queries.extend(batch)
+        remaining -= len(batch)
 
-    return dataset
+    return queries
+
+
+def _annotate_queries(
+    ai: anthropic.Anthropic,
+    queries: list[dict],
+    citations_by_chapter: dict[str, list[str]],
+    iscr_rules: list[str],
+) -> dict[str, dict]:
+    """
+    Step 2: for each query, ask Claude which citations must appear in a correct answer.
+    Uses chapter-aware citation lists — each batch only sees full citation lists for
+    chapters relevant to its queries, keeping prompt size manageable.
+    Returns a dict mapping query id → {expected_citations, notes}.
+    """
+    annotations: dict[str, dict] = {}
+
+    for batch_start in range(0, len(queries), _ANNOTATION_BATCH_SIZE):
+        batch = queries[batch_start: batch_start + _ANNOTATION_BATCH_SIZE]
+        batch_end = batch_start + len(batch)
+
+        ilcs_cits = _citations_for_batch(batch, citations_by_chapter)
+        print(f"[Annotate] Queries {batch_start + 1}–{batch_end} of {len(queries)} "
+              f"({len(ilcs_cits)} ILCS citations in prompt)...")
+
+        queries_block = "\n".join(f'{q["id"]}: {q["query"]}' for q in batch)
+        prompt = _ANNOTATION_PROMPT.format(
+            ilcs_citations="\n".join(ilcs_cits),
+            iscr_rules="\n".join(iscr_rules),
+            queries=queries_block,
+        )
+
+        results = _call_claude(ai, prompt, max_tokens=4096, temperature=0.2)
+        for ann in results:
+            annotations[ann["id"]] = ann
+
+    return annotations
 
 
 def _validate_citations(dataset: list[dict], client) -> list[dict]:
     """
-    Drops cases where any expected_citation doesn't exist in Supabase.
-
-    Does two bulk queries (one ILCS, one ISCR) rather than one per citation,
-    so validation is fast regardless of dataset size.
+    Validates expected_citations against Supabase.
+    Strips citations not found in DB; drops a case only if no valid citations remain
+    (out_of_scope cases with empty lists are always kept).
     """
-    # Collect all unique citations needed across the dataset
     ilcs_needed: set[str] = set()
-    iscr_needed: set[str] = set()  # just the rule number, e.g. "412"
+    iscr_needed: set[str] = set()
 
     for case in dataset:
         if case.get("corpus") == "out_of_scope":
@@ -221,7 +322,6 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
             else:
                 ilcs_needed.add(cit)
 
-    # Bulk-check ILCS citations
     valid_ilcs: set[str] = set()
     if ilcs_needed:
         rows = (
@@ -233,7 +333,6 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
         )
         valid_ilcs = {r["section_citation"] for r in rows if r.get("section_citation")}
 
-    # Bulk-check ISCR rule numbers (stored as int or string in DB)
     valid_iscr: set[str] = set()
     if iscr_needed:
         rows = (
@@ -245,10 +344,9 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
         )
         valid_iscr = {str(r["rule_number"]) for r in rows if r.get("rule_number") is not None}
 
-    # Filter cases — drop any case where at least one citation wasn't found
-    valid_cases: list[dict] = []
-    dropped: list[tuple[str, list[str]]] = []
+    print(f"\n[Validate] Checked {len(ilcs_needed)} ILCS + {len(iscr_needed)} ISCR citations")
 
+    valid_cases: list[dict] = []
     for case in dataset:
         if case.get("corpus") == "out_of_scope":
             valid_cases.append(case)
@@ -264,18 +362,23 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
                     missing.append(cit)
 
         if missing:
-            dropped.append((case.get("id", "?"), missing))
+            case["expected_citations"] = [
+                c for c in case["expected_citations"] if c not in missing
+            ]
+            if case["expected_citations"]:
+                print(f"  [{case['id']}] stripped {len(missing)} invalid citations: {missing}")
+                valid_cases.append(case)
+            else:
+                print(f"  [{case['id']}] dropped entirely — no valid citations remain")
         else:
             valid_cases.append(case)
 
-    # Report
-    print(f"\n[Validate] Checked {len(ilcs_needed)} ILCS + {len(iscr_needed)} ISCR citations")
+    kept = len(valid_cases)
+    dropped = len(dataset) - kept
     if dropped:
-        print(f"[Validate] Dropped {len(dropped)}/{len(dataset)} cases — citations not found in DB:")
-        for case_id, missing_cits in dropped:
-            print(f"  [{case_id}] {missing_cits}")
+        print(f"[Validate] {kept} cases kept, {dropped} dropped")
     else:
-        print(f"[Validate] All citations verified ✓  ({len(valid_cases)} cases kept)")
+        print(f"[Validate] All citations verified ✓  ({kept} cases kept)")
 
     return valid_cases
 
@@ -298,16 +401,50 @@ def _print_summary(dataset: list[dict]):
     print(f"  Citation count per case: {dict(sorted(by_num_cits.items()))}")
 
 
+def generate(n: int) -> list[dict]:
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    # Step 1: generate queries (no citation list shown — avoids circularity)
+    queries = _generate_queries(ai, n)
+    print(f"[Dataset] Generated {len(queries)} queries")
+
+    # Step 2: fetch full citation list and group by chapter for annotation
+    print("[Dataset] Fetching citations from Supabase...")
+    all_ilcs_cits = _fetch_all_ilcs_citations(supabase)
+    citations_by_chapter = _group_citations_by_chapter(all_ilcs_cits)
+    iscr_rules = _fetch_iscr_rules(supabase)
+    print(f"[Dataset] {len(all_ilcs_cits)} ILCS citations across "
+          f"{len(citations_by_chapter)} chapters, {len(iscr_rules)} ISCR rules")
+
+    if not all_ilcs_cits:
+        raise RuntimeError("No ILCS citations found in Supabase — is the corpus ingested?")
+
+    # Step 3: annotate queries with chapter-aware citation lists
+    annotations = _annotate_queries(ai, queries, citations_by_chapter, iscr_rules)
+
+    # Merge annotations into query stubs
+    dataset: list[dict] = []
+    for q in queries:
+        ann = annotations.get(q["id"], {})
+        dataset.append({
+            **q,
+            "expected_citations": ann.get("expected_citations", []),
+            "notes": ann.get("notes", ""),
+        })
+
+    return dataset, supabase
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate retrieval evaluation dataset")
     parser.add_argument("--n", type=int, default=65, help="Number of test cases to generate")
     parser.add_argument("--output", default=str(DATASET_PATH), help="Output JSON file path")
     args = parser.parse_args()
 
-    dataset = generate(args.n)
+    dataset, supabase = generate(args.n)
     print(f"\n[Dataset] Generated {len(dataset)} cases (pre-validation)")
 
-    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     dataset = _validate_citations(dataset, supabase)
 
     out_path = Path(args.output)

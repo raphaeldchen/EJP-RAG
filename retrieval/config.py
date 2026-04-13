@@ -7,19 +7,28 @@ load_dotenv()
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 
-# Ollama (used for embeddings only)
+# Ollama (used as one possible embedding backend)
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-EMBED_MODEL = "nomic-embed-text"
-EMBED_DIM = 768
+
+# Embedding model config — override via env to switch models without code changes.
+# EMBED_BACKEND: "ollama" (default) | "sentence-transformers"
+# Example for bge-base experiment:
+#   EMBED_BACKEND=sentence-transformers EMBED_MODEL=BAAI/bge-base-en-v1.5
+#   ILCS_TABLE=ilcs_chunks_bge_base ILCS_RPC=match_ilcs_chunks_bge_base
+EMBED_BACKEND = os.getenv("EMBED_BACKEND", "ollama")
+EMBED_MODEL   = os.getenv("EMBED_MODEL", "nomic-embed-text")
+EMBED_DIM     = int(os.getenv("EMBED_DIM", "768"))
 
 # Anthropic (used for LLM inference and reflection)
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 # Retrieval
-DEFAULT_TOP_K = 20
+DEFAULT_TOP_K = 40
 SIMILARITY_THRESHOLD = 0.5
 
-# Table / function names
-ILCS_RPC = "match_ilcs_chunks"
-ISCR_RPC = "match_court_rule_chunks"
+# Table / RPC names — override via env to point at a different embedding experiment.
+ILCS_TABLE = os.getenv("ILCS_TABLE", "ilcs_chunks")
+ISCR_TABLE = os.getenv("ISCR_TABLE", "court_rule_chunks")
+ILCS_RPC   = os.getenv("ILCS_RPC",   "match_ilcs_chunks")
+ISCR_RPC   = os.getenv("ISCR_RPC",   "match_court_rule_chunks")

@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
 from retrieval.embeddings import get_embedding_model
-from retrieval.indexes import get_supabase_client, build_all_retrievers
+from retrieval.indexes import get_supabase_client, build_all_retrievers, build_dual_retriever
 from retrieval.bm25_store import BM25Retriever
 from retrieval.postprocessor import CrossEncoderReranker
 from retrieval.reflection import reflect, QueryIntent
@@ -147,11 +147,13 @@ def build_components() -> dict:
 
     print("[Eval] Building vector indexes...")
     retrievers = build_all_retrievers(client, bm25)
+    dual_retriever = build_dual_retriever(client, bm25, retrievers=retrievers)
 
     return {
         "bm25": bm25,
         "ilcs_retriever": retrievers["ilcs"],
         "iscr_retriever": retrievers["iscr"],
+        "dual_retriever": dual_retriever,
         "reranker": reranker,
     }
 
@@ -176,7 +178,8 @@ def retrieve_citations(
                   instead of the primary query (used in the reflected stage to align
                   the reranker with the rewritten statutory-language query).
     """
-    retriever = components.get(f"{corpus}_retriever")
+    corpus_retriever = components.get(f"{corpus}_retriever")
+    dual_retriever = components["dual_retriever"]
     bm25: BM25Retriever = components["bm25"]
     reranker: CrossEncoderReranker = components["reranker"]
     qb = QueryBundle(query_str=query)
@@ -186,15 +189,16 @@ def retrieve_citations(
         raw = [_extract_citation(n) for n in nodes]
 
     elif stage == "vector":
-        nodes: list[NodeWithScore] = retriever._vector_retriever.retrieve(qb)
+        # Corpus-specific: diagnostic only, not part of the production path
+        nodes: list[NodeWithScore] = corpus_retriever._vector_retriever.retrieve(qb)
         raw = [_extract_citation(n) for n in nodes]
 
     elif stage == "fused":
-        nodes = retriever._retrieve(qb)
+        nodes = dual_retriever._retrieve(qb)
         raw = [_extract_citation(n) for n in nodes]
 
     elif stage == "reranked":
-        fused = retriever._retrieve(qb)
+        fused = dual_retriever._retrieve(qb)
         rerank_qb = QueryBundle(query_str=rerank_query) if rerank_query else qb
         nodes = reranker._postprocess_nodes(fused, rerank_qb)
         raw = [_extract_citation(n) for n in nodes]
@@ -452,17 +456,14 @@ def main():
                     # secondary = rewritten (citation keyword signals + citation pinning).
                     # Reranker uses the rewritten query so it scores candidates against
                     # precise statutory language rather than the colloquial original.
-                    retriever = components.get(f"{corpus}_retriever")
-                    if retriever:
-                        retriever._secondary_query = refl.rewritten_query
+                    components["dual_retriever"]._secondary_query = refl.rewritten_query
                     try:
                         retrieved = retrieve_citations(
                             components, query, corpus, "reranked",
                             rerank_query=refl.rewritten_query,
                         )
                     finally:
-                        if retriever:
-                            retriever._secondary_query = None
+                        components["dual_retriever"]._secondary_query = None
                 else:
                     retrieved = retrieve_citations(components, query, corpus, "reranked")
             else:

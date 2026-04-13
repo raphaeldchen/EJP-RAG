@@ -144,11 +144,31 @@ python -m eval.run_eval --filter-difficulty hard --failures  # drill into worst 
 
 ## Planned Improvements
 
+### Model improvement priority order
+
+Leverage ranking for this corpus (highest to lowest):
+
+1. **Embedding model** — affects recall at the source; if the right chunk isn't in the top-40 candidate pool, the reranker never sees it. The adjacent-section failure (e.g. 104-10 vs 104-25) is an embedding failure. Fixing it helps every query.
+2. **Reranker** — affects precision on near-misses that survive into the candidate pool. Valuable but downstream of embeddings.
+3. **Prompt engineering** — cheaper than fine-tuning; worth trying before generation fine-tuning.
+4. **Generation model (Claude)** — lowest ROI. Anthropic does not expose fine-tuning on the Claude API. More importantly, generation is not the bottleneck — retrieval is. Claude already synthesizes well from good context; improving what gets retrieved matters more.
+
 ### High priority (largest accuracy impact)
 
-- [ ] **Domain-adapted embeddings** — swap `nomic-embed-text` for a legal-domain model (e.g. fine-tune on ILCS/ISCR text, or evaluate `BAAI/bge-large-en-v1.5` as a drop-in). Single highest-leverage change; expect +5–8 nDCG points.
+- [ ] **Fine-tune embedding model** — `nomic-embed-text` is the best out-of-the-box model tested so far and remains the production baseline. Alternatives tested and ruled out: `BAAI/bge-base-en-v1.5` (nDCG@6 0.317, -0.28 vs nomic), `mxbai-embed-large` (nDCG@6 0.389, -0.21 vs nomic). Neither closed the gap without fine-tuning. Next step: fine-tune `nomic-embed-text` or `BAAI/bge-large-en-v1.5` on lawyer-verified (query, relevant chunk) pairs using contrastive/bi-encoder loss (MultipleNegativesRankingLoss in sentence-transformers). Hard negatives already available from eval failures. **Highest single-leverage change. Planned after lawyer refinement sessions.** Expect +5–8 nDCG points.
+
+  **Remaining candidate to evaluate before committing to fine-tuning:**
+  - `intfloat/e5-large-v2` (sentence-transformers, 1024-dim — requires prepending `"query: "`/`"passage: "` prefixes at embed time; designed specifically for retrieval)
+  - Skip `bge-large` (Ollama-native) — mxbai already tested the 1024-dim Ollama path; bge-large is unlikely to beat nomic given the pattern observed
+  - Skip legal-specific BERT models (`pile-of-law`, `InLegalBERT`) — trained for classification not dense retrieval
+
+  **Embed infrastructure:** `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM`, `ILCS_TABLE`, `ILCS_RPC`, `ISCR_TABLE`, `ISCR_RPC` are all env-var configurable in `config.py`. Experiment tables use naming convention `ilcs_chunks_{model}` / `court_rule_chunks_{model}` with matching RPC functions. See `embed/ilga_embed.py --table` and `embed/iscr_embed.py --table` flags.
+
+  **Schema note:** 1024-dim models require `ALTER TABLE ... TYPE vector(1024)` on experiment tables. mxbai required `MAX_EMBED_CHARS=1500` in `iscr_embed.py` (BERT 512-token limit; legal text tokenizes at ~3 chars/token).
+
+  **Fine-tuning does not transfer between models** — weights are architecture-specific. Training data (query/chunk pairs) is reusable across any model.
+- [ ] **Fine-tune reranker on Illinois legal query pairs** — `cross-encoder/ms-marco-electra-base` tested and significantly worse (nDCG@6 0.484 vs 0.579); reverted. The right path is fine-tuning MiniLM (`ms-marco-MiniLM-L-6-v2`) on domain-specific triplets: (query, correct chunk, hard-negative near-miss chunk). Hard negatives already available from eval failures. Needs lawyer-verified positives as ground truth — 100–200 pairs sufficient. **Planned with lawyer collaboration.**
 - [ ] **Expand reranker candidate window** — increase `top_n` from 6 to 10 in `CrossEncoderReranker`. Improves Recall@6 on hard multi-statute queries by giving more candidates a chance to survive reranking.
-- [ ] **Larger/better reranker** — `cross-encoder/ms-marco-electra-base` over `ms-marco-MiniLM-L-6-v2`. ~3x latency cost but meaningful precision gains, especially on legal text the small model wasn't trained on.
 - [ ] **Embed CourtListener opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent.
 
 ### Architecture (planned evolution)

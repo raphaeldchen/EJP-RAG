@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Generator
 from dotenv import load_dotenv
 import re
-from llama_index.embeddings.ollama import OllamaEmbedding
 from supabase import create_client, Client
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from retrieval.embeddings import get_embedding_model
 
 load_dotenv()
 
@@ -20,8 +22,11 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-CHECKPOINT_FILE = "data_files/ilga_embedded_chunks.txt"
 BATCH_SIZE = 20
+
+
+def _checkpoint_file(table: str) -> str:
+    return f"data_files/ilga_embedded_chunks_{table}.txt"
 
 # ---------------------------------------------------------------------------
 # Scope filter — only embed chapters relevant to Illinois criminal justice
@@ -127,21 +132,20 @@ def clean_chunk_text(text: str) -> str:
     return re.sub(r'\n{3,}', '\n\n', text).strip()
 
 
-def load_checkpoint(supabase: Client) -> set[str]:
+def load_checkpoint(supabase: Client, table: str) -> set[str]:
     """
-    Returns the set of chunk_ids already present in Supabase.
+    Returns the set of chunk_ids already present in the target table.
 
     Uses the DB as the authoritative source so the local checkpoint file
     can't drift out of sync (e.g. after a crash or a run on a different machine).
     The local file is kept as a fast-path cache but is always reconciled with the DB.
     """
-    # Authoritative: fetch all chunk_ids already in Supabase
     db_ids: set[str] = set()
     page_size = 1000
     offset = 0
     while True:
         rows = (
-            supabase.table("ilcs_chunks")
+            supabase.table(table)
             .select("chunk_id")
             .range(offset, offset + page_size - 1)
             .execute()
@@ -151,19 +155,19 @@ def load_checkpoint(supabase: Client) -> set[str]:
         if len(rows) < page_size:
             break
         offset += page_size
-    log.info("Found %d chunks already in Supabase.", len(db_ids))
+    log.info("Found %d chunks already in %s.", len(db_ids), table)
 
-    # Reconcile: rewrite local checkpoint to match DB state
+    checkpoint = _checkpoint_file(table)
     if db_ids:
-        with open(CHECKPOINT_FILE, "w") as f:
+        with open(checkpoint, "w") as f:
             for chunk_id in sorted(db_ids):
                 f.write(chunk_id + "\n")
 
     return db_ids
 
 
-def save_checkpoint(chunk_ids: list[str]) -> None:
-    with open(CHECKPOINT_FILE, "a") as f:
+def save_checkpoint(chunk_ids: list[str], table: str) -> None:
+    with open(_checkpoint_file(table), "a") as f:
         for chunk_id in chunk_ids:
             f.write(chunk_id + "\n")
 
@@ -187,35 +191,31 @@ def build_payload(record: dict, embedding: list[float], enriched_text: str) -> d
     }
 
 
-def flush_batch(supabase: Client, batch: list[dict]) -> list[str]:
+def flush_batch(supabase: Client, batch: list[dict], table: str) -> list[str]:
     if not batch:
         return []
     try:
-        supabase.table("ilcs_chunks").upsert(batch).execute()
-        log.info("Flushed %d chunks to Supabase.", len(batch))
+        supabase.table(table).upsert(batch).execute()
+        log.info("Flushed %d chunks to %s.", len(batch), table)
         return [p["chunk_id"] for p in batch]
     except Exception as e:
         if len(batch) == 1:
             log.error("Failed to flush chunk %s even as a single row: %s", batch[0]["chunk_id"], e)
             return []
-        # Halve the batch and retry each half — handles statement timeouts where
-        # the batch is too large rather than the data itself being bad.
         mid = len(batch) // 2
         log.warning("Batch of %d failed (%s), splitting into %d + %d and retrying.",
                     len(batch), e, mid, len(batch) - mid)
         time.sleep(2)
-        left  = flush_batch(supabase, batch[:mid])
-        right = flush_batch(supabase, batch[mid:])
+        left  = flush_batch(supabase, batch[:mid], table)
+        right = flush_batch(supabase, batch[mid:], table)
         return left + right
 
 
-def run(local_input: Path | None = None) -> None:
+def run(local_input: Path | None = None, table: str = "ilcs_chunks") -> None:
     cfg = get_config()
     supabase: Client = create_client(cfg["supabase_url"], cfg["supabase_key"])
-    embed_model = OllamaEmbedding(
-        model_name="nomic-embed-text",  # mxbai-embed-large for better quality (slower)
-        base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-    )
+    embed_model = get_embedding_model()
+    log.info("Embedding into table %r using model %r", table, embed_model.__class__.__name__)
 
     if local_input:
         log.info("Reading chunks from local file: %s", local_input)
@@ -223,7 +223,7 @@ def run(local_input: Path | None = None) -> None:
     else:
         data = read_raw_corpus_s3(cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
 
-    processed = load_checkpoint(supabase)
+    processed = load_checkpoint(supabase, table)
     batch = []
     skipped = 0
     out_of_scope = 0
@@ -249,16 +249,16 @@ def run(local_input: Path | None = None) -> None:
         batch.append(payload)
         total += 1
         if len(batch) >= BATCH_SIZE:
-            flushed_ids = flush_batch(supabase, batch)
+            flushed_ids = flush_batch(supabase, batch, table)
             failed += len(batch) - len(flushed_ids)
-            save_checkpoint(flushed_ids)
+            save_checkpoint(flushed_ids, table)
             processed.update(flushed_ids)
             batch = []
 
     if batch:
-        flushed_ids = flush_batch(supabase, batch)
+        flushed_ids = flush_batch(supabase, batch, table)
         failed += len(batch) - len(flushed_ids)
-        save_checkpoint(flushed_ids)
+        save_checkpoint(flushed_ids, table)
 
     log.info("Done. Embedded %d chunks, skipped %d already processed, %d out-of-scope filtered, %d failed.", total, skipped, out_of_scope, failed)
 
@@ -274,8 +274,15 @@ def main() -> None:
         metavar="FILE",
         help="Read chunks from a local JSONL file instead of S3.",
     )
+    parser.add_argument(
+        "--table",
+        default="ilcs_chunks",
+        metavar="TABLE",
+        help="Target Supabase table name (default: ilcs_chunks). "
+             "Use a suffixed name like ilcs_chunks_bge_base when testing a new embedding model.",
+    )
     args = parser.parse_args()
-    run(local_input=args.local_input)
+    run(local_input=args.local_input, table=args.table)
 
 
 if __name__ == "__main__":
