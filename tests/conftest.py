@@ -29,9 +29,12 @@ def iscr_texts():
             if obj["Key"].lower().endswith(".pdf"):
                 pdf_keys.append(obj["Key"])
 
+    if not pdf_keys:
+        pytest.skip(f"No PDFs found in s3://{bucket}/{prefix}/ — check credentials and S3 prefix")
+
     texts = {}
     for key in pdf_keys:
-        stem = Path(key).stem
+        stem = key[len(prefix):].lstrip("/").replace("/", "_").removesuffix(".pdf")
         cache_path = ISCR_FIXTURES_DIR / f"{stem}.txt"
         if cache_path.exists():
             texts[stem] = cache_path.read_text(encoding="utf-8")
@@ -55,6 +58,8 @@ def iscr_texts():
 def ilcs_records():
     """Load all records from the local ilcs_corpus.jsonl."""
     corpus_path = Path(__file__).parent.parent / "ilcs_corpus.jsonl"
+    if not corpus_path.exists():
+        pytest.skip(f"ilcs_corpus.jsonl not found at {corpus_path} — run ilga_ingest.py first")
     records = []
     with open(corpus_path, encoding="utf-8") as f:
         for line in f:
