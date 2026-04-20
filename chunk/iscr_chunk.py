@@ -146,6 +146,12 @@ SUBSECTION_RE = re.compile(
     r"^\(([a-z]|[0-9]+)\)\s+",
     re.MULTILINE
 )
+# Split rules only at letter-level subsections — numeric items (1)(2)(3) stay
+# with their parent letter subsection to preserve introductory context.
+LETTER_SUBSECTION_RE = re.compile(
+    r"^\(([a-z])\)\s+",
+    re.MULTILINE
+)
 # Committee Comments section detection
 COMMITTEE_COMMENT_RE = re.compile(
     r"(?:Committee Comments?|COMMITTEE COMMENTS?|Comment|COMMENT)\s*.*?(?=\n\n|\Z)",
@@ -229,25 +235,34 @@ def should_split_rule(text: str) -> bool:
     return len(subsection_matches) >= 3 and len(text) > 1000
 
 def split_rule_into_subsections(rule_text: str, rule_number: str) -> List[Tuple[str, str, str]]:
+    """Split a rule at letter-subsection boundaries only.
+
+    Numeric items like (1)(2)(3) stay with their parent letter subsection.
+    Intro text (before the first letter subsection) is prepended to the first
+    letter subsection so it is never emitted as a standalone orphan chunk.
+    """
     sections = []
     lines = rule_text.split('\n')
-    current_section = []
-    current_subsection = None
-    current_title = None
+    current_section: List[str] = []
+    current_subsection: Optional[str] = None
+    current_title: Optional[str] = None
+    carry_forward: List[str] = []  # intro lines to prepend to the first subsection
+
     for line in lines:
-        subsection_match = SUBSECTION_RE.match(line.strip())
+        subsection_match = LETTER_SUBSECTION_RE.match(line.strip())
         if subsection_match and current_section:
-            # Save previous section
-            if current_section:
-                sections.append((
-                    current_subsection or "intro",
-                    current_title or f"Rule {rule_number}",
-                    '\n'.join(current_section).strip()
-                ))
-                current_section = []
+            saved_text = '\n'.join(current_section).strip()
+            if current_subsection is None:
+                # This is intro text — carry forward rather than emit standalone
+                carry_forward = current_section[:]
+            else:
+                prefix = '\n'.join(carry_forward).strip()
+                full_text = (prefix + '\n' + saved_text).strip() if prefix else saved_text
+                sections.append((current_subsection, current_title or f"Rule {rule_number}", full_text))
+                carry_forward = []
+            current_section = []
         if subsection_match:
             current_subsection = subsection_match.group(1)
-            # Try to extract a meaningful title from the line
             title_part = line.strip()[len(subsection_match.group(0)):].strip()
             current_title = f"Rule {rule_number}({current_subsection})"
             if title_part and len(title_part) < 100:
@@ -255,13 +270,18 @@ def split_rule_into_subsections(rule_text: str, rule_number: str) -> List[Tuple[
             current_section.append(line)
         else:
             current_section.append(line)
-    # Add final section
+
+    # Emit the final section
     if current_section:
+        saved_text = '\n'.join(current_section).strip()
+        prefix = '\n'.join(carry_forward).strip()
+        full_text = (prefix + '\n' + saved_text).strip() if prefix else saved_text
         sections.append((
             current_subsection or "full",
             f"Rule {rule_number}" + (f"({current_subsection})" if current_subsection else ""),
-            '\n'.join(current_section).strip()
+            full_text,
         ))
+
     return sections
 
 def _build_chunk(
