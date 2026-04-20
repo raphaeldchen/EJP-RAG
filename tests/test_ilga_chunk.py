@@ -55,3 +55,100 @@ def test_enumeration_not_severed():
                 f"Chunk {chunk['chunk_id']} (index {chunk['chunk_index']}) "
                 f"starts with orphaned subsection marker:\n{chunk['text'][:100]}"
             )
+
+
+from collections import defaultdict
+
+
+def test_no_orphaned_subsection_starts(ilcs_chunks):
+    orphan_re = re.compile(r"^\s*\([a-z0-9]\)")
+    failures = []
+    for chunk in ilcs_chunks:
+        if chunk["chunk_index"] > 0 and orphan_re.match(chunk["text"]):
+            failures.append(chunk["chunk_id"])
+    assert not failures, (
+        f"{len(failures)} chunks start with orphaned subsection markers: {failures[:5]}"
+    )
+
+
+def test_chunk_index_contiguous(ilcs_chunks):
+    by_parent = defaultdict(list)
+    for chunk in ilcs_chunks:
+        by_parent[chunk["parent_id"]].append(chunk["chunk_index"])
+    failures = []
+    for parent_id, indices in by_parent.items():
+        expected = set(range(len(indices)))
+        if set(indices) != expected:
+            failures.append(f"{parent_id}: {sorted(indices)}")
+    assert not failures, f"Non-contiguous chunk indices:\n" + "\n".join(failures[:5])
+
+
+def test_chunk_total_accurate(ilcs_chunks):
+    by_parent = defaultdict(list)
+    for chunk in ilcs_chunks:
+        by_parent[chunk["parent_id"]].append(chunk)
+    failures = []
+    for parent_id, siblings in by_parent.items():
+        actual = len(siblings)
+        for chunk in siblings:
+            if chunk["chunk_total"] != actual:
+                failures.append(
+                    f"{chunk['chunk_id']}: chunk_total={chunk['chunk_total']} actual={actual}"
+                )
+    assert not failures, f"chunk_total mismatches:\n" + "\n".join(failures[:5])
+
+
+def test_no_empty_chunks(ilcs_chunks):
+    failures = [c["chunk_id"] for c in ilcs_chunks if len(c["text"]) < MIN_CHUNK_SIZE]
+    assert not failures, f"{len(failures)} chunks below MIN_CHUNK_SIZE: {failures[:5]}"
+
+
+def test_chunk_ids_unique(ilcs_chunks):
+    ids = [c["chunk_id"] for c in ilcs_chunks]
+    assert len(ids) == len(set(ids)), "Duplicate chunk_ids found in ILCS chunks"
+
+
+def test_no_chunk_exceeds_max_size(ilcs_chunks):
+    failures = [
+        (c["chunk_id"], len(c["text"]))
+        for c in ilcs_chunks
+        if len(c["text"]) > CHUNK_SIZE
+    ]
+    assert not failures, (
+        f"{len(failures)} chunks exceed CHUNK_SIZE={CHUNK_SIZE}: {failures[:5]}"
+    )
+
+
+def test_sentence_split_overlap(ilcs_chunks):
+    """For sentence-split parents, chunk N+1 should contain the last sentence of chunk N."""
+    by_parent = defaultdict(list)
+    for chunk in ilcs_chunks:
+        by_parent[chunk["parent_id"]].append(chunk)
+
+    sentence_end_re = re.compile(r"(?<=[.!?])\s+")
+    subsection_re = re.compile(r"^\([a-z0-9]\)", re.MULTILINE)
+    failures = []
+
+    for parent_id, siblings in by_parent.items():
+        if len(siblings) <= 1:
+            continue
+        siblings_sorted = sorted(siblings, key=lambda c: c["chunk_index"])
+        # Only check sentence-split parents (no subsection markers in any chunk)
+        if any(subsection_re.search(c["text"]) for c in siblings_sorted):
+            continue
+        for i in range(len(siblings_sorted) - 1):
+            chunk_a = siblings_sorted[i]
+            chunk_b = siblings_sorted[i + 1]
+            sentences = sentence_end_re.split(chunk_a["text"])
+            last_sentence = sentences[-1].strip() if sentences else ""
+            if len(last_sentence) < 15:
+                continue
+            if last_sentence not in chunk_b["text"]:
+                failures.append(
+                    f"No overlap: {chunk_a['chunk_id']} → {chunk_b['chunk_id']}"
+                )
+
+    assert not failures, (
+        f"{len(failures)} consecutive chunk pairs have no overlap:\n"
+        + "\n".join(failures[:5])
+    )
