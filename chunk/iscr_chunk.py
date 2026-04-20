@@ -336,6 +336,8 @@ def _build_chunk(
 def chunk_document(full_text: str, source_key: str) -> list[dict]:
     chunks = []
     hierarchy = DocumentHierarchy()
+    # Strip [PAGE N] markers injected by merge_pages_to_text before line processing.
+    full_text = re.sub(r"^\[PAGE \d+\]\n?", "", full_text, flags=re.MULTILINE)
     # Split document into lines for processing
     lines = full_text.split('\n')
     current_rule_lines = []

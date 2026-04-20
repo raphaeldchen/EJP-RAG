@@ -33,3 +33,16 @@ def test_rule_subsection_has_parent_context(iscr_chunks):
         f"{len(failures)} rule_subsection chunks start with orphaned numeric marker:\n"
         + "\n\n".join(failures[:3])
     )
+
+
+def test_page_markers_stripped(iscr_chunks):
+    """[PAGE N] markers injected by merge_pages_to_text must not bleed into chunk text."""
+    page_marker_re = re.compile(r"\[PAGE \d+\]")
+    failures = [
+        chunk["chunk_id"]
+        for chunk in iscr_chunks
+        if page_marker_re.search(chunk.get("text", ""))
+    ]
+    assert not failures, (
+        f"{len(failures)} chunks contain [PAGE N] markers: {failures[:5]}"
+    )
