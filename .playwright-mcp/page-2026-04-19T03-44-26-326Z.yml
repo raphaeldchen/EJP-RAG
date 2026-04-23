@@ -1,0 +1,312 @@
+- generic [active] [ref=e1]:
+  - region "Skip to Main Content":
+    - link "Skip to main content" [ref=e2] [cursor=pointer]:
+      - /url: "#main"
+  - main [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e15]:
+        - link "Illinois.gov" [ref=e16] [cursor=pointer]:
+          - /url: https://www.illinois.gov
+          - img "Illinois.gov" [ref=e17]
+        - list [ref=e18]:
+          - listitem [ref=e19]:
+            - link "Agencies" [ref=e20] [cursor=pointer]:
+              - /url: https://www.illinois.gov/search-results.html?contentType=agency
+          - listitem [ref=e21]:
+            - link "Services" [ref=e22] [cursor=pointer]:
+              - /url: https://www.illinois.gov/search-results.html?contentType=service
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - emphasis [ref=e28]: 
+          - generic [ref=e29]:
+            - paragraph [ref=e30]:
+              - strong [ref=e31]: "Important:"
+              - text: IDOC has implemented new processes for non-privileged incoming mail and publications.
+            - paragraph [ref=e32]:
+              - text: Changes are effective immediately. More information is available
+              - link "here" [ref=e33] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/content/dam/soi/en/web/idoc/documents/3.18.26-Mail+Publications-One-Pager.pdf
+              - text: .
+            - paragraph [ref=e34]
+            - paragraph [ref=e35]:
+              - strong [ref=e36]: "Important:"
+              - text: The Constituent Services telephone number has recently changed. Please refer to the updated contact information
+              - link "here" [ref=e37] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/aboutus/constituentservices.html
+              - text: .
+            - paragraph [ref=e38]
+          - button "Close Alert" [ref=e39] [cursor=pointer]:
+            - emphasis [ref=e40]:
+              - text: 
+              - generic [ref=e41]: Close button
+        - generic [ref=e42]:
+          - generic [ref=e48]:
+            - link "IDOC" [ref=e49] [cursor=pointer]:
+              - /url: /
+              - img "IDOC" [ref=e50]
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - link "Contact Us" [ref=e53] [cursor=pointer]:
+                  - /url: /contactus.html
+                - generic [ref=e55]:
+                  - emphasis [ref=e56]: 
+                  - 'complementary "Language selected: English" [ref=e59]':
+                    - combobox "Language Switcher" [ref=e60]:
+                      - link "English" [ref=e61] [cursor=pointer]:
+                        - /url: "#"
+                    - text: ● ● ● ● ● ●
+              - generic [ref=e66]:
+                - textbox "Search" [ref=e67]
+                - link "Toggle Search" [ref=e68] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e69]: 
+                  - text: 
+            - text:   
+          - navigation [ref=e75]:
+            - list [ref=e76]:
+              - listitem [ref=e77]:
+                - generic [ref=e78]:
+                  - link "About" [ref=e79] [cursor=pointer]:
+                    - /url: /aboutus.html
+                  - button "About" [ref=e80] [cursor=pointer]: 
+              - listitem [ref=e81]:
+                - generic [ref=e82]:
+                  - link "Individuals in Custody" [ref=e83] [cursor=pointer]:
+                    - /url: /offender.html
+                  - button "Individuals in Custody" [ref=e84] [cursor=pointer]: 
+              - listitem [ref=e85]:
+                - generic [ref=e86]:
+                  - link "Family & Friends" [ref=e87] [cursor=pointer]:
+                    - /url: /familyfriends.html
+                  - button "Family & Friends" [ref=e88] [cursor=pointer]: 
+              - listitem [ref=e89]:
+                - generic [ref=e90]:
+                  - link "Facilities" [ref=e91] [cursor=pointer]:
+                    - /url: /facilities.html
+                  - button "Facilities" [ref=e92] [cursor=pointer]: 
+              - listitem [ref=e93]:
+                - generic [ref=e94]:
+                  - link "Parole" [ref=e95] [cursor=pointer]:
+                    - /url: /parole.html
+                  - button "Parole" [ref=e96] [cursor=pointer]: 
+              - listitem [ref=e97]:
+                - generic [ref=e98]:
+                  - link "Reentry" [ref=e99] [cursor=pointer]:
+                    - /url: /communityresources.html
+                  - button "Reentry" [ref=e100] [cursor=pointer]: 
+              - listitem [ref=e101]:
+                - generic [ref=e102]:
+                  - link "Reports" [ref=e103] [cursor=pointer]:
+                    - /url: /reportsandstatistics.html
+                  - button "Reports" [ref=e104] [cursor=pointer]: 
+              - listitem [ref=e105]:
+                - generic [ref=e106]:
+                  - link "Careers" [ref=e107] [cursor=pointer]:
+                    - /url: /aboutus/trainingacademy.html
+                  - button "Careers" [ref=e108] [cursor=pointer]: 
+              - listitem [ref=e109]:
+                - generic [ref=e110]:
+                  - link "RISE IDOC" [ref=e111] [cursor=pointer]:
+                    - /url: /rebuild.html
+                  - button "RISE IDOC" [ref=e112] [cursor=pointer]: 
+              - listitem [ref=e113]:
+                - generic [ref=e114]:
+                  - link "Employees" [ref=e115] [cursor=pointer]:
+                    - /url: /employees.html
+                  - text: 
+            - generic: 
+            - text: 
+      - generic [ref=e119]:
+        - generic [ref=e123]:
+          - generic [ref=e133]:
+            - paragraph [ref=e135]: In March 2024, Governor JB Pritzker and IDOC announced plans to dedicate capital funds to rebuild Logan and Stateville Correctional Centers.
+            - link "LEARN MORE ABOUT RISE IDOC" [ref=e137] [cursor=pointer]:
+              - /url: https://idoc.illinois.gov/rebuild.html
+              - text: LEARN MORE ABOUT RISE IDOC 
+          - generic [ref=e141]:
+            - img "Constituent Services/Family Liaison" [ref=e145]
+            - generic [ref=e146]:
+              - paragraph [ref=e148]: Come see what career opportunities there are at IDOC.
+              - link "POSITIONS ARE AVAILABLE STATEWIDE" [ref=e150] [cursor=pointer]:
+                - /url: /aboutus/careers-at-idoc.html
+                - text: POSITIONS ARE AVAILABLE STATEWIDE 
+        - generic [ref=e154]:
+          - generic [ref=e158]:
+            - img "IDOC is Hiring Correctional Officers!" [ref=e162]
+            - generic [ref=e163]:
+              - paragraph [ref=e165]: Submissions for post-secondary education partners are open.
+              - link "CLICK HERE FOR INSTRUCTIONS" [ref=e167] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/content/dam/soi/en/web/idoc/documents/IDOC_PEP_Application.pdf
+                - text: CLICK HERE FOR INSTRUCTIONS 
+          - generic [ref=e171]:
+            - img "Donation Protocol" [ref=e175]
+            - generic [ref=e176]:
+              - paragraph [ref=e178]: The Staff Wellness Response Team is available at each facility to assist employees.
+              - link "WORKSHOPS, RESOURCES, AND INFORMATION" [ref=e180] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/employees.html
+                - text: WORKSHOPS, RESOURCES, AND INFORMATION 
+        - generic [ref=e184]:
+          - generic [ref=e188]:
+            - img "IDOC is Hiring Correctional Officers!" [ref=e192]
+            - generic [ref=e193]:
+              - paragraph [ref=e195]: Constituent Services staff make every effort to address each request promptly.
+              - link "GET IN TOUCH" [ref=e197] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/aboutus/constituentservices.html
+                - text: GET IN TOUCH 
+          - generic [ref=e201]:
+            - img "Donation Protocol" [ref=e205]
+            - paragraph [ref=e208]: For more than a decade, IDOC has posted population datasets and reports on its website, providing public access to data for analysis.
+        - generic [ref=e212]:
+          - generic [ref=e216]:
+            - img "IDOC is Hiring Correctional Officers!" [ref=e220]
+            - generic [ref=e221]:
+              - paragraph [ref=e223]: Transparency and accountability are two of IDOC’s core values.
+              - link "ACCESS POLICIES AND DIRECTIVES" [ref=e225] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/aboutus/policies/policies.html
+                - text: ACCESS POLICIES AND DIRECTIVES 
+          - generic [ref=e229]:
+            - img "Donation Protocol" [ref=e233]
+            - generic [ref=e234]:
+              - paragraph [ref=e236]: Please do not send donations before receiving approval.
+              - link "VOLUNTEER OPPORTUNITIES & DONATION PROTOCOL" [ref=e238] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/programs/volunteerprograms.html
+                - text: VOLUNTEER OPPORTUNITIES & DONATION PROTOCOL 
+        - generic [ref=e252]:
+          - generic [ref=e258]:
+            - heading "Quick Links" [level=2] [ref=e261]
+            - generic [ref=e263]:
+              - paragraph [ref=e264]:
+                - link "Individual in Custody Search" [ref=e265] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/offender/inmatesearch.html
+                - link "Victim Notification Program (AVN)" [ref=e266] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/programs/victimservices.html
+                - link "Individual in Custody Deposit Services" [ref=e267] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/communityresources/inmatedepositservices.html
+                - link "Individual in Custody Phone Services" [ref=e268] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/familyfriends/contact-individual-in-custody.html
+                - link "Information Release Forms" [ref=e269] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/offender/information-release-forms.html
+                - link "Prison Rape Elimination Act" [ref=e270] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/programs/prisonrapeeliminationactof2003.html
+                - link "Jail and Detention Standards Unit" [ref=e271] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/aboutus/jailanddetentionstandards.html
+                - link "COVID-19" [ref=e272] [cursor=pointer]:
+                  - /url: https://idoc.illinois.gov/facilities/covid19response.html
+              - paragraph [ref=e273]
+          - generic [ref=e278]:
+            - heading "Frequently Asked Questions" [level=2] [ref=e281]
+            - paragraph [ref=e284]:
+              - link "How do I write/correspond with an Individual in Custody?" [ref=e285] [cursor=pointer]:
+                - /url: /aboutus/faq.html#qst8
+              - link "How can I send money to an Individual in Custody?" [ref=e286] [cursor=pointer]:
+                - /url: /aboutus/faq.html#qst11
+              - link "What is sentence credit?" [ref=e287] [cursor=pointer]:
+                - /url: /aboutus/faq.html#qst1
+              - link "How do sentencing laws work?" [ref=e288] [cursor=pointer]:
+                - /url: /aboutus/faq.html#qst4
+              - link "More" [ref=e289] [cursor=pointer]:
+                - /url: /aboutus/faq.html
+          - generic [ref=e293]:
+            - heading "Transparency & Accountability" [level=2] [ref=e296]
+            - paragraph [ref=e299]:
+              - link "Freedom of Information Act" [ref=e300] [cursor=pointer]:
+                - /url: /freedomofinformationact.html
+              - link "Wanted Fugitives" [ref=e301] [cursor=pointer]:
+                - /url: /offender/wantedfugitives.html
+              - link "Community Notification of Individual in Custody Early Release" [ref=e302] [cursor=pointer]:
+                - /url: /offender/communitynotificationofinmateearlyrelease.html
+              - link "MGT/SMGT Impact List" [ref=e303] [cursor=pointer]:
+                - /url: /content/dam/soi/en/web/idoc/facilities/documents/mgt-smgt-impact-list.pdf
+              - link "Illinois Sex Offender Information" [ref=e304] [cursor=pointer]:
+                - /url: https://isp.illinois.gov/Sor/Disclaimer
+              - link "Illinois Murderer & Violent Offender Against Youth Information" [ref=e305] [cursor=pointer]:
+                - /url: https://isp.illinois.gov/MVOAY/Disclaimer
+              - link "Methamphetamine Manufacturer Registry" [ref=e306] [cursor=pointer]:
+                - /url: https://isp.illinois.gov/Meth/Disclaimer
+      - generic [ref=e310]:
+        - heading "Footer" [level=2] [ref=e311]
+        - generic [ref=e316]:
+          - button "Back to top " [ref=e320] [cursor=pointer]:
+            - generic [ref=e321]: Back to top
+            - generic [ref=e322]: 
+          - generic [ref=e323]:
+            - generic [ref=e324]:
+              - heading "Statewide Initiatives" [level=3] [ref=e325]
+              - list [ref=e326]:
+                - listitem [ref=e327]:
+                  - link "Joe Coleman Medical Release Act FAQ" [ref=e328] [cursor=pointer]:
+                    - /url: /content/dam/soi/en/web/idoc/documents/medical-release-act-faq.pdf
+                - listitem [ref=e329]:
+                  - link "Crime Reduction Act" [ref=e330] [cursor=pointer]:
+                    - /url: /crimereductionact.html
+                - listitem [ref=e331]:
+                  - link "RANA Task Force" [ref=e332] [cursor=pointer]:
+                    - /url: /ranataskforce.html
+                - listitem [ref=e333]:
+                  - link "Sentencing Policy Advisory Council" [ref=e334] [cursor=pointer]:
+                    - /url: https://spac.illinois.gov/
+                - listitem [ref=e335]:
+                  - link "Sex Offender Management Board" [ref=e336] [cursor=pointer]:
+                    - /url: /sexoffendermanagementboard.html
+            - generic [ref=e337]:
+              - heading "Statewide Partners" [level=3] [ref=e338]
+              - list [ref=e339]:
+                - listitem [ref=e340]:
+                  - link "Illinois Criminal Justice Information Authority" [ref=e341] [cursor=pointer]:
+                    - /url: https://icjia.illinois.gov/
+                - listitem [ref=e342]:
+                  - link "Illinois Prisoner Review Board" [ref=e343] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/agencies/agency.prb.html
+                - listitem [ref=e344]:
+                  - link "Illinois State Police" [ref=e345] [cursor=pointer]:
+                    - /url: https://isp.illinois.gov/
+                - listitem [ref=e346]:
+                  - link "Illinois Department of Human Services" [ref=e347] [cursor=pointer]:
+                    - /url: https://www.dhs.state.il.us/page.aspx
+                - listitem [ref=e348]:
+                  - link "Illinois Department of Juvenile Justice" [ref=e349] [cursor=pointer]:
+                    - /url: https://idjj.illinois.gov/
+            - generic [ref=e350]:
+              - heading "About Illinois.gov" [level=3] [ref=e351]
+              - list [ref=e352]:
+                - listitem [ref=e353]:
+                  - link "IDOC Privacy Info" [ref=e354] [cursor=pointer]:
+                    - /url: /idocwebsiteprivacypolicy.html
+                - listitem [ref=e355]:
+                  - link "Kids Privacy" [ref=e356] [cursor=pointer]:
+                    - /url: https://www.ftc.gov/business-guidance/privacy-security/childrens-privacy
+                - listitem [ref=e357]:
+                  - link "Contact Us" [ref=e358] [cursor=pointer]:
+                    - /url: /contactus.html
+            - generic [ref=e361]:
+              - link "Facebook" [ref=e362] [cursor=pointer]:
+                - /url: https://www.facebook.com/ilidoc
+                - img [ref=e363]
+              - link "LinkedIn" [ref=e365] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/ildoc/
+                - img [ref=e366]
+              - link "Instagram" [ref=e368] [cursor=pointer]:
+                - /url: https://www.instagram.com/idoc_illinois/
+                - img [ref=e369]
+      - generic [ref=e379]:
+        - list [ref=e380]:
+          - listitem [ref=e381]:
+            - link "Web Accessibility" [ref=e382] [cursor=pointer]:
+              - /url: https://doit.illinois.gov/initiatives/accessibility/iitaa.html
+          - listitem [ref=e383]:
+            - link "Missing & Exploited Children" [ref=e384] [cursor=pointer]:
+              - /url: http://www.missingkids.com/
+          - listitem [ref=e385]:
+            - link "Amber Alerts" [ref=e386] [cursor=pointer]:
+              - /url: http://www.amberillinois.org/
+          - listitem [ref=e387]:
+            - link "Illinois Privacy Info" [ref=e388] [cursor=pointer]:
+              - /url: https://www.illinois.gov/about/privacy.html
+        - list [ref=e390]:
+          - listitem [ref=e391]:
+            - link "Governor JB Pritzker" [ref=e392] [cursor=pointer]:
+              - /url: https://gov.illinois.gov
+          - listitem [ref=e393]: © 2026
+          - listitem [ref=e394]:
+            - link "State of Illinois" [ref=e395] [cursor=pointer]:
+              - /url: https://www.illinois.gov

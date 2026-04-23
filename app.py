@@ -1,5 +1,25 @@
+import re
 import streamlit as st
 from retrieval.main import build_rag, query
+
+
+_CITATION_RE = re.compile(
+    r'\[(\d+\s+ILCS\s+[\d/.\-]+[^\]]*)\]'  # bracketed ILCS: [720 ILCS 5/7-1 — Title]
+    r'|\[(Rule\s+\d+[^\]]*)\]'              # bracketed Rule: [Rule 431 — Title]
+    r'|(\d+\s+ILCS\s+[\d/.\-]+)'           # bare ILCS: 720 ILCS 5/7-1 (no brackets)
+)
+
+
+def _render_inline_citations(text: str) -> str:
+    """Replace citation references with styled pill spans.
+
+    Handles both bracketed form (from Claude) and bare form (from local models
+    that don't reliably follow the bracket instruction).
+    """
+    def _replace(m: re.Match) -> str:
+        label = m.group(1) or m.group(2) or m.group(3)
+        return f'<span class="source-pill">{label}</span>'
+    return _CITATION_RE.sub(_replace, text)
 
 st.set_page_config(
     page_title="Illinois Legal Research",
@@ -102,7 +122,7 @@ st.markdown("""
 # ── Load RAG engine (cached so it only initialises once) ─────────────────────
 @st.cache_resource(show_spinner="Loading legal database…")
 def load_engine():
-    return build_rag(use_local=True)
+    return build_rag(use_local=False)
 
 engine, retrievers = load_engine()
 
@@ -122,7 +142,8 @@ if not st.session_state.messages:
 # ── Render chat history ───────────────────────────────────────────────────────
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "⚖️"):
-        st.markdown(msg["content"], unsafe_allow_html=True)
+        content = _render_inline_citations(msg["content"]) if msg["role"] == "assistant" else msg["content"]
+        st.markdown(content, unsafe_allow_html=True)
         if msg.get("sources"):
             st.markdown(
                 " ".join(f'<span class="source-pill">{s}</span>' for s in msg["sources"]),
@@ -151,7 +172,7 @@ if prompt := st.chat_input("Send a message"):
             else:
                 answer = raw
 
-            st.markdown(answer)
+            st.markdown(_render_inline_citations(answer), unsafe_allow_html=True)
             if sources:
                 st.markdown(
                     " ".join(f'<span class="source-pill">{s}</span>' for s in sources),

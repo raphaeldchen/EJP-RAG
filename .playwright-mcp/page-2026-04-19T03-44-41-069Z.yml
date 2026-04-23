@@ -1,0 +1,132 @@
+- generic [active] [ref=e1]:
+  - region "Skip to Main Content":
+    - link "Skip to main content" [ref=e2] [cursor=pointer]:
+      - /url: "#main"
+  - main [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e15]:
+        - link "Illinois.gov" [ref=e16] [cursor=pointer]:
+          - /url: https://www.illinois.gov
+          - img "Illinois.gov" [ref=e17]
+        - generic [ref=e18]:
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - link "Government" [ref=e21] [cursor=pointer]:
+                - /url: https://www.illinois.gov/government.html
+            - listitem [ref=e22]:
+              - link "Business" [ref=e23] [cursor=pointer]:
+                - /url: https://www.illinois.gov/business.html
+            - listitem [ref=e24]:
+              - link "Employment" [ref=e25] [cursor=pointer]:
+                - /url: https://www.illinois.gov/employment.html
+            - listitem [ref=e26]:
+              - link "Education" [ref=e27] [cursor=pointer]:
+                - /url: https://www.illinois.gov/education.html
+            - listitem [ref=e28]:
+              - link "Residents" [ref=e29] [cursor=pointer]:
+                - /url: https://www.illinois.gov/residents.html
+            - listitem [ref=e30]:
+              - link "Visiting" [ref=e31] [cursor=pointer]:
+                - /url: https://www.illinois.gov/visiting.html
+          - generic:
+            - generic:
+              - generic:  
+          - button "search" [ref=e32] [cursor=pointer]:
+            - emphasis [ref=e33]: 
+          - text: 
+      - generic [ref=e37]:
+        - navigation "Breadcrumb" [ref=e40]:
+          - list [ref=e41]:
+            - listitem [ref=e42]:
+              - link "Illinois" [ref=e43] [cursor=pointer]:
+                - /url: https://www.illinois.gov
+                - generic [ref=e44]: Illinois
+              - text: 
+            - listitem [ref=e45]:
+              - link "error" [ref=e46] [cursor=pointer]:
+                - /url: https://www.illinois.gov/error.html
+                - generic [ref=e47]: error
+        - generic [ref=e57]:
+          - heading "Error Page" [level=1] [ref=e66]
+          - paragraph [ref=e69]:
+            - text: Sorry, The page you were looking for
+            - text: could not be found.
+      - generic [ref=e79]:
+        - heading "Footer" [level=2] [ref=e80]
+        - generic [ref=e85]:
+          - button "Back to top " [ref=e89] [cursor=pointer]:
+            - generic [ref=e90]: Back to top
+            - generic [ref=e91]: 
+          - generic [ref=e92]:
+            - generic [ref=e93]:
+              - heading "Stay Informed" [level=3] [ref=e94]
+              - list [ref=e95]:
+                - listitem [ref=e96]:
+                  - link "Emergencies and Disasters" [ref=e97] [cursor=pointer]:
+                    - /url: https://ready.illinois.gov
+                - listitem [ref=e98]:
+                  - link "Flag Honors" [ref=e99] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/flag-honors.html
+                - listitem [ref=e100]:
+                  - link "Traveler Information & Road Conditions" [ref=e101] [cursor=pointer]:
+                    - /url: https://www.gettingaroundillinois.com/
+                - listitem [ref=e102]:
+                  - link "Get Email Updates" [ref=e103] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/communications-opt-in.html
+            - generic [ref=e104]:
+              - heading "Helpful Links" [level=3] [ref=e105]
+              - list [ref=e106]:
+                - listitem [ref=e107]:
+                  - link "Kids Privacy" [ref=e108] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/kids-privacy.html
+                - listitem [ref=e109]:
+                  - link "Contact Us" [ref=e110] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/contact-us.html
+                - listitem [ref=e111]:
+                  - link "FOIA Contacts" [ref=e112] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/foia-contacts.html
+                - listitem [ref=e113]:
+                  - link "State Press Contacts" [ref=e114] [cursor=pointer]:
+                    - /url: https://cms.illinois.gov/agency/media/relations/mediacontacts.html
+                - listitem [ref=e115]:
+                  - link "Tech Ready Illinois" [ref=e116] [cursor=pointer]:
+                    - /url: https://techready.uillinois.edu/
+                - listitem [ref=e117]:
+                  - link "Fun Facts" [ref=e118] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/about/fun-facts.html
+            - generic [ref=e119]:
+              - generic [ref=e121]:
+                - link "Illinois Facebook" [ref=e122] [cursor=pointer]:
+                  - /url: https://www.facebook.com/GovPritzker
+                  - img [ref=e123]
+                - link "Illinois Twitter" [ref=e125] [cursor=pointer]:
+                  - /url: https://twitter.com/GovPritzker
+                  - img [ref=e126]
+                - link "Illinois Instagram" [ref=e128] [cursor=pointer]:
+                  - /url: https://www.instagram.com/GovPritzker/
+                  - img [ref=e129]
+                - link "Governor's BlueSky Feed" [ref=e131] [cursor=pointer]:
+                  - /url: https://bsky.app/profile/govpritzker.illinois.gov
+              - emphasis [ref=e133]: 
+      - generic [ref=e142]:
+        - list [ref=e143]:
+          - listitem [ref=e144]:
+            - link "Web Accessibility" [ref=e145] [cursor=pointer]:
+              - /url: https://doit.illinois.gov/initiatives/accessibility/iitaa.html
+          - listitem [ref=e146]:
+            - link "Missing & Exploited Children" [ref=e147] [cursor=pointer]:
+              - /url: http://www.missingkids.com/
+          - listitem [ref=e148]:
+            - link "Amber Alerts" [ref=e149] [cursor=pointer]:
+              - /url: http://www.amberillinois.org/
+          - listitem [ref=e150]:
+            - link "Illinois Privacy Info" [ref=e151] [cursor=pointer]:
+              - /url: https://www.illinois.gov/about/privacy.html
+        - list [ref=e153]:
+          - listitem [ref=e154]:
+            - link "Governor JB Pritzker" [ref=e155] [cursor=pointer]:
+              - /url: https://gov.illinois.gov
+          - listitem [ref=e156]: © 2026
+          - listitem [ref=e157]:
+            - link "State of Illinois" [ref=e158] [cursor=pointer]:
+              - /url: https://www.illinois.gov

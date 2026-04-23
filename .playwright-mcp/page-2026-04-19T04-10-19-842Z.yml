@@ -1,0 +1,284 @@
+- generic [active] [ref=e1]:
+  - region "Skip to Main Content":
+    - link "Skip to main content" [ref=e2] [cursor=pointer]:
+      - /url: "#main"
+  - main [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e15]:
+        - link "Illinois.gov" [ref=e16] [cursor=pointer]:
+          - /url: https://www.illinois.gov
+          - img "Illinois.gov" [ref=e17]
+        - list [ref=e18]:
+          - listitem [ref=e19]:
+            - link "Agencies" [ref=e20] [cursor=pointer]:
+              - /url: https://www.illinois.gov/search-results.html?contentType=agency
+          - listitem [ref=e21]:
+            - link "Services" [ref=e22] [cursor=pointer]:
+              - /url: https://www.illinois.gov/search-results.html?contentType=service
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - emphasis [ref=e28]: 
+          - generic [ref=e29]:
+            - paragraph [ref=e30]:
+              - strong [ref=e31]: "Important:"
+              - text: IDOC has implemented new processes for non-privileged incoming mail and publications.
+            - paragraph [ref=e32]:
+              - text: Changes are effective immediately. More information is available
+              - link "here" [ref=e33] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/content/dam/soi/en/web/idoc/documents/3.18.26-Mail+Publications-One-Pager.pdf
+              - text: .
+            - paragraph [ref=e34]
+            - paragraph [ref=e35]:
+              - strong [ref=e36]: "Important:"
+              - text: The Constituent Services telephone number has recently changed. Please refer to the updated contact information
+              - link "here" [ref=e37] [cursor=pointer]:
+                - /url: https://idoc.illinois.gov/aboutus/constituentservices.html
+              - text: .
+            - paragraph [ref=e38]
+          - button "Close Alert" [ref=e39] [cursor=pointer]:
+            - emphasis [ref=e40]:
+              - text: 
+              - generic [ref=e41]: Close button
+        - generic [ref=e42]:
+          - generic [ref=e48]:
+            - link "IDOC" [ref=e49] [cursor=pointer]:
+              - /url: /
+              - img "IDOC" [ref=e50]
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - link "Contact Us" [ref=e53] [cursor=pointer]:
+                  - /url: /contactus.html
+                - emphasis [ref=e56]: 
+              - generic [ref=e61]:
+                - textbox "Search" [ref=e62]
+                - link "Toggle Search" [ref=e63] [cursor=pointer]:
+                  - /url: "#"
+                  - generic [ref=e64]: 
+                  - text: 
+            - text:   
+          - navigation [ref=e70]:
+            - list [ref=e71]:
+              - listitem [ref=e72]:
+                - generic [ref=e73]:
+                  - link "About" [ref=e74] [cursor=pointer]:
+                    - /url: /aboutus.html
+                  - button "About" [ref=e75] [cursor=pointer]: 
+              - listitem [ref=e76]:
+                - generic [ref=e77]:
+                  - link "Individuals in Custody" [ref=e78] [cursor=pointer]:
+                    - /url: /offender.html
+                  - button "Individuals in Custody" [ref=e79] [cursor=pointer]: 
+              - listitem [ref=e80]:
+                - generic [ref=e81]:
+                  - link "Family & Friends" [ref=e82] [cursor=pointer]:
+                    - /url: /familyfriends.html
+                  - button "Family & Friends" [ref=e83] [cursor=pointer]: 
+              - listitem [ref=e84]:
+                - generic [ref=e85]:
+                  - link "Facilities" [ref=e86] [cursor=pointer]:
+                    - /url: /facilities.html
+                  - button "Facilities" [ref=e87] [cursor=pointer]: 
+              - listitem [ref=e88]:
+                - generic [ref=e89]:
+                  - link "Parole" [ref=e90] [cursor=pointer]:
+                    - /url: /parole.html
+                  - button "Parole" [ref=e91] [cursor=pointer]: 
+              - listitem [ref=e92]:
+                - generic [ref=e93]:
+                  - link "Reentry" [ref=e94] [cursor=pointer]:
+                    - /url: /communityresources.html
+                  - button "Reentry" [ref=e95] [cursor=pointer]: 
+              - listitem [ref=e96]:
+                - generic [ref=e97]:
+                  - link "Reports" [ref=e98] [cursor=pointer]:
+                    - /url: /reportsandstatistics.html
+                  - button "Reports" [ref=e99] [cursor=pointer]: 
+              - listitem [ref=e100]:
+                - generic [ref=e101]:
+                  - link "Careers" [ref=e102] [cursor=pointer]:
+                    - /url: /aboutus/trainingacademy.html
+                  - button "Careers" [ref=e103] [cursor=pointer]: 
+              - listitem [ref=e104]:
+                - generic [ref=e105]:
+                  - link "RISE IDOC" [ref=e106] [cursor=pointer]:
+                    - /url: /rebuild.html
+                  - button "RISE IDOC" [ref=e107] [cursor=pointer]: 
+              - listitem [ref=e108]:
+                - generic [ref=e109]:
+                  - link "Employees" [ref=e110] [cursor=pointer]:
+                    - /url: /employees.html
+                  - text: 
+            - generic: 
+            - text: 
+      - generic [ref=e114]:
+        - navigation "Breadcrumb" [ref=e117]:
+          - list [ref=e118]:
+            - listitem [ref=e119]:
+              - link "Illinois Department of Corrections (IDOC)" [ref=e120] [cursor=pointer]:
+                - /url: /
+                - generic [ref=e121]: Illinois Department of Corrections (IDOC)
+              - text: 
+            - listitem [ref=e122]:
+              - link "Reentry" [ref=e123] [cursor=pointer]:
+                - /url: /communityresources.html
+                - generic [ref=e124]: Reentry
+        - generic [ref=e130]:
+          - navigation "Section" [ref=e132]:
+            - generic [ref=e133]:
+              - paragraph [ref=e134]:
+                - link "Reentry" [ref=e135] [cursor=pointer]:
+                  - /url: /communityresources.html
+              - text: 
+            - list [ref=e136]:
+              - listitem [ref=e137]:
+                - generic [ref=e138]:
+                  - link "Resource Guides" [ref=e139] [cursor=pointer]:
+                    - /url: /communityresources/resourceguides.html
+                  - text: 
+              - listitem [ref=e140]:
+                - generic [ref=e141]:
+                  - link "Community Support Advisory Councils" [ref=e142] [cursor=pointer]:
+                    - /url: /communityresources/csac.html
+                  - text: 
+              - listitem [ref=e143]:
+                - generic [ref=e144]:
+                  - link "Summit of Hope" [ref=e145] [cursor=pointer]:
+                    - /url: /communityresources/summitofhope.html
+                  - text: 
+              - listitem [ref=e146]:
+                - generic [ref=e147]:
+                  - 'link "Mapping Your Future: A Guide to Successful Reentry" [ref=e148] [cursor=pointer]':
+                    - /url: /communityresources/mapping-your-future--a-guide-to-successful-reentry.html
+                  - text: 
+              - listitem [ref=e149]:
+                - generic [ref=e150]:
+                  - link "Voting" [ref=e151] [cursor=pointer]:
+                    - /url: /communityresources/voting.html
+                  - text: 
+          - generic [ref=e155]:
+            - heading "Reentry" [level=1] [ref=e158]
+            - generic [ref=e160]:
+              - list [ref=e161]:
+                - listitem [ref=e162]:
+                  - text: ●
+                  - link "Resource Guides" [ref=e163] [cursor=pointer]:
+                    - /url: /communityresources/resourceguides.html
+                - listitem [ref=e164]:
+                  - text: ●
+                  - link "CSAC" [ref=e165] [cursor=pointer]:
+                    - /url: /communityresources/csac.html
+                - listitem [ref=e166]:
+                  - text: ●
+                  - link "Summit of Hope" [ref=e167] [cursor=pointer]:
+                    - /url: /communityresources/summitofhope.html
+                - listitem [ref=e168]:
+                  - text: ●
+                  - 'link "Mapping Your Future: A Guide to Successful Reentry" [ref=e169] [cursor=pointer]':
+                    - /url: https://educationjustice.net/reentry-guides/#myf-2024
+                - listitem [ref=e170]:
+                  - text: ●
+                  - link "Voting" [ref=e171] [cursor=pointer]:
+                    - /url: /communityresources/voting.html
+                - listitem [ref=e172]:
+                  - text: ●
+                  - strong [ref=e173]:
+                    - link "Illinois Department on Aging Program & Services (English)" [ref=e174] [cursor=pointer]:
+                      - /url: /content/dam/soi/en/web/idoc/communityresources/documents/OverviewIDoAPrograms%20(006).pdf
+                - listitem [ref=e175]:
+                  - text: ●
+                  - strong [ref=e176]:
+                    - link "Illinois Department on Aging Program & Services (Spanish)" [ref=e177] [cursor=pointer]:
+                      - /url: /content/dam/soi/en/web/idoc/communityresources/documents/OverviewIDoAPrograms_Spanish.pdf
+                - listitem [ref=e178]:
+                  - text: ●
+                  - link "Accessing Edovo Accounts After Release" [ref=e179] [cursor=pointer]:
+                    - /url: https://support.edovo.com/portal/en/kb/articles/how-a-learner-can-request-certificates-and-transcripts
+              - paragraph [ref=e180]
+              - paragraph [ref=e181]
+      - generic [ref=e183]:
+        - heading "Footer" [level=2] [ref=e184]
+        - generic [ref=e189]:
+          - button "Back to top " [ref=e193] [cursor=pointer]:
+            - generic [ref=e194]: Back to top
+            - generic [ref=e195]: 
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - heading "Statewide Initiatives" [level=3] [ref=e198]
+              - list [ref=e199]:
+                - listitem [ref=e200]:
+                  - link "Joe Coleman Medical Release Act FAQ" [ref=e201] [cursor=pointer]:
+                    - /url: /content/dam/soi/en/web/idoc/documents/medical-release-act-faq.pdf
+                - listitem [ref=e202]:
+                  - link "Crime Reduction Act" [ref=e203] [cursor=pointer]:
+                    - /url: /crimereductionact.html
+                - listitem [ref=e204]:
+                  - link "RANA Task Force" [ref=e205] [cursor=pointer]:
+                    - /url: /ranataskforce.html
+                - listitem [ref=e206]:
+                  - link "Sentencing Policy Advisory Council" [ref=e207] [cursor=pointer]:
+                    - /url: https://spac.illinois.gov/
+                - listitem [ref=e208]:
+                  - link "Sex Offender Management Board" [ref=e209] [cursor=pointer]:
+                    - /url: /sexoffendermanagementboard.html
+            - generic [ref=e210]:
+              - heading "Statewide Partners" [level=3] [ref=e211]
+              - list [ref=e212]:
+                - listitem [ref=e213]:
+                  - link "Illinois Criminal Justice Information Authority" [ref=e214] [cursor=pointer]:
+                    - /url: https://icjia.illinois.gov/
+                - listitem [ref=e215]:
+                  - link "Illinois Prisoner Review Board" [ref=e216] [cursor=pointer]:
+                    - /url: https://www.illinois.gov/agencies/agency.prb.html
+                - listitem [ref=e217]:
+                  - link "Illinois State Police" [ref=e218] [cursor=pointer]:
+                    - /url: https://isp.illinois.gov/
+                - listitem [ref=e219]:
+                  - link "Illinois Department of Human Services" [ref=e220] [cursor=pointer]:
+                    - /url: https://www.dhs.state.il.us/page.aspx
+                - listitem [ref=e221]:
+                  - link "Illinois Department of Juvenile Justice" [ref=e222] [cursor=pointer]:
+                    - /url: https://idjj.illinois.gov/
+            - generic [ref=e223]:
+              - heading "About Illinois.gov" [level=3] [ref=e224]
+              - list [ref=e225]:
+                - listitem [ref=e226]:
+                  - link "IDOC Privacy Info" [ref=e227] [cursor=pointer]:
+                    - /url: /idocwebsiteprivacypolicy.html
+                - listitem [ref=e228]:
+                  - link "Kids Privacy" [ref=e229] [cursor=pointer]:
+                    - /url: https://www.ftc.gov/business-guidance/privacy-security/childrens-privacy
+                - listitem [ref=e230]:
+                  - link "Contact Us" [ref=e231] [cursor=pointer]:
+                    - /url: /contactus.html
+            - generic [ref=e234]:
+              - link "Facebook" [ref=e235] [cursor=pointer]:
+                - /url: https://www.facebook.com/ilidoc
+                - img [ref=e236]
+              - link "LinkedIn" [ref=e238] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/ildoc/
+                - img [ref=e239]
+              - link "Instagram" [ref=e241] [cursor=pointer]:
+                - /url: https://www.instagram.com/idoc_illinois/
+                - img [ref=e242]
+      - generic [ref=e252]:
+        - list [ref=e253]:
+          - listitem [ref=e254]:
+            - link "Web Accessibility" [ref=e255] [cursor=pointer]:
+              - /url: https://doit.illinois.gov/initiatives/accessibility/iitaa.html
+          - listitem [ref=e256]:
+            - link "Missing & Exploited Children" [ref=e257] [cursor=pointer]:
+              - /url: http://www.missingkids.com/
+          - listitem [ref=e258]:
+            - link "Amber Alerts" [ref=e259] [cursor=pointer]:
+              - /url: http://www.amberillinois.org/
+          - listitem [ref=e260]:
+            - link "Illinois Privacy Info" [ref=e261] [cursor=pointer]:
+              - /url: https://www.illinois.gov/about/privacy.html
+        - list [ref=e263]:
+          - listitem [ref=e264]:
+            - link "Governor JB Pritzker" [ref=e265] [cursor=pointer]:
+              - /url: https://gov.illinois.gov
+          - listitem [ref=e266]: © 2026
+          - listitem [ref=e267]:
+            - link "State of Illinois" [ref=e268] [cursor=pointer]:
+              - /url: https://www.illinois.gov

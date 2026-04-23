@@ -23,7 +23,7 @@ DELAY          = 0.75   # seconds between requests — be polite to ILGA servers
 DELAY_ON_ERROR = 15.0
 MAX_RETRIES    = 3
 
-OUTPUT_FILE = "ilcs_corpus.jsonl"
+OUTPUT_FILE = "data_files/corpus/ilcs_corpus.jsonl"
 LOG_FILE    = "ilcs_scraper.log"
 
 HEADERS = {
@@ -484,7 +484,7 @@ def main():
         help=f"Output JSONL file (default: {OUTPUT_FILE})",
     )
     parser.add_argument(
-        "--no-upload", action="store_true",
+        "--local-only", action="store_true",
         help="Skip S3 upload and write locally only.",
     )
     parser.add_argument(
@@ -503,7 +503,7 @@ def main():
     log.info(f"  Output       : {args.output}")
     log.info(f"  Request delay: {DELAY}s")
     log.info(f"  Skip repealed: {not args.keep_repealed}")
-    log.info(f"  S3 upload    : {'disabled' if args.no_upload else 'enabled (on completion)'}")
+    log.info(f"  S3 upload    : {'disabled' if args.local_only else 'enabled (on completion)'}")
     if args.upload_every:
         log.info(f"  Upload every : {args.upload_every} acts")
     if args.limit:
@@ -514,7 +514,7 @@ def main():
         limit=args.limit,
         skip_repealed=not args.keep_repealed,
         output_file=args.output,
-        no_upload=args.no_upload,
+        no_upload=args.local_only,
         upload_every=args.upload_every,
     )
 

@@ -58,9 +58,10 @@ def query(engine, dual_retriever, question: str, use_local: bool = False) -> str
     finally:
         dual_retriever._secondary_query = None
 
-    # Extract citations from source nodes
-    citations = _extract_citations(response)
     answer = str(response)
+    # Only surface citations the LLM actually used in the answer
+    all_citations = _extract_citations(response)
+    citations = _filter_to_cited(answer, all_citations)
     if citations:
         answer += "\n\nSources:\n" + "\n".join(f"  • {c}" for c in citations)
 
@@ -87,12 +88,25 @@ def _extract_citations(response) -> list[str]:
         rule = meta.get("rule_number")
         title = meta.get("rule_title", "")
         if rule:
+            # Strip "Rule X" prefix from title to match CitationLabelingPostprocessor
+            if title and title.startswith(f"Rule {rule}"):
+                title = title[len(f"Rule {rule}"):].lstrip(" .").strip()
             label = f"Rule {rule}" + (f" — {title}" if title else "")
             if label not in seen:
                 seen.add(label)
                 citations.append(label)
 
     return citations
+
+
+def _filter_to_cited(answer: str, citations: list[str]) -> list[str]:
+    """Return only citations whose base key (before ' — ') appears in the answer text."""
+    filtered = []
+    for citation in citations:
+        key = citation.split(" — ")[0].strip()
+        if key in answer:
+            filtered.append(citation)
+    return filtered
 
 
 if __name__ == "__main__":

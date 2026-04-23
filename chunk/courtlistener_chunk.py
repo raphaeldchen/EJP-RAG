@@ -46,7 +46,7 @@ OVERLAP_TOKENS   = 75    # token overlap carried between adjacent chunks (when s
 ENCODING_NAME    = "cl100k_base"
 MIN_CHUNK_TOKENS = 50    # discard fragments shorter than this
 
-LOCAL_OUTPUT_DIR = Path("./chunked_output")
+LOCAL_OUTPUT_DIR = Path("./data_files/chunked_output")
 
 PRECEDENTIAL_WEIGHT = {
     "Published":   1.0,

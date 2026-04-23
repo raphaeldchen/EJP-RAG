@@ -1,0 +1,306 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - list [ref=e9]:
+            - listitem [ref=e10]:
+              - link "" [ref=e11] [cursor=pointer]:
+                - /url: https://www.facebook.com/illinoiscommunitycolleges
+            - listitem [ref=e12]:
+              - link "" [ref=e13] [cursor=pointer]:
+                - /url: https://youtube.com/@illinoiscommunitycollegebo6760?si=55CfSjtXPLIT1Xfg
+            - listitem [ref=e14]:
+              - link "" [ref=e15] [cursor=pointer]:
+                - /url: https://www.linkedin.com/company/illinois-community-college-board/
+          - link "60th anniversary_white" [ref=e18] [cursor=pointer]:
+            - /url: http://www.iccb.org
+            - img "60th anniversary_white" [ref=e20]
+          - generic [ref=e23]: "[google-translator]"
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - navigation [ref=e30]:
+              - list [ref=e31]:
+                - listitem [ref=e32]:
+                  - link "Home" [ref=e33] [cursor=pointer]:
+                    - /url: https://www.iccb.org/
+                - listitem [ref=e34]:
+                  - link "About ICCB" [ref=e35] [cursor=pointer]:
+                    - /url: https://www.iccb.org/about-iccb/
+                - listitem [ref=e36]:
+                  - link "Divisions" [ref=e37] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/
+                - listitem [ref=e38]:
+                  - link "Grants" [ref=e39] [cursor=pointer]:
+                    - /url: /grants
+                - listitem [ref=e40]:
+                  - link "Data and Research" [ref=e41] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/
+                - listitem [ref=e42]:
+                  - link "News & Media" [ref=e43] [cursor=pointer]:
+                    - /url: https://www.iccb.org/news-information/
+            - button "U" [ref=e44] [cursor=pointer]
+            - text: a
+          - text: M
+    - generic [ref=e45]:
+      - article [ref=e47]:
+        - generic [ref=e51]:
+          - generic [ref=e53]:
+            - heading "Research & Analytics" [level=1] [ref=e56]
+            - paragraph [ref=e60]:
+              - link "ANNUAL REPORT" [ref=e61] [cursor=pointer]:
+                - /url: "#annual-report"
+                - strong [ref=e62]: ANNUAL REPORT
+              - text: •
+              - link "DATA BOOK" [ref=e63] [cursor=pointer]:
+                - /url: "#data-book"
+                - strong [ref=e64]: DATA BOOK
+              - text: •
+              - link "SNAPSHOTS & INSIGHTS" [ref=e65] [cursor=pointer]:
+                - /url: https://www.iccb.org/divisions/research-and-analytics/snapshots-and-insights/
+                - strong [ref=e66]: SNAPSHOTS & INSIGHTS
+              - text: •
+              - link "STUDENT REPORTS" [ref=e67] [cursor=pointer]:
+                - /url: https://www.iccb.org/divisions/research-and-analytics/student-reports/
+              - text: •
+              - link "FACULTY & STAFF REPORTS" [ref=e68] [cursor=pointer]:
+                - /url: https://www.iccb.org/divisions/research-and-analytics/faculty-and-staff-reports/
+                - strong [ref=e69]: FACULTY & STAFF REPORTS
+              - text: •
+              - link "EXTERNAL RESOURCES" [ref=e70] [cursor=pointer]:
+                - /url: https://www.iccb.org/divisions/research-and-analytics/external-resources/
+              - text: •
+              - link "Recently Added Reports" [ref=e71] [cursor=pointer]:
+                - /url: https://www.iccb.org/divisions/research-and-analytics/reports-and-publications/
+          - generic [ref=e73]:
+            - generic [ref=e75]:
+              - paragraph [ref=e76]: The ICCB Research and Analytics division serves as the ICCB foundational resource for the development, measurement and analysis of Illinois Community College System data. Staff provide information, counsel, and technical assistance for projects and initiatives related to research and policy studies. The Division, in collaboration with ICCB Information Technology staff, maintains a comprehensive and robust ICCB Centralized Data System for the Illinois Community College System to answer critical policy questions, inform continuous student and program improvement initiatives, and ultimately, support students on pathways to success. On behalf of the Illinois Community College System, the Division compiles data from the ICCB Centralized Data System for state/federal accountability reporting, cross-state agency projects, and national initiatives. The Division represents the agency in Illinois Longitudinal Data System efforts and advances cross-state agency data projects and initiatives to analyze the effectiveness of P-20 to Workforce programs.
+              - paragraph [ref=e77]
+            - heading "Annual Report" [level=3] [ref=e81]
+            - generic [ref=e83]:
+              - paragraph [ref=e84]:
+                - strong [ref=e85]: The ICCB Annual Report on Student Enrollments and Completions in the Illinois Community College System
+                - text: contains detailed information and data tables about students in Illinois community colleges. The Annual Report is produced by ICCB in partnership with the Illinois Community College System. Annual Report data are obtained from community college student-level MIS submissions and compiled by ICCB to produce summary-level data. The objective of the Annual Report is to provide useful summary data in one reference document.
+              - paragraph [ref=e86]: The Annual Report contains data on students officially enrolled in credit coursework at any time during the specified fiscal year (Appendix A). Illinois community colleges are multipurpose institutions with the capacity to offer college preparatory courses, short-term continuing education, retraining, certificate and degree programs for high demand jobs, and associate’s degrees for career preparation or transfer to bachelor’s degree programs. Detailed completions (i.e. graduates) data are also provided in the report (Appendix C). Community colleges mainly award associate degrees and postsecondary certificates. Certificates can range anywhere from a few months to a couple years to complete. Additionally, to capture the full mission of community colleges, the report includes students participating in noncredit coursework (Appendix B). Noncredit courses provide activities that do not meet ICCB Rules for credit courses, such as those designed for specific employers, professional development, or others offered for hobby, leisure, or recreational purposes.
+              - paragraph [ref=e87]:
+                - strong [ref=e88]: Student Enrollment and Completions in the Illinois Community College System
+              - paragraph [ref=e89]:
+                - strong [ref=e90]:
+                  - link "FY 2025" [ref=e91] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2025/12/Annual_Enroll_Comp_2025_Final.pdf
+                  - text: "|"
+                  - link "FY 2024" [ref=e92] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2024/12/Annual_Enroll_Comp_2024_Final.pdf
+                  - text: "|"
+                  - link "FY 2023" [ref=e93] [cursor=pointer]:
+                    - /url: https://www2.iccb.org/data/wp-content/uploads/2023/12/Annual_Enroll_Comp_2023.pdf
+                  - text: "|"
+                  - link "FY 2022" [ref=e94] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/data/Annual%20Enroll%20Comp%202022%20Final.pdf
+                  - text: "|"
+                  - link "FY 2021" [ref=e95] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/uploads/2022/03/Annual_Enroll_Comp_2021_Final.pdf
+                  - text: "|"
+                  - link "FY 2020" [ref=e96] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/uploads/2021/09/Annual_Enroll_Comp_2020_Final.pdf
+              - paragraph [ref=e97]:
+                - strong [ref=e98]: "Executive Summaries:"
+                - strong [ref=e99]:
+                  - link "2025" [ref=e100] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2025/12/Annual_Enroll_Comp_2025_Executive_Summary.pdf
+                  - text: "|"
+                  - link "2024" [ref=e101] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2024/12/Annual_Enroll_Comp_2024_Executive_Summary.pdf
+                  - text: "|"
+                  - link "2023" [ref=e102] [cursor=pointer]:
+                    - /url: https://www2.iccb.org/data/wp-content/uploads/2023/12/Annual_Enroll_Comp_2023_Executive_Summary.pdf
+                  - text: "|"
+                  - link "2022" [ref=e103] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/data/Annual%20Enroll%20Comp%202022%20Executive%20Summary%20Final.pdf
+                  - text: "|"
+                  - link "2021" [ref=e104] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/uploads/2022/03/Annual%20Enroll%20Comp%20Executive%20Summary%202021%20Final.pdf
+                  - text: "|"
+                  - link "2020" [ref=e105] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/uploads/2021/09/Annual_Enroll_Comp_Executive_Summary_2020_Final.pdf
+              - paragraph [ref=e106]
+            - link "Back to Top" [ref=e108] [cursor=pointer]:
+              - /url: "#et-boc"
+            - heading "Data Book" [level=3] [ref=e112]
+            - generic [ref=e114]:
+              - paragraph [ref=e115]: Comprehensive Data Books are produced by the ICCB in partnership with the Illinois Community College System. The objective of the Data Book is to provide useful summaries of data by community college. Student and Employee Data Book Tables are primarily obtained from individual-level MIS submissions and compiled by ICCB to produce summary-level data. Fiscal and facilities tables are primarily captured through summary-level MIS submissions to the ICCB. In keeping with the Illinois Community College System’s interest in transparency and accountability, beginning with the 2009 Data Book, tables are provided in downloadable Excel spreadsheet format.
+              - paragraph [ref=e116]:
+                - strong [ref=e117]: Accessing the Data Book
+                - text: "— Choose the fiscal year of interest from below and then select one of the five sections (Section I: Fall Student Characteristics; Section II: Faculty and Staff Data; Section III: Annual Student Enrollment and Completion Data; Section IV: Financial Data; and Section V: Facilities Data*)"
+              - paragraph [ref=e118]:
+                - emphasis [ref=e119]: "*Facilities Data available through 2017 only."
+              - paragraph [ref=e120]:
+                - strong [ref=e121]:
+                  - text: "Web Portal:"
+                  - link "2026 Data Book" [ref=e122] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/2026-data-book/
+                  - text: "|"
+                  - generic [ref=e123]:
+                    - link "2025 Data Book" [ref=e124] [cursor=pointer]:
+                      - /url: https://www.iccb.org/divisions/research-and-analytics/2025-data-book/
+                    - text: "|"
+                  - link "2024 Data Book" [ref=e125] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/2024-data-book/
+                  - text: "|"
+                  - link "2023 Data Book" [ref=e126] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/2023-data-book/
+                  - text: "|"
+                  - link "2022 Data Book" [ref=e127] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/2022-data-book/
+                  - text: "|"
+                  - link "2021 Data Book" [ref=e128] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/research-and-analytics/2021-data-book/
+              - paragraph [ref=e129]:
+                - strong [ref=e130]:
+                  - text: "PDFs:"
+                  - link "2008 Data Book" [ref=e131] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/reports/databook2008.pdf
+                - text: "|"
+                - strong [ref=e132]:
+                  - link "2007 Data Book" [ref=e133] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/reports/databook2007.pdf
+                - text: "|"
+                - strong [ref=e134]:
+                  - link "2006 Data Book" [ref=e135] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/reports/databook2006.pdf
+                - text: "|"
+                - strong [ref=e136]:
+                  - link "2005 Data Book" [ref=e137] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/reports/databook2005.pdf
+                - text: "|"
+                - strong [ref=e138]:
+                  - link "2004 Data Book" [ref=e139] [cursor=pointer]:
+                    - /url: http://www.iccb.org/wp-content/pdfs/reports/databook2004.pdf
+              - paragraph [ref=e140]:
+                - text: Questions – If you have questions about the Data Book tables please contact the following individuals or
+                - strong [ref=e141]:
+                  - link "reference our staff directory" [ref=e142] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2026/01/iccbstaff.pdf
+                  - text: .
+              - list [ref=e143]:
+                - listitem [ref=e144]:
+                  - emphasis [ref=e145]:
+                    - strong [ref=e146]: Technical Issues
+                  - text: –
+                  - strong [ref=e147]:
+                    - link "Timothy.K.Bartlett@Illinois.Gov" [ref=e148] [cursor=pointer]:
+                      - /url: mailto:Timothy.K.Bartlett@Illinois.gov
+                - listitem [ref=e149]:
+                  - emphasis [ref=e150]:
+                    - strong [ref=e151]: Sections I, II and III – Students and Employees
+                  - text: –
+                  - strong [ref=e152]:
+                    - link "ICCB Research and Analytics Staff" [ref=e153] [cursor=pointer]:
+                      - /url: mailto:ICCB.ra@illinois.gov
+                - listitem [ref=e154]:
+                  - emphasis [ref=e155]:
+                    - strong [ref=e156]: Sections IV & V – Fiscal and Facilities
+                  - text: –
+                  - strong [ref=e157]:
+                    - link "Matt.Berry@Illinois.Gov" [ref=e158] [cursor=pointer]:
+                      - /url: mailto:Matt.Berry@Illinois.Gov
+              - paragraph [ref=e159]:
+                - text: Thank you for your interest in the Illinois Community College System – We hope you enjoy the interactive format and welcome suggestions for improving the portal. Special acknowledgment goes to local community college officials for their assistance in providing the data and information needed to compile these tables. Institutional researchers, information technology professionals, financial officers, facilities managers, officials from admission and records, human resource professionals, and others all make important contributions. If you have requests for other data or suggestions for additions or deletions, please contact the ICCB office –
+                - strong [ref=e160]:
+                  - link "Jay.Brooks@Illinois.Gov" [ref=e162] [cursor=pointer]:
+                    - /url: mailto:Jay.Brooks@Illinois.Gov
+                - text: .
+              - paragraph [ref=e163]
+            - link "Back to Top" [ref=e165] [cursor=pointer]:
+              - /url: "#et-boc"
+      - contentinfo [ref=e166]:
+        - generic [ref=e167]:
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e172]:
+                - heading "ICCB" [level=3] [ref=e173]
+                - paragraph [ref=e174]:
+                  - link:
+                    - /url: https://web.archive.org/web/20260208171537/https://www.iccb.org/#
+                  - link "Student Complaints":
+                    - /url: https://web.archive.org/web/20260208171537/https://www.iccb.org/student-complaints/
+                  - link "Privacy Policy" [ref=e175] [cursor=pointer]:
+                    - /url: https://www.iccb.org/privacy-policy-2/
+                  - link "Student Complaints":
+                    - /url: https://web.archive.org/web/20260208171537/https://www.iccb.org/student-complaints/
+                  - link "Language Access" [ref=e176] [cursor=pointer]:
+                    - /url: https://www.iccb.org/language-access-services/
+                  - link "Student Complaints" [ref=e177] [cursor=pointer]:
+                    - /url: https://www.iccb.org/student-complaints/
+                  - link "FOIA Requests" [ref=e178] [cursor=pointer]:
+                    - /url: https://www.iccb.org/foia-requests/
+                  - link "Staff Directory" [ref=e179] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/uploads/2026/01/iccbstaff.pdf
+              - generic [ref=e182]:
+                - heading "Quick Links" [level=3] [ref=e183]
+                - paragraph [ref=e184]:
+                  - link "About ICCB" [ref=e185] [cursor=pointer]:
+                    - /url: https://www.iccb.org/about-iccb/
+                  - link "Employment Opportunities" [ref=e186] [cursor=pointer]:
+                    - /url: https://www.iccb.org/about-us/employment-opportunities/
+                  - link "State of Illinois High School Diploma" [ref=e187] [cursor=pointer]:
+                    - /url: https://www.iccb.org/divisions/adult-education-literacy-workforce-education/#high-school-equivalency
+                  - link "Find My IL Community College" [ref=e188] [cursor=pointer]:
+                    - /url: https://iccbdbsrv.iccb.org/zipcodes/home.cfm
+                  - link "Directory of Programs" [ref=e189] [cursor=pointer]:
+                    - /url: http://iccbdbsrv.iccb.org/dop/home.cfm
+                  - link "System Rules Manual" [ref=e190] [cursor=pointer]:
+                    - /url: https://www.iccb.org/wp-content/pdfs/academic_affairs/System%20Rules%20Manual%20%28Admin%20Rules%29%2007-2024.pdf
+              - list [ref=e194]:
+                - listitem [ref=e195]:
+                  - generic [ref=e196]: Contact Us
+                - listitem [ref=e197]:
+                  - generic [ref=e199]: 
+                  - generic [ref=e200]: 401 E. Capitol Avenue, Springfield, IL 62701
+                - listitem [ref=e201]:
+                  - generic [ref=e203]: 
+                  - generic [ref=e204]: (217) 785-0123
+                - listitem [ref=e205]:
+                  - link " iccb.contactus@illinois.gov" [ref=e206] [cursor=pointer]:
+                    - /url: mailto:iccb.contactus@illinois.gov
+                    - generic [ref=e208]: 
+                    - generic [ref=e209]: iccb.contactus@illinois.gov
+              - generic [ref=e213] [cursor=pointer]:
+                - link "" [ref=e215]:
+                  - /url: https://www.iccb.org/wp-content/pdfs/ICCB%20newsletter/ICCB%20Newsletter%20September.pdf
+                  - generic [ref=e217]: 
+                - generic [ref=e218]:
+                  - heading "ICCB Newsletter" [level=4] [ref=e219]:
+                    - link "ICCB Newsletter" [ref=e220]:
+                      - /url: https://www.iccb.org/wp-content/pdfs/ICCB%20newsletter/ICCB%20Newsletter%20September.pdf
+                  - paragraph [ref=e222]: Stay up to date on all things ICCB!
+            - generic [ref=e223]:
+              - paragraph [ref=e227]:
+                - text: © Copyright 2026. Illinois Community College Board
+                - strong [ref=e229]:
+                  - link "National Center For Missing And Exploited Children" [ref=e230] [cursor=pointer]:
+                    - /url: https://www.missingkids.org/
+                - strong [ref=e232]:
+                  - link "Amber Alerts" [ref=e233] [cursor=pointer]:
+                    - /url: http://www.amberillinois.org/
+              - paragraph [ref=e237]:
+                - generic [ref=e238]: Governor JB Pritzker
+                - generic [ref=e239]:
+                  - text: Chair, Dr. Sylvia M. Jenkins
+                  - text: Executive Director, Dr. Brian Durham
+              - list [ref=e241]:
+                - listitem [ref=e242]:
+                  - link "" [ref=e243] [cursor=pointer]:
+                    - /url: https://www.facebook.com/illinoiscommunitycolleges
+                - listitem [ref=e244]:
+                  - link "" [ref=e245] [cursor=pointer]:
+                    - /url: https://youtube.com/@illinoiscommunitycollegebo6760?si=55CfSjtXPLIT1Xfg
+                - listitem [ref=e246]:
+                  - link "" [ref=e247] [cursor=pointer]:
+                    - /url: https://www.linkedin.com/company/illinois-community-college-board/
+          - text: U a M
+  - dialog "Cookie Notice" [ref=e248]:
+    - generic [ref=e249]:
+      - generic [ref=e250]: ICCB.org uses cookies to ensure you get the best experience on our website. By continuing to browse on our site, you consent to our use of cookies.
+      - button "Accept & Continue" [ref=e252] [cursor=pointer]
+      - button "No" [ref=e253] [cursor=pointer]

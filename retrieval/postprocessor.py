@@ -83,6 +83,48 @@ def reciprocal_rank_fusion(
     ]
 
 
+class CitationLabelingPostprocessor(BaseNodePostprocessor):
+    """
+    Prepends a citation label to each node's text so the LLM can anchor
+    every claim to its source when generating inline citations.
+
+    Must run AFTER CrossEncoderReranker so it only labels the final kept nodes.
+
+    Label format:
+      ILCS:  [720 ILCS 5/7-1 — Justifiable Use of Force]:
+      ISCR:  [Rule 431 — Voir Dire]:
+    """
+
+    def _postprocess_nodes(
+        self,
+        nodes: list[NodeWithScore],
+        query_bundle: QueryBundle | None = None,
+    ) -> list[NodeWithScore]:
+        for nws in nodes:
+            node = nws.node
+            meta = node.metadata or {}
+
+            section = meta.get("section_citation")
+            topic = meta.get("major_topic") or meta.get("rule_title") or ""
+            rule = meta.get("rule_number")
+
+            if section:
+                label = f"[{section}" + (f" — {topic}" if topic else "") + "]"
+            elif rule:
+                # rule_title for subsections often includes "Rule X" prefix already
+                # (e.g. "Rule 401 (a)") — strip it to avoid "Rule 401 — Rule 401 (a)"
+                if topic and topic.startswith(f"Rule {rule}"):
+                    topic = topic[len(f"Rule {rule}"):].lstrip(" .").strip()
+                label = f"[Rule {rule}" + (f" — {topic}" if topic else "") + "]"
+            else:
+                label = None
+
+            if label:
+                node.text = f"{label}:\n{node.get_content()}"
+
+        return nodes
+
+
 class CrossEncoderReranker(BaseNodePostprocessor):
     """
     Reranks nodes using a cross-encoder model.

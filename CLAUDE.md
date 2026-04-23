@@ -12,17 +12,17 @@ Illinois Legal Research RAG system for querying Illinois criminal law. Pipeline:
 
 | Source | Script | Output | Contents |
 |--------|--------|--------|----------|
-| ILCS statutes | `ilga_ingest.py` | `ilcs_corpus.jsonl` | Illinois Compiled Statutes (ch. 720, 730, …) |
+| ILCS statutes | `ilga_ingest.py` | `data_files/corpus/ilcs_corpus.jsonl` | Illinois Compiled Statutes (ch. 720, 730, …) |
 | IL Supreme Court Rules | `iscr_chunk.py` | direct to chunks | Illinois Supreme Court Rules |
-| IL court opinions | `cap_static_download.py` | `cap_bulk_corpus.jsonl` | IL Supreme + Appellate opinions 1819–2024 (CAP bulk) |
-| 7th Circuit opinions | `courtlistener_ingest.py` + `courtlistener_api.py` | `cl_filtered/` → chunked | Federal 7th Circuit opinions (CourtListener supplement) |
-| IL Admin Code | `iac_ingest.py` | `iac_corpus.jsonl` | IDOC-relevant Title 20 regulations (519 sections) |
-| IDOC directives | `idoc_ingest.py` | `idoc_corpus.jsonl` | Administrative directives + reentry resources (103 records) |
-| SPAC publications | `spac_ingest.py` | `spac_corpus.jsonl` | Sentencing Policy Advisory Council reports (166 records) |
-| ICCB reports | `iccb_ingest.py` | `iccb_corpus.jsonl` | Correctional education enrollment reports FY2020–2025 |
-| Federal docs | `federal_ingest.py` | `federal_corpus.jsonl` | Federal Register rules, BOP policy, ED guidance |
-| Restore Justice | `restorejustice_ingest.py` | `restorejustice_corpus.jsonl` | Advocacy org resources (HTML + PDFs) |
-| Cook County PD | `cookcounty_pd_ingest.py` | `cookcounty_pd_corpus.jsonl` | Public Defender resources |
+| IL court opinions | `cap_static_download.py` | `data_files/corpus/cap_bulk_corpus.jsonl` | IL Supreme + Appellate opinions 1819–2024 (CAP bulk) |
+| 7th Circuit opinions | `courtlistener_ingest.py` + `courtlistener_api.py` | `data_files/cl_filtered/` → `data_files/chunked_output/` | Federal 7th Circuit opinions (CourtListener supplement) |
+| IL Admin Code | `iac_ingest.py` | `data_files/corpus/iac_corpus.jsonl` | IDOC-relevant Title 20 regulations (519 sections) |
+| IDOC directives | `idoc_ingest.py` | `data_files/corpus/idoc_corpus.jsonl` | Administrative directives + reentry resources (103 records) |
+| SPAC publications | `spac_ingest.py` | `data_files/corpus/spac_corpus.jsonl` | Sentencing Policy Advisory Council reports (166 records) |
+| ICCB reports | `iccb_ingest.py` | `data_files/corpus/iccb_corpus.jsonl` | Correctional education enrollment reports FY2020–2025 |
+| Federal docs | `federal_ingest.py` | `data_files/corpus/federal_corpus.jsonl` | Federal Register rules, BOP policy, ED guidance |
+| Restore Justice | `restorejustice_ingest.py` | `data_files/corpus/restorejustice_corpus.jsonl` | Advocacy org resources (HTML + PDFs) |
+| Cook County PD | `cookcounty_pd_ingest.py` | `data_files/corpus/cookcounty_pd_corpus.jsonl` | Public Defender resources |
 
 ## Week of 2026-04-15 — Current Focus
 
@@ -50,8 +50,8 @@ All ingest scripts use `--local-only` to skip S3 upload. All use `python3`.
 ```bash
 # ILCS statutes
 python3 ingest/ilga_ingest.py --chapters 720 730 --delay 0.75 --local-only
-python3 chunk/ilga_chunk.py --local-input ilcs_corpus.jsonl
-python3 embed/ilga_embed.py --local-input chunked_output/ilcs_chunks.jsonl
+python3 chunk/ilga_chunk.py --local-input data_files/corpus/ilcs_corpus.jsonl
+python3 embed/ilga_embed.py --local-input data_files/chunked_output/ilcs_chunks.jsonl
 
 # IL Supreme Court Rules
 python3 chunk/iscr_chunk.py --local-only
@@ -112,12 +112,12 @@ Data lives at `https://static.case.law` organized by reporter series and volume.
 python3 ingest/cap_static_download.py --after 1980-01-01 --local-only
 
 # Upload to S3 when done
-aws s3 cp cap_bulk_corpus.jsonl s3://illinois-legal-corpus-raw/cap/cap_bulk_corpus.jsonl
+aws s3 cp data_files/corpus/cap_bulk_corpus.jsonl s3://illinois-legal-corpus-raw/cap/cap_bulk_corpus.jsonl
 ```
 
 **How it works:** For each volume, fetches `CasesMetadata.json` (lightweight — contains `decision_date` and `file_name` for each case). Date filter applied at this stage — cases outside the range are skipped without downloading. Qualifying cases are fetched individually from `cases/{file_name}.json`. Output schema matches `cap_bulk_ingest.py` (source = `"cap_bulk"`).
 
-**Checkpoint:** `cap_bulk_corpus.jsonl.done` stores written case IDs. Re-running the same command resumes from where it left off.
+**Checkpoint:** `data_files/corpus/cap_bulk_corpus.jsonl.done` stores written case IDs. Re-running the same command resumes from where it left off.
 
 **Test run:**
 ```bash
@@ -148,9 +148,9 @@ python3 ingest/courtlistener_api.py --local-only
 (Pending — chunker for CAP bulk output not yet written.)
 
 ```bash
-# TODO: chunk cap_bulk_corpus.jsonl → chunked_output/cap_opinion_chunks.jsonl
+# TODO: chunk data_files/corpus/cap_bulk_corpus.jsonl → data_files/chunked_output/cap_opinion_chunks.jsonl
 # Then embed both:
-python3 embed/opinion_embed.py --local-input chunked_output/cap_opinion_chunks.jsonl
+python3 embed/opinion_embed.py --local-input data_files/chunked_output/cap_opinion_chunks.jsonl
 python3 embed/opinion_embed.py --local-input chunked_output/api_opinion_chunks.jsonl
 ```
 
@@ -346,11 +346,12 @@ Four bugs confirmed by `python3 -m pytest tests/test_ilga_chunk.py` (4 failing, 
 
 ## Key Implementation Notes
 
+- **All local data files must go inside `data_files/`** — corpus files → `data_files/corpus/`, chunked output → `data_files/chunked_output/`, CourtListener downloads/filtered → `data_files/cl_downloads/` and `data_files/cl_filtered/`. Never write data files to the project root or any directory outside `data_files/`.
 - All ingest scripts use `--local-only` flag (consistent across all scripts); omit it to also upload to S3
 - Use `python3` (not `python`) on this system
 - The scraper rate-limits at 0.75s/request by default (`--delay` flag on `ilga_ingest.py`)
-- `ilcs_corpus.jsonl.done_acts` is the checkpoint file for resuming ILCS scraping
-- `cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
+- `data_files/corpus/ilcs_corpus.jsonl.done_acts` is the checkpoint file for resuming ILCS scraping
+- `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
 - BM25 index is rebuilt in-memory on every `retrieval/main.py` startup (loads all chunks from Supabase)
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
 - Court opinions (CAP + CourtListener) are not yet embedded into Supabase — chunker for CAP bulk output is the blocking step

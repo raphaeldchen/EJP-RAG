@@ -3,15 +3,23 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.llms.anthropic import Anthropic
 
 from retrieval.indexes import DualFusionRetriever
-from retrieval.postprocessor import CrossEncoderReranker
+from retrieval.postprocessor import CrossEncoderReranker, CitationLabelingPostprocessor
 
 
 _QA_PROMPT = PromptTemplate(
     "You are a legal research assistant specializing in Illinois criminal law.\n"
-    "Using only the context below, answer the question precisely.\n"
-    "For each point you make, cite the source in brackets — statute section "
-    "for ILCS (e.g. [720 ILCS 5/12-3.05]) or rule number for court rules "
-    "(e.g. [Rule 606]).\n\n"
+    "The context below contains numbered source chunks, each prefixed with its "
+    "citation label in brackets (e.g. [720 ILCS 5/7-1 — Justifiable Use of Force]).\n\n"
+    "Rules:\n"
+    "- Answer using ONLY information from the context below.\n"
+    "- Begin your response directly with the answer. Do not repeat, list, or "
+    "echo the citation labels or chunk headers from the context.\n"
+    "- Every sentence that makes a factual or legal claim must end with the citation "
+    "label of the chunk it came from, in brackets.\n"
+    "- If a sentence draws on multiple chunks, list all relevant labels.\n"
+    "- Use only citation labels that appear verbatim in the context. "
+    "Do not invent or paraphrase citations.\n"
+    "- If the context does not contain enough information to answer, say so.\n\n"
     "Context:\n{context_str}\n\n"
     "Question: {query_str}\n\n"
     "Answer:"
@@ -29,7 +37,7 @@ def build_query_engine(
     return RetrieverQueryEngine.from_args(
         retriever=dual_retriever,
         llm=llm,
-        node_postprocessors=[reranker],
-        response_mode="tree_summarize",
+        node_postprocessors=[reranker, CitationLabelingPostprocessor()],
+        response_mode="compact",
         text_qa_template=_QA_PROMPT,
     )

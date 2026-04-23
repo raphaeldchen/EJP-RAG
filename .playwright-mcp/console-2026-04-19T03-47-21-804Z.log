@@ -1,0 +1,11 @@
+[     251ms] [LOG] Config loaded @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     251ms] [LOG] Debug:  true @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     254ms] [LOG] Search index loaded @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     322ms] [LOG] Canonical:  https://spac.illinois.gov/publications @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     392ms] [LOG] Sections loaded @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     393ms] [LOG] API status code:  200 @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     393ms] [LOG] status server bypassed @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     403ms] [LOG] Cache cleared @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     403ms] [LOG] Local storage cleared @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[     403ms] [LOG] isAppReady true @ https://spac.illinois.gov/js/app.b8bff114.js:0
+[    1773ms] [LOG] {itemsCached: 2, totalCacheSize: 2, millisecondsToComplete: 1370, previouslyCached: false} @ https://spac.illinois.gov/js/app.b8bff114.js:0

@@ -1,0 +1,17 @@
+[     175ms] ReferenceError: $ is not defined
+    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-base.min.86db31df3dd7bfdefe6a299153edd583.js:2169:4
+    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-base.min.86db31df3dd7bfdefe6a299153edd583.js:2207:2
+[     535ms] TypeError: this.responsiveHidden is not a function
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:71:43625)
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:63680)
+    at a.iterator (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:41450)
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:63646)
+    at a.every (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:42593)
+    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:71:43602
+[     535ms] TypeError: this.responsiveHidden is not a function
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:71:43625)
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:63680)
+    at a.iterator (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:41450)
+    at a.<anonymous> (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:63646)
+    at a.every (https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:22:42593)
+    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-datatable.min.1e9e14c79a5f6135cb40283d26c80b8a.js:71:43602

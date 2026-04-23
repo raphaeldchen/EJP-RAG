@@ -1,0 +1,178 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e6]:
+    - banner "Site header" [ref=e7]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - link "Home" [ref=e12] [cursor=pointer]:
+            - /url: /
+            - img "Home" [ref=e13]
+          - link "Law Office of the Cook County Public Defender" [ref=e14] [cursor=pointer]:
+            - /url: /
+        - textbox "search" [ref=e18]
+        - navigation [ref=e19]:
+          - list [ref=e20]:
+            - listitem [ref=e21]:
+              - link "English" [ref=e22] [cursor=pointer]:
+                - /url: /resources
+            - listitem [ref=e23]:
+              - text: "|"
+              - link "Español" [ref=e24] [cursor=pointer]:
+                - /url: /es/recursos
+      - navigation "Main navigation" [ref=e28]:
+        - generic [ref=e29]: Main navigation
+        - menubar [ref=e31]:
+          - menuitem "About" [ref=e32] [cursor=pointer]
+          - menuitem "Locations and Contact" [ref=e33] [cursor=pointer]
+          - menuitem "Quick Help Topics" [ref=e34] [cursor=pointer]
+          - menuitem "Community Engagement" [ref=e35] [cursor=pointer]
+          - menuitem "News & Media" [ref=e36] [cursor=pointer]
+          - menuitem "Careers" [ref=e37] [cursor=pointer]
+          - menuitem "Resources" [ref=e38] [cursor=pointer]
+    - generic [ref=e40]:
+      - main [ref=e41]:
+        - generic [ref=e43]:
+          - heading "Resources" [level=1] [ref=e45]
+          - article [ref=e47]:
+            - generic [ref=e49]:
+              - generic [ref=e52]:
+                - link " Public Defender FAQ " [ref=e54] [cursor=pointer]:
+                  - /url: /Resources/public-defender-faq
+                  - generic [ref=e55]: 
+                  - heading "Public Defender FAQ" [level=2] [ref=e56]
+                  - generic [ref=e57]: 
+                - link " Jail and Prison Search Tools " [ref=e59] [cursor=pointer]:
+                  - /url: /quick-help-topics/jail-and-prison-search-tools
+                  - generic [ref=e60]: 
+                  - heading "Jail and Prison Search Tools" [level=2] [ref=e61]
+                  - generic [ref=e62]: 
+              - generic [ref=e65]:
+                - link " Free/Low Cost Legal Assistance Services " [ref=e67] [cursor=pointer]:
+                  - /url: /resources/free-and-low-cost-legal-assistance-resources
+                  - generic [ref=e68]: 
+                  - heading "Free/Low Cost Legal Assistance Services" [level=2] [ref=e69]
+                  - generic [ref=e70]: 
+                - link " FOIA Requests " [ref=e72] [cursor=pointer]:
+                  - /url: /Resources/foia-requests
+                  - generic [ref=e73]: 
+                  - heading "FOIA Requests" [level=2] [ref=e74]
+                  - generic [ref=e75]: 
+              - generic [ref=e78]:
+                - link " Guide to Juvenile Court " [ref=e80] [cursor=pointer]:
+                  - /url: /Resources/guide-juvenile-court
+                  - generic [ref=e81]: 
+                  - heading "Guide to Juvenile Court" [level=2] [ref=e82]
+                  - generic [ref=e83]: 
+                - link " Immigration Division " [ref=e85] [cursor=pointer]:
+                  - /url: /resources/immigration-division
+                  - generic [ref=e86]: 
+                  - heading "Immigration Division" [level=2] [ref=e87]
+                  - generic [ref=e88]: 
+              - generic [ref=e91]:
+                - link " Information about Expungement, Sealing and Records Relief " [ref=e93] [cursor=pointer]:
+                  - /url: /Resources/information-about-expungement
+                  - generic [ref=e94]: 
+                  - heading "Information about Expungement, Sealing and Records Relief" [level=2] [ref=e95]
+                  - generic [ref=e96]: 
+                - link " Problem-Solving Courts " [ref=e98] [cursor=pointer]:
+                  - /url: /resources/problem-solving-courts
+                  - generic [ref=e99]: 
+                  - heading "Problem-Solving Courts" [level=2] [ref=e100]
+                  - generic [ref=e101]: 
+              - link " Someone Needs Services " [ref=e106] [cursor=pointer]:
+                - /url: /Resources/someones-need-services
+                - generic [ref=e107]: 
+                - heading "Someone Needs Services" [level=2] [ref=e108]
+                - generic [ref=e109]: 
+      - generic [ref=e111]:
+        - navigation "About the Public Defender" [ref=e112]:
+          - heading "About the Public Defender" [level=2] [ref=e113]
+          - list [ref=e114]:
+            - listitem [ref=e115]:
+              - link "Our Divisions and Units" [ref=e116] [cursor=pointer]:
+                - /url: /About/our-divisions-units
+            - listitem [ref=e117]:
+              - link "Public Defender FAQ" [ref=e118] [cursor=pointer]:
+                - /url: /Resources/public-defender-faq
+            - listitem [ref=e119]:
+              - link "Guide to Juvenile Court" [ref=e120] [cursor=pointer]:
+                - /url: /Resources/guide-juvenile-court
+            - listitem [ref=e121]:
+              - link "Employment Opportunities" [ref=e122] [cursor=pointer]:
+                - /url: /employment-opportunities
+        - navigation "Quick Help Guide" [ref=e123]:
+          - heading "Quick Help Guide" [level=2] [ref=e124]
+          - list [ref=e125]:
+            - listitem [ref=e126]:
+              - link "Court Date Information" [ref=e127] [cursor=pointer]:
+                - /url: /Quick-Help-Topics/court-date-information
+        - generic [ref=e128]:
+          - heading "Recent News" [level=2] [ref=e129]
+          - list [ref=e133]:
+            - listitem [ref=e134]:
+              - time [ref=e136]: Apr 09, 2026
+              - link "Law Office Provides Testimony Supporting Supreme Court Rule Change to Allow Faster Review of Decisions Transferring Children to Adult Criminal Court" [ref=e139] [cursor=pointer]:
+                - /url: /news/law-office-provides-testimony-supporting-supreme-court-rule-change-allow-faster-review
+            - listitem [ref=e140]:
+              - time [ref=e142]: Mar 17, 2026
+              - link "Public Defense Goes to the Capitol" [ref=e145] [cursor=pointer]:
+                - /url: /news/public-defense-goes-capitol
+            - listitem [ref=e146]:
+              - time [ref=e148]: Nov 21, 2025
+              - link "Statement on Cook County State’s Attorney’s Felony Bypass Policy Expansion" [ref=e151] [cursor=pointer]:
+                - /url: /news/statement-cook-county-states-attorneys-felony-bypass-policy-expansion
+    - contentinfo [ref=e153]:
+      - navigation "Footer" [ref=e156]:
+        - heading "Footer" [level=2] [ref=e157]
+        - list [ref=e158]:
+          - listitem [ref=e159]:
+            - link "Find Your Public Defender" [ref=e160] [cursor=pointer]:
+              - /url: /locations-contact/find-public-defender
+          - listitem [ref=e161]:
+            - link "News and Community Engagement" [ref=e162] [cursor=pointer]:
+              - /url: /community-engagement
+          - listitem [ref=e163]:
+            - link "Our Divisions and Units" [ref=e164] [cursor=pointer]:
+              - /url: /About/our-divisions-units
+          - listitem [ref=e165]:
+            - link "Quick Help Topics" [ref=e166] [cursor=pointer]:
+              - /url: /quick-help-topics
+          - listitem [ref=e167]:
+            - link "Resources" [ref=e168] [cursor=pointer]:
+              - /url: /resources
+      - generic [ref=e169]:
+        - generic [ref=e171]:
+          - textbox "search" [ref=e175]
+          - navigation "Site Legal Footer" [ref=e176]:
+            - heading "Site Legal Footer" [level=2] [ref=e177]
+            - list [ref=e178]:
+              - listitem [ref=e179]:
+                - link "Disclaimer" [ref=e180] [cursor=pointer]:
+                  - /url: /disclaimer
+              - listitem [ref=e181]:
+                - link "Privacy Policy" [ref=e182] [cursor=pointer]:
+                  - /url: https://www.cookcountyil.gov/privacy-policy
+              - listitem [ref=e183]:
+                - link "Terms of Use" [ref=e184] [cursor=pointer]:
+                  - /url: https://www.cookcountyil.gov/terms-use
+          - list [ref=e187]:
+            - listitem [ref=e188]:
+              - link "facebook" [ref=e189] [cursor=pointer]:
+                - /url: https://www.facebook.com/CookCoDefender/
+                - generic [ref=e190]: facebook
+            - listitem [ref=e191]:
+              - link "instagram" [ref=e192] [cursor=pointer]:
+                - /url: https://instagram.com/cookcodefender?igshid=YmMyMTA2M2Y=
+                - generic [ref=e193]: instagram
+            - listitem [ref=e194]:
+              - link "twitter" [ref=e195] [cursor=pointer]:
+                - /url: https://twitter.com/CookCoDefender
+                - generic [ref=e196]: twitter
+          - paragraph [ref=e199]: © Copyright 2026, Law Office of the Cook County Public Defender.
+        - generic [ref=e201]:
+          - paragraph [ref=e203]:
+            - img "site leader image" [ref=e204]
+          - generic [ref=e205]:
+            - heading "Sharone R. Mitchell, Jr" [level=3] [ref=e206]
+            - paragraph [ref=e207]: Cook County Public Defender

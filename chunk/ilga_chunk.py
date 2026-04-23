@@ -37,7 +37,7 @@ def get_config() -> dict:
         "aws_region":      os.getenv("AWS_REGION"),
     }
 
-LOCAL_OUTPUT_DIR = Path("./chunked_output")
+LOCAL_OUTPUT_DIR = Path("./data_files/chunked_output")
 
 CHUNK_SIZE: int     = int(os.getenv("CHUNK_SIZE", "1500"))
 CHUNK_OVERLAP: int  = int(os.getenv("CHUNK_OVERLAP", "200"))

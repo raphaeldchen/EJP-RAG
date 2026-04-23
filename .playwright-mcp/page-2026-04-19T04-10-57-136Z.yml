@@ -1,0 +1,318 @@
+- generic [ref=e2]:
+  - link "Skip to content" [ref=e3] [cursor=pointer]:
+    - /url: "#main"
+  - generic [ref=e6]:
+    - button [ref=e8] [cursor=pointer]:
+      - img [ref=e9]
+    - menu [ref=e12]:
+      - menuitem "Resources" [ref=e13]:
+        - link "Resources" [ref=e14] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/resources/
+      - menuitem "Media" [ref=e15]:
+        - link "Media" [ref=e16] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/media/
+      - menuitem "Gear" [ref=e17]:
+        - link "Gear" [ref=e18] [cursor=pointer]:
+          - /url: https://restorejustice.spiritsale.com/
+        - img [ref=e19]
+      - menuitem "Visit our political action organization" [ref=e21]:
+        - link "Visit our political action organization" [ref=e22] [cursor=pointer]:
+          - /url: https://restorejusticeillinois.org/
+        - img [ref=e23]
+  - banner [ref=e25]:
+    - generic [ref=e28]:
+      - link "Restore Justice Foundation" [ref=e29] [cursor=pointer]:
+        - /url: https://www.restorejustice.org
+        - img "Restore Justice Foundation" [ref=e30]
+      - navigation "Primary navigation" [ref=e33]:
+        - paragraph [ref=e34]: Primary navigation
+        - menubar [ref=e35]:
+          - menuitem "About Us" [ref=e36]:
+            - generic [ref=e37]:
+              - link "About Us" [ref=e38] [cursor=pointer]:
+                - /url: https://www.restorejustice.org/about-us/
+              - button [ref=e39] [cursor=pointer]:
+                - img [ref=e40]
+          - menuitem "Our Work" [ref=e42]:
+            - generic [ref=e43]:
+              - link "Our Work" [ref=e44] [cursor=pointer]:
+                - /url: https://www.restorejustice.org/our-work/
+              - button [ref=e45] [cursor=pointer]:
+                - img [ref=e46]
+          - menuitem "Issues" [ref=e48]:
+            - generic [ref=e49]:
+              - link "Issues" [ref=e50] [cursor=pointer]:
+                - /url: https://www.restorejustice.org/issues/
+              - button [ref=e51] [cursor=pointer]:
+                - img [ref=e52]
+          - menuitem "Learn" [ref=e54]:
+            - generic [ref=e55]:
+              - link "Learn" [ref=e56] [cursor=pointer]:
+                - /url: https://www.restorejustice.org/learn/
+              - button [ref=e57] [cursor=pointer]:
+                - img [ref=e58]
+          - menuitem "Legislation" [ref=e60]:
+            - link "Legislation" [ref=e62] [cursor=pointer]:
+              - /url: https://www.restorejustice.org/legislation/
+          - menuitem "Blog" [ref=e63]:
+            - link "Blog" [ref=e65] [cursor=pointer]:
+              - /url: https://www.restorejustice.org/blog/
+        - generic [ref=e67]:
+          - link "Donate" [ref=e69] [cursor=pointer]:
+            - /url: https://www.restorejustice.org/donate/
+          - link "Get Involved" [ref=e71] [cursor=pointer]:
+            - /url: https://www.restorejustice.org/get-involved/
+  - main [ref=e72]:
+    - generic [ref=e76]:
+      - paragraph [ref=e78]:
+        - generic [ref=e79]:
+          - link "Home" [ref=e81] [cursor=pointer]:
+            - /url: https://www.restorejustice.org/
+          - text: / Resources
+      - heading "Reentry Resources" [level=1] [ref=e83]
+      - generic [ref=e84]:
+        - paragraph [ref=e85]: When people are released from prison, they face challenges that hinder their path to healing and becoming productive members of society. Specifically, due to systemic societal and legal barriers, it is extremely difficult for formerly incarcerated people to secure gainful employment and find affordable housing.
+        - paragraph [ref=e86]: In order to alleviate the reentry burden, a number of organizations in and around Chicago offer aid and programs to and for returning citizens. These services include everything from housing help and job training to legal aid for record expungement.
+      - generic [ref=e87]:
+        - link "Find Support" [ref=e88] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/our-work/communities-relatives-of-illinois-incarcerated-children/
+        - link "Read about our Community Impact" [ref=e89] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/impact/community-impact/
+    - generic [ref=e92]:
+      - heading "Housing, Education & Job Training / Opportunities" [level=2] [ref=e94]
+      - generic [ref=e95]:
+        - link "Safer Foundation The Safer Foundation provides opportunities for employment, education, and advocacy to people who have been directly impacted by the criminal legal system." [ref=e96] [cursor=pointer]:
+          - /url: https://saferfoundation.org/
+          - generic [ref=e97]:
+            - heading "Safer Foundation" [level=3] [ref=e98]
+            - paragraph [ref=e100]: The Safer Foundation provides opportunities for employment, education, and advocacy to people who have been directly impacted by the criminal legal system.
+          - img [ref=e103]
+        - link "Illinois Prison Project The Illinois Prison Project provides direct representation to people in the Illinois Department of Corrections, trains and supports attorneys who provide direct representation, and empowers incarcerated people and their families to advocate for themselves." [ref=e105] [cursor=pointer]:
+          - /url: https://www.illinoisprisonproject.org/
+          - generic [ref=e106]:
+            - heading "Illinois Prison Project" [level=3] [ref=e107]
+            - paragraph [ref=e108]: The Illinois Prison Project provides direct representation to people in the Illinois Department of Corrections, trains and supports attorneys who provide direct representation, and empowers incarcerated people and their families to advocate for themselves.
+          - img [ref=e111]
+        - link "Chicago Urban League Since 1916, the Chicago Urban League has helped people find jobs, secure affordable housing, enhance their educational experiences, and grow their businesses." [ref=e113] [cursor=pointer]:
+          - /url: https://chiul.org/
+          - generic [ref=e114]:
+            - heading "Chicago Urban League" [level=3] [ref=e115]
+            - paragraph [ref=e117]: Since 1916, the Chicago Urban League has helped people find jobs, secure affordable housing, enhance their educational experiences, and grow their businesses.
+          - img [ref=e120]
+    - generic [ref=e124]:
+      - heading "Legal Services" [level=2] [ref=e126]
+      - generic [ref=e127]:
+        - link "Cabrini Green Legal Aid Cabrini Green Legal Aid mitigates the criminal records barrier by employing an interdisciplinary approach, bringing together teams of lawyers and social workers to comprehensively support client goals." [ref=e128] [cursor=pointer]:
+          - /url: https://www.cgla.net/
+          - generic [ref=e129]:
+            - heading "Cabrini Green Legal Aid" [level=3] [ref=e130]
+            - paragraph [ref=e132]: Cabrini Green Legal Aid mitigates the criminal records barrier by employing an interdisciplinary approach, bringing together teams of lawyers and social workers to comprehensively support client goals.
+          - img [ref=e135]
+        - link "Uptown People’s Law Center Uptown People’s Law Center (UPLC) advocates for prisoners, tenants, and disabled people denied public benefits. UPLC is a full-service, community based, legal clinic with strong expertise in the areas of housing law, Social Security disability income, and prisoners’ rights issues." [ref=e137] [cursor=pointer]:
+          - /url: https://www.uplcchicago.org/
+          - generic [ref=e138]:
+            - heading "Uptown People’s Law Center" [level=3] [ref=e139]
+            - paragraph [ref=e141]: Uptown People’s Law Center (UPLC) advocates for prisoners, tenants, and disabled people denied public benefits. UPLC is a full-service, community based, legal clinic with strong expertise in the areas of housing law, Social Security disability income, and prisoners’ rights issues.
+          - img [ref=e144]
+        - link "First Defense Legal Aid First Defense Legal Aid mobilizes lawyers and over-policed community members to fill gaps in public defense and create, protect, and engage replicable alternatives to the criminal system, starting with its entry points." [ref=e146] [cursor=pointer]:
+          - /url: https://www.first-defense.org/
+          - generic [ref=e147]:
+            - heading "First Defense Legal Aid" [level=3] [ref=e148]
+            - paragraph [ref=e150]: First Defense Legal Aid mobilizes lawyers and over-policed community members to fill gaps in public defense and create, protect, and engage replicable alternatives to the criminal system, starting with its entry points.
+          - img [ref=e153]
+    - generic [ref=e157]:
+      - heading "Advocacy & Reform" [level=2] [ref=e159]
+      - generic [ref=e160]:
+        - link "John Howard Association of Illinois The John Howard Association monitors prisons and advances independent oversight of carceral systems to promote humane treatment and increased transparency." [ref=e161] [cursor=pointer]:
+          - /url: https://www.thejha.org/
+          - generic [ref=e162]:
+            - heading "John Howard Association of Illinois" [level=3] [ref=e163]
+            - paragraph [ref=e165]: The John Howard Association monitors prisons and advances independent oversight of carceral systems to promote humane treatment and increased transparency.
+          - img [ref=e168]
+        - link "Women’s Justice Institute The Women’s Justice Institute promotes decarceration, harm reduction, and improved well-being and outcomes for impacted women, their children, families and communities." [ref=e170] [cursor=pointer]:
+          - /url: https://womensjusticeinstitute.org/
+          - generic [ref=e171]:
+            - heading "Women’s Justice Institute" [level=3] [ref=e172]
+            - paragraph [ref=e174]: The Women’s Justice Institute promotes decarceration, harm reduction, and improved well-being and outcomes for impacted women, their children, families and communities.
+          - img [ref=e177]
+        - link "Restore Justice’s Returning Citizens Network (RCN) Since February 2018, Restore Justice has hosted monthly meetings for returning citizens. These meetings are led by Restore Justice’s impacted staff and attended by individuals who have been impacted by the Illinois criminal legal system." [ref=e179] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/our-work/returning-citizens-network/
+          - generic [ref=e180]:
+            - heading "Restore Justice’s Returning Citizens Network (RCN)" [level=3] [ref=e181]
+            - paragraph [ref=e183]: Since February 2018, Restore Justice has hosted monthly meetings for returning citizens. These meetings are led by Restore Justice’s impacted staff and attended by individuals who have been impacted by the Illinois criminal legal system.
+          - img [ref=e186]
+        - link "Restore Justice’s Communities and Relatives of Illinois’ Incarcerated Children (CRIIC) CRIIC meets monthly for legislative updates, litigation updates, prison issues, and to share stories." [ref=e188] [cursor=pointer]:
+          - /url: https://www.restorejustice.org/our-work/communities-relatives-of-illinois-incarcerated-children/
+          - generic [ref=e189]:
+            - heading "Restore Justice’s Communities and Relatives of Illinois’ Incarcerated Children (CRIIC)" [level=3] [ref=e190]
+            - paragraph [ref=e192]: CRIIC meets monthly for legislative updates, litigation updates, prison issues, and to share stories.
+          - img [ref=e195]
+    - generic [ref=e199]:
+      - heading "Multiple Services" [level=2] [ref=e201]
+      - generic [ref=e202]:
+        - link "Precious Blood Ministry of Reconciliation Precious Blood builds relationships among youth and families impacted by violence and/or conflict; creates safe spaces where people can experience radical hospitality, hope and healing; and promotes a restorative justice approach to conflict." [ref=e203] [cursor=pointer]:
+          - /url: https://www.pbmr.org/reentry
+          - generic [ref=e204]:
+            - heading "Precious Blood Ministry of Reconciliation" [level=3] [ref=e205]
+            - paragraph [ref=e207]: Precious Blood builds relationships among youth and families impacted by violence and/or conflict; creates safe spaces where people can experience radical hospitality, hope and healing; and promotes a restorative justice approach to conflict.
+          - img [ref=e210]
+        - link "Lawndale Christian Legal Center Lawndale Christian Legal Center is the only community-based legal practice in Chicago dedicated to the felony criminal defense of children and emerging adults." [ref=e212] [cursor=pointer]:
+          - /url: https://lclc.net/
+          - generic [ref=e213]:
+            - heading "Lawndale Christian Legal Center" [level=3] [ref=e214]
+            - paragraph [ref=e216]: Lawndale Christian Legal Center is the only community-based legal practice in Chicago dedicated to the felony criminal defense of children and emerging adults.
+          - img [ref=e219]
+        - link "Inner-City Muslim Action Network The Inner-City Muslim Action Network (IMAN) is a community organization that fosters health, wellness and healing in the inner-city by organizing for social change, cultivating the arts, and operating a holistic health center." [ref=e221] [cursor=pointer]:
+          - /url: https://www.imancentral.org/
+          - generic [ref=e222]:
+            - heading "Inner-City Muslim Action Network" [level=3] [ref=e223]
+            - paragraph [ref=e225]: The Inner-City Muslim Action Network (IMAN) is a community organization that fosters health, wellness and healing in the inner-city by organizing for social change, cultivating the arts, and operating a holistic health center.
+          - img [ref=e228]
+        - link "James B. Moran Center for Youth Advocacy The Moran Center provides community-based legal, social work, and restorative services for youth and families." [ref=e230] [cursor=pointer]:
+          - /url: https://moran-center.org/
+          - generic [ref=e231]:
+            - heading "James B. Moran Center for Youth Advocacy" [level=3] [ref=e232]
+            - paragraph [ref=e234]: The Moran Center provides community-based legal, social work, and restorative services for youth and families.
+          - img [ref=e237]
+        - 'link "Saint Leonard’s Ministries: Saint Leonard’s House & Grace House Since its opening in 1994, the Grace House residential program has provided interim housing, emotional and spiritual support, and professional counseling to women who are exiting the Illinois prison system." [ref=e239] [cursor=pointer]':
+          - /url: https://slministries.org/
+          - generic [ref=e240]:
+            - 'heading "Saint Leonard’s Ministries: Saint Leonard’s House & Grace House" [level=3] [ref=e241]'
+            - paragraph [ref=e243]: Since its opening in 1994, the Grace House residential program has provided interim housing, emotional and spiritual support, and professional counseling to women who are exiting the Illinois prison system.
+          - img [ref=e246]
+    - generic [ref=e250]:
+      - heading "Compiled Resources" [level=2] [ref=e252]
+      - link "Illinois Reentry Resources These are resources for people leaving prison to successfully navigate reentry." [ref=e254] [cursor=pointer]:
+        - /url: https://reentryillinois.net/
+        - generic [ref=e255]:
+          - heading "Illinois Reentry Resources" [level=3] [ref=e256]
+          - paragraph [ref=e258]: These are resources for people leaving prison to successfully navigate reentry.
+        - img [ref=e261]
+  - contentinfo [ref=e263]:
+    - generic [ref=e264]:
+      - generic [ref=e265]:
+        - generic [ref=e266]:
+          - generic [ref=e267]:
+            - heading "SIGN UP FOR OUR NEWLETTER" [level=3] [ref=e269]
+            - generic [ref=e270]:
+              - paragraph
+              - paragraph [ref=e271]: Get updates about our legislation, trainings, and other events.
+              - paragraph
+            - generic [ref=e274]:
+              - generic [ref=e276]:
+                - group "Name *" [ref=e277]:
+                  - generic [ref=e278]:
+                    - text: Name
+                    - generic [ref=e280]: "*"
+                  - generic [ref=e281]:
+                    - generic [ref=e282]:
+                      - textbox "First" [ref=e283]:
+                        - /placeholder: First Name
+                      - generic [ref=e284]: First
+                    - generic [ref=e285]:
+                      - textbox "Last" [ref=e286]:
+                        - /placeholder: Last Name
+                      - generic [ref=e287]: Last
+                - generic [ref=e288]:
+                  - generic [ref=e289]: Email
+                  - textbox "Email" [ref=e291]:
+                    - /placeholder: Enter your email here
+              - button "Subscribe" [ref=e292] [cursor=pointer]:
+                - generic [ref=e293]: Subscribe
+          - navigation "Footer - Social Icon Menu" [ref=e294]:
+            - list [ref=e296]:
+              - listitem [ref=e297]:
+                - link "Facebook" [ref=e298] [cursor=pointer]:
+                  - /url: https://www.facebook.com/restorejusticefoundation/
+                  - img [ref=e299]
+                  - generic [ref=e300]: Facebook
+              - listitem [ref=e301]:
+                - link "Twitter" [ref=e302] [cursor=pointer]:
+                  - /url: https://twitter.com/JusticeRestore
+                  - img [ref=e303]
+                  - generic [ref=e304]: Twitter
+              - listitem [ref=e305]:
+                - link "Instagram" [ref=e306] [cursor=pointer]:
+                  - /url: https://www.instagram.com/restorejusticefdn/?hl=en
+                  - img [ref=e307]
+                  - generic [ref=e308]: Instagram
+        - generic [ref=e309]:
+          - navigation "Who We Are" [ref=e311]:
+            - heading "Who We Are" [level=3] [ref=e312]
+            - list [ref=e314]:
+              - listitem [ref=e315]:
+                - link "About Us" [ref=e316] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/about-us/
+              - listitem [ref=e317]:
+                - link "Our Board of Directors" [ref=e318] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/about-us/our-board-of-directors/
+              - listitem [ref=e319]:
+                - link "Our Team" [ref=e320] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/about-us/our-team/
+          - navigation "What We Do" [ref=e322]:
+            - heading "What We Do" [level=3] [ref=e323]
+            - list [ref=e325]:
+              - listitem [ref=e326]:
+                - link "Our Work" [ref=e327] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/our-work/
+              - listitem [ref=e328]:
+                - link "Our Impact" [ref=e329] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/impact/
+              - listitem [ref=e330]:
+                - link "Advocacy" [ref=e331] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/our-work/advocacy/
+              - listitem [ref=e332]:
+                - link "Reports & Factsheets" [ref=e333] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/our-work/reports-factsheets/
+          - navigation "Connect" [ref=e335]:
+            - heading "Connect" [level=3] [ref=e336]
+            - list [ref=e338]:
+              - listitem [ref=e339]:
+                - link "Get Involved" [ref=e340] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/get-involved/
+              - listitem [ref=e341]:
+                - link "Donate" [ref=e342] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/donate/
+              - listitem [ref=e343]:
+                - link "Careers & Volunteering" [ref=e344] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/careers-internships-volunteering/
+              - listitem [ref=e345]:
+                - link "Media" [ref=e346] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/media/
+              - listitem [ref=e347]:
+                - link "Gear" [ref=e348] [cursor=pointer]:
+                  - /url: https://restorejustice.spiritsale.com/
+              - listitem [ref=e349]:
+                - link "Contact us" [ref=e350] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/contact-us/
+      - generic [ref=e352]:
+        - generic [ref=e353]:
+          - generic [ref=e354]:
+            - heading "Restore Justice Foundation PO Box 101099 Chicago, IL 60610" [level=3] [ref=e356]:
+              - paragraph [ref=e357]:
+                - text: Restore Justice Foundation
+                - text: PO Box 101099
+                - text: Chicago, IL 60610
+            - link "Visit our political action sister organization, Restore Justice Illinois" [ref=e358] [cursor=pointer]:
+              - /url: https://restorejusticeillinois.org/
+              - paragraph [ref=e360]:
+                - text: Visit our political action sister organization, Restore Justice Illinois
+                - img [ref=e362]
+          - navigation "Footer - Auxiliary Menu" [ref=e364]:
+            - list [ref=e366]:
+              - listitem [ref=e367]:
+                - link "Privacy Policy" [ref=e368] [cursor=pointer]:
+                  - /url: https://www.restorejustice.org/privacy-policy/
+          - generic [ref=e369]:
+            - paragraph
+            - paragraph [ref=e370]:
+              - text: Restore Justice’s office in the River North neighborhood of Chicago is located on the unceded lands of the Bodwéwadmi (Potawatomi), Kiikaapoi (Kickapoo), Myaamia (Miami), Peoria, Očhéthi Šakówiŋ, and Kaskaskia tribes.
+              - text: These nations lived, gathered, traveled, and traded here long before non-Native people settled in Chicago. They were removed from the land through deadly conflict and unfair treaties. Today Chicago has the third-largest urban Native American population in the United States, consisting of a diverse, multi-tribal community with over 100 tribal nations represented.
+            - paragraph
+        - generic [ref=e373]:
+          - paragraph [ref=e374]: © 2026 Restore Justice Foundation.
+          - paragraph [ref=e375]:
+            - text: All rights reserved. Site by
+            - link "Briteweb" [ref=e376] [cursor=pointer]:
+              - /url: https://briteweb.com/
+          - paragraph [ref=e377]: Illustrations by Maurice Hughes

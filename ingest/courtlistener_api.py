@@ -31,18 +31,19 @@ def _require_env(key: str) -> str:
         sys.exit(1)
     return val
 
-def get_config() -> dict:
-    raw_bucket     = _require_env("RAW_S3_BUCKET")
-    chunked_bucket = _require_env("CHUNKED_S3_BUCKET")
-    api_token      = _require_env("COURTLISTENER_API_TOKEN")
-    cl_prefix      = os.environ.get("RAW_COURTLISTENER_S3_PREFIX", "courtlistener/").rstrip("/")
-    return {
+def get_config(local_only: bool = False) -> dict:
+    raw_bucket = _require_env("RAW_S3_BUCKET")
+    api_token  = _require_env("COURTLISTENER_API_TOKEN")
+    cl_prefix  = os.environ.get("RAW_COURTLISTENER_S3_PREFIX", "courtlistener/").rstrip("/")
+    cfg = {
         "raw_bucket":     raw_bucket,
         "raw_prefix":     f"{cl_prefix}/bulk",
-        "chunked_bucket": chunked_bucket,
-        "chunked_prefix": f"{cl_prefix}/bulk",
         "api_token":      api_token,
     }
+    if not local_only:
+        cfg["chunked_bucket"]  = _require_env("CHUNKED_S3_BUCKET")
+        cfg["chunked_prefix"]  = f"{cl_prefix}/bulk"
+    return cfg
 
 API_BASE = "https://www.courtlistener.com/api/rest/v4/opinions"
 REQUEST_TIMEOUT  = 30      # seconds per request
@@ -57,7 +58,7 @@ OVERLAP_TOKENS   = 75
 ENCODING_NAME    = "cl100k_base"
 MIN_CHUNK_TOKENS = 50
 
-LOCAL_OUTPUT_DIR = Path("./chunked_output")
+LOCAL_OUTPUT_DIR = Path("./data_files/chunked_output")
 
 PRECEDENTIAL_WEIGHT = {
     "Published":   1.0,
@@ -319,51 +320,43 @@ def split_section(heading: str, body: str) -> list[tuple[str, str]]:
     chunks = _accumulate(paragraphs, "\n\n")
     return [(heading, chunk) for chunk in chunks]
 
-def fetch_opinion(opinion_id: str, session: requests.Session, restricted) -> dict | None:
+def fetch_opinion(opinion_id: str, session: requests.Session) -> dict | None:
     url     = f"{API_BASE}/{opinion_id}/"
     backoff = RETRY_BACKOFF
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
             resp = session.get(url, timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
-                data = resp.json()
-                log.info(f"  [DEBUG] opinion {opinion_id} V4 fields: {list(data.keys())}")
-                log.info(f"  [DEBUG] text fields: plain_text={repr(str(data.get('plain_text',''))[:80])}, html={repr(str(data.get('html',''))[:80])}")
-                return data
+                return resp.json()
             if resp.status_code == 429:
-                # Rate limited — back off and retry
                 wait = float(resp.headers.get("Retry-After", backoff * attempt))
-                log.warning(f"  Rate limited on opinion {opinion_id}. Waiting {wait:.1f}s...")
+                log.warning(f"  Rate limited on {opinion_id}. Waiting {wait:.1f}s...")
                 time.sleep(wait)
                 continue
             if resp.status_code == 404:
                 log.warning(f"  Opinion {opinion_id} not found (404). Skipping.")
                 return None
             if resp.status_code == 403:
-                log.warning(f"  Opinion {opinion_id} returned 403. Response: {resp.text[:200]}")
-                restricted += 1
+                log.warning(f"  Opinion {opinion_id} restricted (403). Skipping.")
                 return None
             if resp.status_code >= 500:
                 log.warning(
-                    f"  Server error {resp.status_code} for opinion {opinion_id} "
+                    f"  Server error {resp.status_code} for {opinion_id} "
                     f"(attempt {attempt}/{RETRY_ATTEMPTS}). Retrying in {backoff:.1f}s..."
                 )
                 time.sleep(backoff)
                 backoff *= 2
                 continue
-            log.warning(f"  Unexpected status {resp.status_code} for opinion {opinion_id}. Skipping.")
+            log.warning(f"  Status {resp.status_code} for {opinion_id}. Skipping.")
             return None
         except requests.exceptions.Timeout:
-            log.warning(
-                f"  Timeout for opinion {opinion_id} "
-                f"(attempt {attempt}/{RETRY_ATTEMPTS}). Retrying in {backoff:.1f}s..."
-            )
+            log.warning(f"  Timeout for {opinion_id} (attempt {attempt}/{RETRY_ATTEMPTS}).")
             time.sleep(backoff)
             backoff *= 2
         except requests.exceptions.RequestException as e:
-            log.warning(f"  Request error for opinion {opinion_id}: {e}. Skipping.")
+            log.warning(f"  Request error for {opinion_id}: {e}. Skipping.")
             return None
-    log.error(f"  opinion {opinion_id} failed after {RETRY_ATTEMPTS} attempts. Skipping.")
+    log.error(f"  {opinion_id} failed after {RETRY_ATTEMPTS} attempts.")
     return None
 
 def extract_text(api_response: dict) -> str:
@@ -439,12 +432,10 @@ def chunk_opinion_from_api(
     return result
 
 def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
-    cfg            = get_config()
-    raw_bucket     = cfg["raw_bucket"]
-    raw_prefix     = cfg["raw_prefix"]
-    chunked_bucket = cfg["chunked_bucket"]
-    chunked_prefix = cfg["chunked_prefix"]
-    api_token      = cfg["api_token"]
+    cfg        = get_config(local_only=local_only)
+    raw_bucket = cfg["raw_bucket"]
+    raw_prefix = cfg["raw_prefix"]
+    api_token  = cfg["api_token"]
     log.info("Loading metadata tables from S3...")
     clusters_df = read_csv_from_s3(raw_bucket, f"{raw_prefix}/clusters.csv")
     dockets_df  = read_csv_from_s3(raw_bucket, f"{raw_prefix}/dockets.csv")
@@ -477,14 +468,13 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
     fetched          = 0
     skipped_no_text  = 0
     skipped_api_fail = 0
-    skipped_restricted = 0
     checkpoint_path  = LOCAL_OUTPUT_DIR / "api_opinion_chunks.jsonl"
     if checkpoint_path.exists():
         checkpoint_path.unlink()
         log.info(f"  Cleared previous checkpoint: {checkpoint_path}")
     log.info("Fetching opinions from API...")
     for i, opinion_id in enumerate(opinion_ids):
-        api_data = fetch_opinion(opinion_id, session, restricted=skipped_restricted)
+        api_data = fetch_opinion(opinion_id, session)
         if api_data is None:
             skipped_api_fail += 1
             continue
@@ -504,6 +494,7 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
                 f"{len(all_chunks):,} chunks | "
                 f"{skipped_no_text} no-text | {skipped_api_fail} api-fail"
             )
+
         if len(checkpoint_buf) >= BATCH_CHECKPOINT:
             append_jsonl_local(checkpoint_buf, checkpoint_path)
             checkpoint_buf.clear()
@@ -526,6 +517,8 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
     if local_only:
         log.info(f"  Output in: {LOCAL_OUTPUT_DIR.resolve()}")
     else:
+        chunked_bucket = cfg["chunked_bucket"]
+        chunked_prefix = cfg["chunked_prefix"]
         if checkpoint_path.exists():
             with open(checkpoint_path, "rb") as f:
                 body = f.read()

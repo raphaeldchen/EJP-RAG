@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-LOCAL_DIR = Path("./chunked_output")
+LOCAL_DIR = Path("./data_files/chunked_output")
 
 def _require_env(key: str) -> str:
     val = os.environ.get(key)
