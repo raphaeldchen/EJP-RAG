@@ -19,6 +19,7 @@ Usage:
 import argparse
 import bz2
 import csv
+import io
 import logging
 import os
 import re
@@ -30,6 +31,7 @@ import boto3
 import requests
 from botocore import UNSIGNED
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -316,6 +318,24 @@ def _upload_and_clean(path: Path, bucket: str, prefix: str, bz2_src: Path | None
         log.info(f"  Deleted local {bz2_src.name}")
 
 
+def _exists_on_s3(bucket: str, key: str) -> bool:
+    try:
+        boto3.client("s3").head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            return False
+        raise
+
+
+def _read_ids_from_s3(bucket: str, key: str, id_col: str) -> set[str]:
+    """Read a filtered CSV from S3 and return the set of values in id_col."""
+    log.info(f"  Reading s3://{bucket}/{key} to reconstruct ID set...")
+    obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+    reader = csv.DictReader(io.TextIOWrapper(obj["Body"], encoding="utf-8"))
+    return {row[id_col] for row in reader}
+
+
 def run(local_only: bool = False) -> None:
     bucket = prefix = None
     if not local_only:
@@ -330,25 +350,41 @@ def run(local_only: bool = False) -> None:
     LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     log.info("\n--- Dockets ---")
-    dockets_bz2 = download_cl_file(cl_files["dockets"], "dockets")
-    docket_ids  = filter_dockets(dockets_bz2, LOCAL_OUTPUT_DIR / "dockets.csv")
-    if not local_only:
-        _upload_and_clean(LOCAL_OUTPUT_DIR / "dockets.csv", bucket, prefix, bz2_src=dockets_bz2)
+    dockets_key = f"{prefix}bulk/dockets.csv" if not local_only else None
+    if not local_only and _exists_on_s3(bucket, dockets_key):
+        log.info("  Already on S3 — skipping download+filter.")
+        docket_ids = _read_ids_from_s3(bucket, dockets_key, "id")
+    else:
+        dockets_bz2 = download_cl_file(cl_files["dockets"], "dockets")
+        docket_ids  = filter_dockets(dockets_bz2, LOCAL_OUTPUT_DIR / "dockets.csv")
+        if not local_only:
+            _upload_and_clean(LOCAL_OUTPUT_DIR / "dockets.csv", bucket, prefix, bz2_src=dockets_bz2)
 
     log.info("\n--- Clusters ---")
-    clusters_bz2 = download_cl_file(cl_files["clusters"], "clusters")
-    cluster_ids  = filter_clusters(clusters_bz2, LOCAL_OUTPUT_DIR / "clusters.csv", docket_ids)
-    if not local_only:
-        _upload_and_clean(LOCAL_OUTPUT_DIR / "clusters.csv", bucket, prefix, bz2_src=clusters_bz2)
+    clusters_key = f"{prefix}bulk/clusters.csv" if not local_only else None
+    if not local_only and _exists_on_s3(bucket, clusters_key):
+        log.info("  Already on S3 — skipping download+filter.")
+        cluster_ids = _read_ids_from_s3(bucket, clusters_key, "id")
+    else:
+        clusters_bz2 = download_cl_file(cl_files["clusters"], "clusters")
+        cluster_ids  = filter_clusters(clusters_bz2, LOCAL_OUTPUT_DIR / "clusters.csv", docket_ids)
+        if not local_only:
+            _upload_and_clean(LOCAL_OUTPUT_DIR / "clusters.csv", bucket, prefix, bz2_src=clusters_bz2)
 
     log.info("\n--- Opinions ---")
-    opinions_bz2 = download_cl_file(cl_files["opinions"], "opinions")
-    filter_opinions(opinions_bz2, LOCAL_OUTPUT_DIR / "opinions.csv", cluster_ids)
-    if not local_only:
-        _upload_and_clean(LOCAL_OUTPUT_DIR / "opinions.csv", bucket, prefix, bz2_src=opinions_bz2)
-        log.info(f"\nDone. s3://{bucket}/{prefix}bulk/")
+    opinions_key = f"{prefix}bulk/opinions.csv" if not local_only else None
+    if not local_only and _exists_on_s3(bucket, opinions_key):
+        log.info("  Already on S3 — skipping download+filter.")
     else:
+        opinions_bz2 = download_cl_file(cl_files["opinions"], "opinions")
+        filter_opinions(opinions_bz2, LOCAL_OUTPUT_DIR / "opinions.csv", cluster_ids)
+        if not local_only:
+            _upload_and_clean(LOCAL_OUTPUT_DIR / "opinions.csv", bucket, prefix, bz2_src=opinions_bz2)
+
+    if local_only:
         log.info(f"\nLocal-only mode. Filtered CSVs in: {LOCAL_OUTPUT_DIR.resolve()}")
+    else:
+        log.info(f"\nDone. s3://{bucket}/{prefix}bulk/")
 
 
 def main() -> None:

@@ -1,5 +1,0 @@
-[     265ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://idoc.illinois.gov/reentry:0
-[     311ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://idoc.illinois.gov/reentry:0
-[     336ms] ReferenceError: $ is not defined
-    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-base.min.86db31df3dd7bfdefe6a299153edd583.js:2169:4
-    at https://idoc.illinois.gov/etc.clientlibs/soi/clientlibs/clientlib-base.min.86db31df3dd7bfdefe6a299153edd583.js:2207:2

@@ -1,1 +1,0 @@
-[    3321ms] [WARNING] Lit has been loaded from a bundle that combines all core features into a single file. To reduce transfer size and parsing cost, consider using the `lit` npm package directly in your project. @ https://case.law/lib/lit.js:1627

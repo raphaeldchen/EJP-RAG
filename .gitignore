@@ -6,6 +6,8 @@ venv/
 env/
 # Local Data
 data_files/
+# Playwright MCP session artifacts
+.playwright-mcp/
 # Python bytecode
 __pycache__/
 *.pyc
