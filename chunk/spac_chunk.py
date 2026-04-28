@@ -131,7 +131,7 @@ def strip_toc_lines(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 # All-caps line: starts with A-Z, remainder is A-Z / spaces / select punctuation
-_HEADING_RE = re.compile(r"^[A-Z][A-Z\s\(\)\-/,]{3,59}$")
+_HEADING_RE = re.compile(r"^[A-Z][A-Z0-9\s\(\)\-/,]{3,59}$")
 
 
 def is_section_heading(line: str) -> bool:
@@ -232,17 +232,17 @@ def _merge_micro_chunks(
         _, body = result[i]
         if count_tokens(body) < MIN_CHUNK_TOKENS:
             if i + 1 < len(result):
-                # Merge forward: body prepended to next section's body
                 combined = (body + "\n\n" + result[i + 1][1]).strip()
-                result[i + 1][1] = combined
-                result.pop(i)
-                continue
+                if count_tokens(combined) <= MAX_TOKENS:
+                    result[i + 1][1] = combined
+                    result.pop(i)
+                    continue
             elif i > 0:
-                # Last chunk: merge backward
                 combined = (result[i - 1][1] + "\n\n" + body).strip()
-                result[i - 1][1] = combined
-                result.pop(i)
-                continue
+                if count_tokens(combined) <= MAX_TOKENS:
+                    result[i - 1][1] = combined
+                    result.pop(i)
+                    continue
         i += 1
     return [(h, b) for h, b in result]
 
@@ -301,6 +301,7 @@ def chunk_record(rec: dict) -> list[SpacChunk]:
 
     flat: list[tuple[str, str]] = []
     for heading, body in sections:
+        # Skip heading-only sections (no body) — document artifacts, not substantive content
         if not body.strip():
             continue
         if count_tokens(body) <= MAX_TOKENS:
