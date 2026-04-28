@@ -106,12 +106,16 @@ _PAGE_HEADER_RE = re.compile(
 )
 
 # Matches dot-leader lines: "Introduction ............... 4"
-# Condition: sequence of 4+ dots where dots occupy >30% of the line
+# Strip if 4+ dot run AND (dot density > 20% OR line ends with a digit/page-number)
 _DOT_RUN_RE = re.compile(r"\.{4,}")
+_ENDS_WITH_DIGIT_RE = re.compile(r"\d\s*$")
 
 
 def strip_page_headers(text: str) -> str:
     return _PAGE_HEADER_RE.sub("", text).strip()
+
+
+_ENDS_WITH_DOTS_RE = re.compile(r"\.{4,}\s*$")
 
 
 def strip_toc_lines(text: str) -> str:
@@ -120,7 +124,16 @@ def strip_toc_lines(text: str) -> str:
     for line in lines:
         if _DOT_RUN_RE.search(line):
             dot_count = line.count(".")
-            if len(line) > 0 and dot_count / len(line) > 0.30:
+            line_len = len(line)
+            pct = dot_count / line_len if line_len > 0 else 0
+            # High dot density → clear ToC/dot-leader line
+            if pct > 0.20:
+                continue
+            # Lower density but ends with a page number → ToC entry
+            if _ENDS_WITH_DIGIT_RE.search(line):
+                continue
+            # Line ends with trailing dots (truncated ToC entry, page number on next line)
+            if _ENDS_WITH_DOTS_RE.search(line):
                 continue
         result.append(line)
     return "\n".join(result)
@@ -338,6 +351,20 @@ def chunk_record(rec: dict) -> list[SpacChunk]:
 
 
 # ---------------------------------------------------------------------------
+# Deduplication
+# ---------------------------------------------------------------------------
+
+def deduplicate_records(records: list[dict]) -> list[dict]:
+    """Keep the longest-text copy when the raw corpus has duplicate record IDs."""
+    seen: dict[str, dict] = {}
+    for rec in records:
+        rid = rec["id"]
+        if rid not in seen or len(rec.get("text", "")) > len(seen[rid].get("text", "")):
+            seen[rid] = rec
+    return list(seen.values())
+
+
+# ---------------------------------------------------------------------------
 # I/O
 # ---------------------------------------------------------------------------
 
@@ -390,6 +417,9 @@ def run(local_only: bool = False, limit: int = 0) -> None:
     raw     = read_s3(cfg["raw_bucket"], cfg["raw_key"], cfg["aws_region"])
     records = list(iter_records(raw))
     log.info("Loaded %d raw records", len(records))
+
+    records = deduplicate_records(records)
+    log.info("After deduplication: %d records", len(records))
 
     if limit:
         log.info("Limiting to first %d records.", limit)

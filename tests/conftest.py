@@ -254,12 +254,11 @@ def spac_records():
 
 @pytest.fixture(scope="session")
 def spac_chunks(spac_records):
-    """Run chunk_record() over all SPAC records; return flat list of all chunks as dicts."""
-    from chunk.spac_chunk import chunk_record
+    """Run chunk_record() over de-duplicated SPAC records; return flat list of all chunks as dicts."""
+    from chunk.spac_chunk import chunk_record, deduplicate_records
     from dataclasses import asdict
-    # spac_ingest.py deduplicates at ingest time; no deduplicate_records call needed here
     chunks = []
-    for rec in spac_records:
+    for rec in deduplicate_records(spac_records):
         chunks.extend(asdict(c) for c in chunk_record(rec))
     return chunks
 
