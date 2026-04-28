@@ -106,6 +106,22 @@ def test_non_toc_lines_with_few_dots_preserved():
     assert "Smith v. Jones" in result
 
 
+def test_toc_low_density_ends_with_digit_stripped():
+    """Rule 2: line has 4+ dot run and ends with a page number digit."""
+    line = "Chapter Two. Sentencing Reform Overview ....  12\nReal content."
+    result = strip_toc_lines(line)
+    assert "Chapter Two" not in result
+    assert "Real content." in result
+
+
+def test_toc_trailing_dots_stripped():
+    """Rule 3: line ends with a dot run (page number was on the next line in PDF)."""
+    line = "Appendix A ......\nReal content."
+    result = strip_toc_lines(line)
+    assert "Appendix A" not in result
+    assert "Real content." in result
+
+
 # ---------------------------------------------------------------------------
 # Unit tests — is_section_heading
 # ---------------------------------------------------------------------------

@@ -143,7 +143,7 @@ def strip_toc_lines(text: str) -> str:
 # Section detection
 # ---------------------------------------------------------------------------
 
-# All-caps line: starts with A-Z, remainder is A-Z / spaces / select punctuation
+# All-caps line: starts with A-Z, remainder is A-Z / 0-9 / spaces / select punctuation
 _HEADING_RE = re.compile(r"^[A-Z][A-Z0-9\s\(\)\-/,]{3,59}$")
 
 
@@ -418,8 +418,10 @@ def run(local_only: bool = False, limit: int = 0) -> None:
     records = list(iter_records(raw))
     log.info("Loaded %d raw records", len(records))
 
-    records = deduplicate_records(records)
-    log.info("After deduplication: %d records", len(records))
+    deduped = deduplicate_records(records)
+    if len(deduped) < len(records):
+        log.info("De-duplicated %d → %d records", len(records), len(deduped))
+    records = deduped
 
     if limit:
         log.info("Limiting to first %d records.", limit)
