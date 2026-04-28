@@ -257,6 +257,7 @@ def spac_chunks(spac_records):
     """Run chunk_record() over all SPAC records; return flat list of all chunks as dicts."""
     from chunk.spac_chunk import chunk_record
     from dataclasses import asdict
+    # spac_ingest.py deduplicates at ingest time; no deduplicate_records call needed here
     chunks = []
     for rec in spac_records:
         chunks.extend(asdict(c) for c in chunk_record(rec))
