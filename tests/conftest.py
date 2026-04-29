@@ -276,3 +276,183 @@ def spac_chunks_s3():
     except Exception as e:
         pytest.skip(f"Could not download spac_chunks.jsonl from S3: {e}")
     return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+# ---------------------------------------------------------------------------
+# ICCB fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def iccb_records():
+    """Download iccb_corpus.jsonl from S3 and return parsed records."""
+    bucket = os.environ.get("RAW_S3_BUCKET")
+    if not bucket:
+        pytest.skip("RAW_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="iccb/iccb_corpus.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download iccb_corpus.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+@pytest.fixture(scope="session")
+def iccb_chunks(iccb_records):
+    """Run chunk_record() over de-duplicated ICCB records; return flat list of all chunks."""
+    from chunk.iccb_chunk import chunk_record, deduplicate_records
+    from dataclasses import asdict
+    chunks = []
+    for rec in deduplicate_records(iccb_records):
+        chunks.extend(asdict(c) for c in chunk_record(rec))
+    return chunks
+
+
+@pytest.fixture(scope="session")
+def iccb_chunks_s3():
+    """Load the actual chunked JSONL from the chunked S3 bucket."""
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="iccb/iccb_chunks.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download iccb_chunks.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Federal fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def federal_records():
+    """Download federal_corpus.jsonl from S3 and return parsed records."""
+    bucket = os.environ.get("RAW_S3_BUCKET")
+    if not bucket:
+        pytest.skip("RAW_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="federal/federal_corpus.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download federal_corpus.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+@pytest.fixture(scope="session")
+def federal_chunks(federal_records):
+    """Run chunk_record() over de-duplicated federal records; return flat list of all chunks."""
+    from chunk.federal_chunk import chunk_record, deduplicate_records
+    from dataclasses import asdict
+    chunks = []
+    for rec in deduplicate_records(federal_records):
+        chunks.extend(asdict(c) for c in chunk_record(rec))
+    return chunks
+
+
+@pytest.fixture(scope="session")
+def federal_chunks_s3():
+    """Load the actual chunked JSONL from the chunked S3 bucket."""
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="federal/federal_chunks.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download federal_chunks.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Restore Justice fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def restorejustice_records():
+    """Download restorejustice_corpus.jsonl from S3 and return parsed records."""
+    bucket = os.environ.get("RAW_S3_BUCKET")
+    if not bucket:
+        pytest.skip("RAW_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="restorejustice/restorejustice_corpus.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download restorejustice_corpus.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+@pytest.fixture(scope="session")
+def restorejustice_chunks(restorejustice_records):
+    """Run chunk_record() over de-duplicated RJ records; return flat list of all chunks."""
+    from chunk.restorejustice_chunk import chunk_record, deduplicate_records
+    from dataclasses import asdict
+    chunks = []
+    for rec in deduplicate_records(restorejustice_records):
+        chunks.extend(asdict(c) for c in chunk_record(rec))
+    return chunks
+
+
+@pytest.fixture(scope="session")
+def restorejustice_chunks_s3():
+    """Load the actual chunked JSONL from the chunked S3 bucket."""
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="restorejustice/restorejustice_chunks.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download restorejustice_chunks.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+# ---------------------------------------------------------------------------
+# Cook County PD fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def cookcounty_pd_records():
+    """Download cookcounty_pd_corpus.jsonl from S3 and return parsed records."""
+    bucket = os.environ.get("RAW_S3_BUCKET")
+    if not bucket:
+        pytest.skip("RAW_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="cookcounty-pd/cookcounty_pd_corpus.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download cookcounty_pd_corpus.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+@pytest.fixture(scope="session")
+def cookcounty_pd_chunks(cookcounty_pd_records):
+    """Run chunk_record() over de-duplicated Cook County PD records; return flat list."""
+    from chunk.cookcounty_pd_chunk import chunk_record, deduplicate_records
+    from dataclasses import asdict
+    chunks = []
+    for rec in deduplicate_records(cookcounty_pd_records):
+        chunks.extend(asdict(c) for c in chunk_record(rec))
+    return chunks
+
+
+@pytest.fixture(scope="session")
+def cookcounty_pd_chunks_s3():
+    """Load the actual chunked JSONL from the chunked S3 bucket."""
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key="cookcounty-pd/cookcounty_pd_chunks.jsonl")
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download cookcounty_pd_chunks.jsonl from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]

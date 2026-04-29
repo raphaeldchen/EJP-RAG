@@ -18,8 +18,9 @@ Checkpoint: completed case IDs are recorded in <output>.done so interrupted
 runs resume without duplicating already-written records.
 
 Output schema (JSONL) — same as cap_bulk_ingest.py:
-  id, source, case_id, case_name, case_name_abbr, court, court_id,
-  jurisdiction, date_decided, citations, docket_number, url, text, scraped_at
+  id, source, reporter, volume, case_id, case_name, case_name_abbr, court,
+  court_id, jurisdiction, date_decided, citations, docket_number, url, text,
+  scraped_at
 
 Usage:
   python ingest/cap_static_download.py --local-only
@@ -50,7 +51,8 @@ load_dotenv()
 
 STATIC_ROOT       = "https://static.case.law"
 OUTPUT_FILE       = "data_files/corpus/cap_bulk_corpus.jsonl"
-CHECKPOINT_SUFFIX = ".done"
+CHECKPOINT_SUFFIX  = ".done"
+PROGRESS_SUFFIX    = ".progress"
 DELAY             = 0.15   # seconds between requests
 DELAY_ERROR       = 15.0
 MAX_RETRIES       = 3
@@ -228,7 +230,7 @@ def _extract_citations(case: dict) -> list[str]:
     return [c.get("cite", "") for c in case.get("citations", []) if c.get("cite")]
 
 
-def _build_record(case: dict) -> dict | None:
+def _build_record(case: dict, reporter: str, volume: int) -> dict | None:
     text = _extract_text(case)
     if not text.strip():
         return None
@@ -239,6 +241,8 @@ def _build_record(case: dict) -> dict | None:
     return {
         "id":             f"cap-{case['id']}",
         "source":         "cap_bulk",
+        "reporter":       reporter,
+        "volume":         volume,
         "case_id":        str(case["id"]),
         "case_name":      case.get("name", ""),
         "case_name_abbr": case.get("name_abbreviation", ""),
@@ -270,6 +274,24 @@ def _save_checkpoint(output_file: str, case_id: str) -> None:
     with open(cp, "a", encoding="utf-8") as f:
         f.write(case_id + "\n")
 
+
+def _load_progress(output_file: str) -> dict:
+    p = Path(output_file + PROGRESS_SUFFIX)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_progress(output_file: str, progress: dict) -> None:
+    p = Path(output_file + PROGRESS_SUFFIX)
+    tmp = p.with_suffix(".progress.tmp")
+    tmp.write_text(json.dumps(progress, indent=2), encoding="utf-8")
+    tmp.replace(p)  # atomic on POSIX
+
+
 # ---------------------------------------------------------------------------
 # Main ingestion
 # ---------------------------------------------------------------------------
@@ -286,6 +308,7 @@ def run(
         _get_s3_config()
 
     done_ids      = _load_checkpoint(output_file)
+    progress      = _load_progress(output_file)
     total_written = 0
     total_skipped_date = total_skipped_text = total_skipped_done = total_failed = 0
     limit_hit     = False
@@ -301,12 +324,17 @@ def run(
             log.info(f"\n── Reporter: {reporter}  ({REPORTER_COURT[reporter]})")
             vols = list_volumes(reporter)
 
+            rep_prog = {"total_volumes": len(vols), "done_volumes": 0, "done_cases": 0}
+            progress[reporter] = rep_prog
+
             for vol in vols:
                 if limit_hit:
                     break
 
                 case_metas = fetch_cases_metadata(reporter, vol)
                 if not case_metas:
+                    rep_prog["done_volumes"] += 1
+                    _save_progress(output_file, progress)
                     continue
 
                 vol_written = 0
@@ -339,7 +367,7 @@ def run(
                         total_failed += 1
                         continue
 
-                    rec = _build_record(case)
+                    rec = _build_record(case, reporter, vol)
                     if rec is None:
                         total_skipped_text += 1
                         continue
@@ -361,6 +389,10 @@ def run(
                         log.info(f"  --limit {limit} reached, stopping.")
                         limit_hit = True
 
+                rep_prog["done_volumes"] += 1
+                rep_prog["done_cases"]   += vol_written
+                _save_progress(output_file, progress)
+
                 if vol_written:
                     out.flush()
                     log.info(f"  {reporter}/{vol}: +{vol_written} cases")
@@ -377,6 +409,112 @@ def run(
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+def status(output_file: str) -> None:
+    """Print progress report from the local corpus and checkpoint files; no network access."""
+    from collections import Counter, defaultdict
+
+    corpus_path = Path(output_file)
+    checkpoint_path = Path(output_file + CHECKPOINT_SUFFIX)
+    progress = _load_progress(output_file)
+
+    if not corpus_path.exists():
+        print(f"Corpus file not found: {corpus_path}")
+        return
+
+    checkpoint_count = 0
+    if checkpoint_path.exists():
+        with open(checkpoint_path, encoding="utf-8") as f:
+            checkpoint_count = sum(1 for l in f if l.strip())
+
+    reporter_counts: Counter = Counter()
+    reporter_dates: defaultdict = defaultdict(list)
+    unresolved_count = 0  # legacy records whose reporter couldn't be inferred
+    last_record: dict | None = None
+
+    # Citation patterns ordered most-specific first to avoid false matches.
+    # Each pattern anchors on the reporter abbreviation only — the more-specific
+    # patterns (3d, 2d) must come before the base "Ill. App." and "Ill." patterns
+    # so they short-circuit before the broader ones can match.
+    # No trailing \b after periods — a period followed by whitespace has no
+    # word boundary, so \bIll\.\b would never match "Ill. 456".
+    _CITATION_REPORTER_PATTERNS = [
+        (re.compile(r"\bIll\.\s+App\.\s+3d\s"),  "ill-app-3d"),
+        (re.compile(r"\bIll\.\s+App\.\s+2d\s"),  "ill-app-2d"),
+        (re.compile(r"\bIll\.\s+App\."),          "ill-app"),
+        (re.compile(r"\bIll\.\s+2d\s"),           "ill-2d"),
+        (re.compile(r"\bIll\."),                  "ill"),
+    ]
+
+    def _infer_reporter(citations: list) -> str | None:
+        for cite in (citations or []):
+            for pattern, slug in _CITATION_REPORTER_PATTERNS:
+                if pattern.search(cite):
+                    return slug
+        return None
+
+    with open(corpus_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            rep = d.get("reporter") or _infer_reporter(d.get("citations", []))
+            if rep:
+                reporter_counts[rep] += 1
+                date = d.get("date_decided", "")
+                if date:
+                    reporter_dates[rep].append(date)
+            else:
+                unresolved_count += 1
+            last_record = d
+
+    total = sum(reporter_counts.values()) + unresolved_count
+    print(f"\nCAP ingest progress — {corpus_path}")
+    print(f"  Cases in corpus   : {total:,}")
+    print(f"  Checkpoint entries: {checkpoint_count:,}")
+    if unresolved_count:
+        print(f"  Unresolved        : {unresolved_count:,}  (no reporter field and no parseable citation)")
+    print()
+
+    REPORTER_META = {
+        "ill":        "IL Supreme Ct 1st series  (1819–1955)",
+        "ill-2d":     "IL Supreme Ct 2nd series  (1955–2011)",
+        "ill-app":    "IL Appellate 1st series   (historical–1979)",
+        "ill-app-2d": "IL Appellate 2nd series   (~1968–2001)",
+        "ill-app-3d": "IL Appellate 3rd series   (~1972–2011)",
+    }
+    print("  By reporter:")
+    for rep in DEFAULT_REPORTERS:
+        n = reporter_counts.get(rep, 0)
+        dates = sorted(reporter_dates.get(rep, []))
+        rep_prog = progress.get(rep)
+
+        if rep_prog:
+            done_v  = rep_prog.get("done_volumes", 0)
+            total_v = rep_prog.get("total_volumes", 0)
+            pct     = f"{100 * done_v / total_v:.0f}%" if total_v else "?%"
+            vol_str = f"  [{done_v}/{total_v} vols  {pct}]"
+        else:
+            vol_str = ""
+
+        if n == 0:
+            case_str = "not started"
+        else:
+            case_str = f"{n:,} cases  {dates[0]} → {dates[-1]}" if dates else f"{n:,} cases"
+
+        label = REPORTER_META.get(rep, rep)
+        print(f"    {rep:<12}  {label:<42}  {case_str}{vol_str}")
+
+    if last_record:
+        print()
+        print(f"  Last written: {last_record.get('id')}  |  {last_record.get('reporter', '?')} vol {last_record.get('volume', '?')}  |  {last_record.get('court')}  |  {last_record.get('date_decided')}")
+        print(f"                {last_record.get('case_name_abbr', last_record.get('case_name', ''))[:80]}")
+    print()
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -402,7 +540,13 @@ def main() -> None:
                         help="Only include cases decided on or before this date.")
     parser.add_argument("--limit", type=int, default=0, metavar="N",
                         help="Stop after N records (0 = no limit). For testing.")
+    parser.add_argument("--status", action="store_true",
+                        help="Print progress report from local files (no network) and exit.")
     args = parser.parse_args()
+
+    if args.status:
+        status(args.output)
+        return
 
     for slug in args.reporters:
         if slug not in REPORTER_COURT:
