@@ -119,8 +119,9 @@ def test_no_chunk_exceeds_max_size(ilcs_chunks):
     )
 
 
-def test_sentence_split_overlap(ilcs_chunks):
+def test_sentence_split_overlap(ilcs_chunks):  # noqa: F811
     """For sentence-split parents, chunk N+1 should contain the last sentence of chunk N."""
+    from chunk.ilga_chunk import CHUNK_OVERLAP
     by_parent = defaultdict(list)
     for chunk in ilcs_chunks:
         by_parent[chunk["parent_id"]].append(chunk)
@@ -143,6 +144,15 @@ def test_sentence_split_overlap(ilcs_chunks):
             last_sentence = sentences[-1].strip() if sentences else ""
             if len(last_sentence) < 15:
                 continue
+            # When the "last sentence" is a giant fragment (no terminal punctuation), fall back
+            # to checking that a tail suffix of chunk A appears in chunk B — hard-split overlap.
+            if len(last_sentence) > CHUNK_OVERLAP:
+                tail = chunk_a["text"][-CHUNK_OVERLAP:].strip()
+                if tail and tail not in chunk_b["text"]:
+                    failures.append(
+                        f"No tail overlap: {chunk_a['chunk_id']} → {chunk_b['chunk_id']}"
+                    )
+                continue
             if last_sentence not in chunk_b["text"]:
                 failures.append(
                     f"No overlap: {chunk_a['chunk_id']} → {chunk_b['chunk_id']}"
@@ -152,3 +162,40 @@ def test_sentence_split_overlap(ilcs_chunks):
         f"{len(failures)} consecutive chunk pairs have no overlap:\n"
         + "\n".join(failures[:5])
     )
+
+
+# ---------------------------------------------------------------------------
+# S3 output verification — reads the actual chunked file from the chunked bucket
+# ---------------------------------------------------------------------------
+
+def test_s3_output_record_count(ilcs_chunks, ilcs_chunks_s3):
+    """Chunk count in S3 must match what the chunker produces in memory."""
+    assert len(ilcs_chunks_s3) == len(ilcs_chunks), (
+        f"S3 has {len(ilcs_chunks_s3)} chunks, in-memory produced {len(ilcs_chunks)}"
+    )
+
+
+def test_s3_output_no_corrupt_records(ilcs_chunks_s3):
+    """Every record in S3 must have the required top-level keys."""
+    required = {"chunk_id", "chunk_index", "chunk_total", "text", "metadata"}
+    failures = [
+        f"record {i}: missing {required - c.keys()}"
+        for i, c in enumerate(ilcs_chunks_s3)
+        if not required.issubset(c.keys())
+    ]
+    assert not failures, "Corrupt records in S3 output:\n" + "\n".join(failures[:5])
+
+
+def test_s3_output_no_empty_text(ilcs_chunks_s3):
+    """No chunk in S3 should have empty text."""
+    failures = [c["chunk_id"] for c in ilcs_chunks_s3 if not c.get("text", "").strip()]
+    assert not failures, f"{len(failures)} chunks with empty text in S3: {failures[:5]}"
+
+
+def test_s3_output_source_is_ilcs(ilcs_chunks_s3):
+    """All S3 chunks must have source=ilcs in metadata."""
+    failures = [
+        c["chunk_id"] for c in ilcs_chunks_s3
+        if c.get("metadata", {}).get("source") != "ilcs"
+    ]
+    assert not failures, f"{len(failures)} chunks with wrong source in S3: {failures[:5]}"

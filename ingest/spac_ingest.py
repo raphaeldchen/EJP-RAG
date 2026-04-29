@@ -261,6 +261,7 @@ def run(
     out_path  = Path(output_file)
     written   = 0
     skipped   = 0
+    seen_ids: set[str] = set()
 
     with open(out_path, "w", encoding="utf-8") as out:
         for i, entry in enumerate(entries):
@@ -279,8 +280,15 @@ def run(
                 skipped += 1
                 continue
 
+            rec_id = _make_id(filename)
+            if rec_id in seen_ids:
+                log.warning(f"    Duplicate ID {rec_id!r} (timestamp variant) — skipping")
+                skipped += 1
+                continue
+            seen_ids.add(rec_id)
+
             record = {
-                "id":          _make_id(filename),
+                "id":          rec_id,
                 "source":      "spac",
                 "agency":      "Illinois Sentencing Policy Advisory Council",
                 "category":    _infer_category(filename),

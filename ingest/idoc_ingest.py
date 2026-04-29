@@ -240,7 +240,7 @@ def ingest_directives(all_categories: bool) -> list[dict]:
         rec_id  = f"idoc-dir-{dir_num.group(1)}" if dir_num else (
             "idoc-dir-" + re.sub(r"[^\w]", "_", entry["title"])[:60].lower()
         )
-        records.append({
+        rec = {
             "id":           rec_id,
             "source":       "idoc_directive",
             "doc_type":     "administrative_directive",
@@ -250,7 +250,15 @@ def ingest_directives(all_categories: bool) -> list[dict]:
             "url":          entry["pdf_url"],
             "text":         text,
             "scraped_at":   datetime.now(timezone.utc).isoformat(),
-        })
+        }
+        # Keep longest-text copy when the same directive number appears twice
+        existing = next((r for r in records if r["id"] == rec_id), None)
+        if existing is None:
+            records.append(rec)
+        elif len(text) > len(existing["text"]):
+            records[records.index(existing)] = rec
+        else:
+            log.warning(f"    Duplicate directive ID {rec_id!r} — keeping existing copy")
 
     log.info(f"  Directives ingested: {len(records)}")
     return records

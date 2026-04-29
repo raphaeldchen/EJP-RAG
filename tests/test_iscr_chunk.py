@@ -117,3 +117,42 @@ def test_small_chunks_not_orphaned(iscr_chunks):
     assert not failures, (
         f"{len(failures)} junk micro-chunks found:\n" + "\n".join(failures[:5])
     )
+
+
+# ---------------------------------------------------------------------------
+# S3 output verification — reads the actual chunked file from the chunked bucket
+# ---------------------------------------------------------------------------
+
+def test_s3_output_record_count(iscr_chunks, iscr_chunks_s3):
+    """Chunk count in S3 must match what the chunker produces in memory."""
+    assert len(iscr_chunks_s3) == len(iscr_chunks), (
+        f"S3 has {len(iscr_chunks_s3)} chunks, in-memory produced {len(iscr_chunks)}"
+    )
+
+
+def test_s3_output_no_corrupt_records(iscr_chunks_s3):
+    """Every record in S3 must have the required top-level keys."""
+    required = {"chunk_id", "text", "rule_number", "content_type", "hierarchical_path"}
+    failures = [
+        f"record {i}: missing {required - c.keys()}"
+        for i, c in enumerate(iscr_chunks_s3)
+        if not required.issubset(c.keys())
+    ]
+    assert not failures, "Corrupt records in S3 output:\n" + "\n".join(failures[:5])
+
+
+def test_s3_output_no_empty_text(iscr_chunks_s3):
+    """No chunk in S3 should have empty text."""
+    failures = [c["chunk_id"] for c in iscr_chunks_s3 if not c.get("text", "").strip()]
+    assert not failures, f"{len(failures)} chunks with empty text in S3: {failures[:5]}"
+
+
+def test_s3_output_no_page_markers(iscr_chunks_s3):
+    """[PAGE N] markers must not appear in the S3 output."""
+    import re
+    page_marker_re = re.compile(r"\[PAGE \d+\]")
+    failures = [
+        c["chunk_id"] for c in iscr_chunks_s3
+        if page_marker_re.search(c.get("text", ""))
+    ]
+    assert not failures, f"{len(failures)} chunks in S3 contain [PAGE N] markers: {failures[:5]}"

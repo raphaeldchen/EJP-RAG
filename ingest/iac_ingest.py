@@ -218,25 +218,29 @@ def _make_id(part_num: str, section_num: str) -> str:
 def _build_records(
     raw: list[dict], part_num: str, part_name: str
 ) -> list[dict]:
-    records = []
+    # JCAR HTML exposes each section at both the SUBPART level (heading only)
+    # and the full section level. De-duplicate by ID, keeping the longest text.
+    seen: dict[str, dict] = {}
     for sec in raw:
         if not sec.get("text", "").strip():
             continue
-        records.append({
-            "id":               _make_id(part_num, sec["section_num"]),
-            "source":           "illinois_admin_code",
-            "title_num":        TITLE_NUM,
-            "title_name":       TITLE_NAME,
-            "part_num":         part_num,
-            "part_name":        part_name,
-            "section_num":      sec["section_num"],
-            "section_heading":  sec["section_heading"],
-            "section_citation": f"{TITLE_NUM} Ill. Adm. Code {sec['section_num']}",
-            "url":              sec["url"],
-            "text":             sec["text"],
-            "scraped_at":       datetime.now(timezone.utc).isoformat(),
-        })
-    return records
+        rec_id = _make_id(part_num, sec["section_num"])
+        if rec_id not in seen or len(sec["text"]) > len(seen[rec_id]["text"]):
+            seen[rec_id] = {
+                "id":               rec_id,
+                "source":           "illinois_admin_code",
+                "title_num":        TITLE_NUM,
+                "title_name":       TITLE_NAME,
+                "part_num":         part_num,
+                "part_name":        part_name,
+                "section_num":      sec["section_num"],
+                "section_heading":  sec["section_heading"],
+                "section_citation": f"{TITLE_NUM} Ill. Adm. Code {sec['section_num']}",
+                "url":              sec["url"],
+                "text":             sec["text"],
+                "scraped_at":       datetime.now(timezone.utc).isoformat(),
+            }
+    return list(seen.values())
 
 # ---------------------------------------------------------------------------
 # Per-part scraping

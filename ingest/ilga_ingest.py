@@ -282,6 +282,7 @@ def build_docs(sections: list[dict], act: dict, act_name: str,
         doc = {
             "id":               make_id(chapter["chapter_num"], act["act_id"],
                                         sec["section_citation"]),
+            "source":           "ilcs",
             "chapter_num":      chapter["chapter_num"],
             "chapter_name":     chapter["chapter_name"],
             "major_topic":      chapter["major_topic"],
