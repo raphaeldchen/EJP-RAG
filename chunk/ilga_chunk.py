@@ -1,16 +1,26 @@
 import argparse
+import dataclasses
 import json
 import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
+
 import boto3
+import tiktoken
+from core.models import Chunk
 from dotenv import load_dotenv
 
 load_dotenv()
+
+_enc = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens(text: str) -> int:
+    return len(_enc.encode(text))
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -201,7 +211,7 @@ def _pack_subsections(segments: list[str]) -> list[str]:
     return packed
 
 
-def chunk_section(record: dict) -> list[dict]:
+def chunk_section(record: dict) -> list[Chunk]:
     text = clean_text(record.get("text", ""))
     if not text:
         log.warning("Empty text for record %s — skipping", record.get("id"))
@@ -274,17 +284,31 @@ def _make_chunk(
     parent_id: str,
     chunk_index: int,
     chunk_total: int,
-) -> dict:
-    return {
-        "chunk_id":       f"{parent_id}_c{chunk_index}",
-        "parent_id":      parent_id,
-        "chunk_index":    chunk_index,
-        "chunk_total":    chunk_total,
-        "text":           text,
-        "token_estimate": len(text.split()),
-        "chunked_at":     datetime.now(timezone.utc).isoformat(),
-        "metadata":       metadata,
-    }
+) -> Chunk:
+    section_citation = metadata.get("section_citation", "")
+    section_heading  = metadata.get("section_heading", "")
+    act_name         = metadata.get("act_name", "")
+    major_topic      = metadata.get("major_topic", "")
+
+    display_citation = section_citation
+    if section_heading:
+        display_citation = f"{section_citation} — {section_heading}"
+
+    enriched_parts = [p for p in [section_citation, section_heading, act_name, major_topic] if p]
+    enriched = "\n".join(enriched_parts) + "\n\n" + text if enriched_parts else text
+
+    return Chunk(
+        chunk_id=f"{parent_id}_c{chunk_index}",
+        parent_id=parent_id,
+        chunk_index=chunk_index,
+        chunk_total=chunk_total,
+        text=text,
+        enriched_text=enriched,
+        source=metadata["source"],
+        token_count=count_tokens(text),
+        display_citation=display_citation,
+        metadata=metadata,
+    )
 
 def iter_records(source: str) -> Generator[dict, None, None]:
     for line_no, line in enumerate(source.splitlines(), start=1):
@@ -338,7 +362,7 @@ def run(local_only: bool = False, local_input: Path | None = None, limit: int = 
     if limit:
         log.info("Limiting to first %d sections.", limit)
         records = records[:limit]
-    all_chunks: list[dict] = []
+    all_chunks: list[Chunk] = []
     skipped = 0
     for rec in records:
         chunks = chunk_section(rec)
@@ -350,18 +374,19 @@ def run(local_only: bool = False, local_input: Path | None = None, limit: int = 
         "Produced %d chunks from %d sections (%d skipped)",
         len(all_chunks), len(records), skipped,
     )
-    single_chunk_sections = sum(1 for c in all_chunks if c["chunk_total"] == 1)
-    multi_chunk_parents   = len({c["parent_id"] for c in all_chunks if c["chunk_total"] > 1})
+    single_chunk_sections = sum(1 for c in all_chunks if c.chunk_total == 1)
+    multi_chunk_parents   = len({c.parent_id for c in all_chunks if c.chunk_total > 1})
     log.info(
         "Single-chunk sections: %d  |  Multi-chunk sections: %d",
         single_chunk_sections, multi_chunk_parents,
     )
+    serialized = [dataclasses.asdict(c) for c in all_chunks]
     if local_only or local_input:
-        write_chunks_local(all_chunks, LOCAL_OUTPUT_DIR / "ilcs_chunks.jsonl")
+        write_chunks_local(serialized, LOCAL_OUTPUT_DIR / "ilcs_chunks.jsonl")
         log.info("Output in: %s", LOCAL_OUTPUT_DIR.resolve())
     else:
         cfg = get_config()
-        write_chunks_s3(all_chunks, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
+        write_chunks_s3(serialized, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
         log.info("Output at s3://%s/%s", cfg["chunked_bucket"], cfg["chunked_key"])
     log.info("=== ILCS chunking pipeline complete ===")
 
