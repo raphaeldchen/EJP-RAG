@@ -198,7 +198,7 @@ def test_all_caps_headings_produce_sections():
         f"STUDENT CREDIT ENROLLMENTS\n\n{_FILLER}"
     )
     chunks = chunk_record(_make_record(text))
-    headings = {c.section_heading for c in chunks}
+    headings = {c.metadata.get("section_heading", "") for c in chunks}
     assert "HIGHLIGHTS OF ANNUAL REPORT" in headings
     assert "STUDENT CREDIT ENROLLMENTS" in headings
 
@@ -206,7 +206,7 @@ def test_all_caps_headings_produce_sections():
 def test_two_word_heading_does_not_split():
     text = f"DUAL CREDIT\n\n{_FILLER}\n\nMore content follows."
     chunks = chunk_record(_make_record(text))
-    headings = {c.section_heading for c in chunks}
+    headings = {c.metadata.get("section_heading", "") for c in chunks}
     assert "DUAL CREDIT" not in headings, "Two-word heading should not create a split"
 
 
@@ -230,6 +230,18 @@ def test_chunk_ids_contiguous():
         assert c.chunk_total == len(chunks)
 
 
+def test_chunk_schema_fields():
+    text = "Illinois community colleges enrolled students in credit courses. " * 15
+    chunks = chunk_record(_make_record(text, fiscal_year="2025", title="FY2025 Annual Report"))
+    assert chunks
+    c = chunks[0]
+    assert c.source == "iccb"
+    assert c.token_count > 0
+    assert c.display_citation != ""
+    assert "record_id" in c.metadata
+    assert c.parent_id == "iccb-fy2025-annual"
+
+
 def test_enriched_text_contains_fiscal_year_and_title():
     text = "Credit enrollment increased significantly this year. " * 20
     chunks = chunk_record(_make_record(text, fiscal_year="2022", title="FY2022 Annual Report"))
@@ -241,7 +253,7 @@ def test_enriched_text_contains_fiscal_year_and_title():
 def test_enriched_text_contains_section_heading():
     text = f"STUDENT CREDIT ENROLLMENTS\n\n{_FILLER}"
     chunks = chunk_record(_make_record(text))
-    section_chunks = [c for c in chunks if c.section_heading == "STUDENT CREDIT ENROLLMENTS"]
+    section_chunks = [c for c in chunks if c.metadata.get("section_heading") == "STUDENT CREDIT ENROLLMENTS"]
     assert section_chunks
     assert "STUDENT CREDIT ENROLLMENTS" in section_chunks[0].enriched_text
 
@@ -282,7 +294,7 @@ def test_chunk_id_format():
 
 def test_fiscal_year_preserved_in_chunks():
     chunks = chunk_record(_make_record("Enrollment content. " * 20, fiscal_year="2021"))
-    assert all(c.fiscal_year == "2021" for c in chunks)
+    assert all(c.metadata.get("fiscal_year") == "2021" for c in chunks)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +302,8 @@ def test_fiscal_year_preserved_in_chunks():
 # ---------------------------------------------------------------------------
 
 def test_all_five_fiscal_years_present(iccb_chunks):
-    fiscal_years = {c["fiscal_year"] for c in iccb_chunks}
+    fiscal_years = {c.get("metadata", {}).get("fiscal_year") for c in iccb_chunks}
+    fiscal_years.discard(None)
     assert len(fiscal_years) >= 4, f"Expected at least 4 fiscal years, got: {fiscal_years}"
 
 
@@ -311,7 +324,7 @@ def test_no_toc_lines_in_corpus_chunks(iccb_chunks):
 def test_chunk_index_contiguous(iccb_chunks):
     by_record = defaultdict(list)
     for c in iccb_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["parent_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -323,7 +336,7 @@ def test_chunk_index_contiguous(iccb_chunks):
 def test_chunk_total_accurate(iccb_chunks):
     by_record = defaultdict(list)
     for c in iccb_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["parent_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -357,16 +370,20 @@ def test_no_chunk_exceeds_max_tokens_corpus(iccb_chunks):
 
 
 def test_all_chunks_have_required_fields(iccb_chunks):
-    required = {
-        "chunk_id", "chunk_index", "chunk_total", "source",
-        "text", "enriched_text", "token_count", "record_id",
-        "title", "fiscal_year", "doc_type", "url",
+    required_top = {
+        "chunk_id", "parent_id", "chunk_index", "chunk_total", "source",
+        "text", "enriched_text", "token_count", "display_citation", "metadata",
     }
-    failures = [
-        f"{c['chunk_id']}: missing {required - c.keys()}"
-        for c in iccb_chunks
-        if not required.issubset(c.keys())
-    ]
+    required_meta = {"record_id", "title", "fiscal_year", "doc_type", "url"}
+    failures = []
+    for c in iccb_chunks:
+        missing_top = required_top - c.keys()
+        if missing_top:
+            failures.append(f"{c['chunk_id']}: missing top-level {missing_top}")
+            continue
+        missing_meta = required_meta - c.get("metadata", {}).keys()
+        if missing_meta:
+            failures.append(f"{c['chunk_id']}: missing metadata keys {missing_meta}")
     assert not failures, "Chunks missing required fields:\n" + "\n".join(failures[:5])
 
 
@@ -382,10 +399,10 @@ def test_source_field_is_iccb_corpus(iccb_chunks):
 
 def test_large_report_produces_many_chunks(iccb_chunks):
     """FY2025 report (~142k chars) must produce many chunks with distinct section headings."""
-    fy2025 = [c for c in iccb_chunks if c.get("fiscal_year") == "2025"]
+    fy2025 = [c for c in iccb_chunks if c.get("metadata", {}).get("fiscal_year") == "2025"]
     assert fy2025, "No FY2025 chunks found"
     assert len(fy2025) > 50, f"Expected >50 chunks for FY2025 report, got {len(fy2025)}"
-    headings = {c["section_heading"] for c in fy2025 if c["section_heading"]}
+    headings = {c["metadata"]["section_heading"] for c in fy2025 if c["metadata"]["section_heading"]}
     assert len(headings) > 5, f"Expected >5 distinct section headings, got {headings}"
 
 
@@ -393,7 +410,8 @@ def test_all_reports_produce_chunks(iccb_chunks):
     """Every fiscal year in the corpus must produce at least one chunk."""
     by_fy = defaultdict(int)
     for c in iccb_chunks:
-        by_fy[c.get("fiscal_year")] += 1
+        by_fy[c.get("metadata", {}).get("fiscal_year")] += 1
+    by_fy.pop(None, None)
     assert len(by_fy) >= 4, f"Fewer than 4 fiscal years have chunks: {dict(by_fy)}"
     for fy, count in by_fy.items():
         assert count > 0, f"FY{fy} produced no chunks"
