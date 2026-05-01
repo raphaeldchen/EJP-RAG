@@ -141,7 +141,7 @@ def test_bop_numbered_sections_split():
         f"3.  PROGRAM OBJECTIVES\n\n{_FILLER}"
     )
     chunks = chunk_record(_make_record(text))
-    headings = {c.section_heading for c in chunks}
+    headings = {c.metadata.get("section_heading", "") for c in chunks}
     # At least one numbered section boundary should be reflected in chunk headings
     assert any(re.match(r"^\d+\.", h) for h in headings if h), (
         f"No numbered-section headings found. Headings: {headings}"
@@ -202,7 +202,24 @@ def test_chunk_id_format():
 def test_doc_type_preserved():
     text = "Statutory text here. " * 20
     chunks = chunk_record(_make_record(text, doc_type="statute"))
-    assert all(c.doc_type == "statute" for c in chunks)
+    assert all(c.metadata.get("doc_type") == "statute" for c in chunks)
+
+
+def test_chunk_schema_fields():
+    text = "The Bureau of Prisons shall maintain education standards. " * 15
+    chunks = chunk_record(_make_record(
+        text,
+        rec_id="bop-5300.21",
+        title="BOP Program Statement 5300.21",
+        citation="PS 5300.21",
+    ))
+    assert chunks
+    c = chunks[0]
+    assert c.source == "federal"
+    assert c.token_count > 0
+    assert "BOP Program Statement 5300.21" in c.display_citation
+    assert "record_id" in c.metadata
+    assert c.parent_id == "bop-5300.21"
 
 
 # ---------------------------------------------------------------------------
@@ -210,21 +227,21 @@ def test_doc_type_preserved():
 # ---------------------------------------------------------------------------
 
 def test_all_three_records_produce_chunks(federal_chunks):
-    record_ids = {c["record_id"] for c in federal_chunks}
+    record_ids = {c.get("metadata", {}).get("record_id") or c.get("parent_id") for c in federal_chunks}
     assert "second-chance-pell-rule" in record_ids, "Missing second-chance-pell-rule chunks"
     assert "first-step-act" in record_ids, "Missing first-step-act chunks"
     assert "bop-5300.21" in record_ids, "Missing bop-5300.21 chunks"
 
 
 def test_bop_doc_splits_into_multiple_chunks(federal_chunks):
-    bop = [c for c in federal_chunks if c["record_id"] == "bop-5300.21"]
+    bop = [c for c in federal_chunks if c.get("parent_id") == "bop-5300.21"]
     assert len(bop) > 5, f"Expected >5 chunks for BOP 5300.21, got {len(bop)}"
 
 
 def test_chunk_index_contiguous(federal_chunks):
     by_record = defaultdict(list)
     for c in federal_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["parent_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -236,7 +253,7 @@ def test_chunk_index_contiguous(federal_chunks):
 def test_chunk_total_accurate(federal_chunks):
     by_record = defaultdict(list)
     for c in federal_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["parent_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -270,16 +287,20 @@ def test_no_chunk_exceeds_max_tokens_corpus(federal_chunks):
 
 
 def test_all_chunks_have_required_fields(federal_chunks):
-    required = {
-        "chunk_id", "chunk_index", "chunk_total", "source",
-        "text", "enriched_text", "token_count", "record_id",
-        "title", "doc_type", "url",
+    required_top = {
+        "chunk_id", "parent_id", "chunk_index", "chunk_total", "source",
+        "text", "enriched_text", "token_count", "display_citation", "metadata",
     }
-    failures = [
-        f"{c['chunk_id']}: missing {required - c.keys()}"
-        for c in federal_chunks
-        if not required.issubset(c.keys())
-    ]
+    required_meta = {"record_id", "title", "doc_type", "url"}
+    failures = []
+    for c in federal_chunks:
+        missing_top = required_top - c.keys()
+        if missing_top:
+            failures.append(f"{c['chunk_id']}: missing top-level {missing_top}")
+            continue
+        missing_meta = required_meta - c.get("metadata", {}).keys()
+        if missing_meta:
+            failures.append(f"{c['chunk_id']}: missing metadata keys {missing_meta}")
     assert not failures, "Chunks missing required fields:\n" + "\n".join(failures[:5])
 
 
