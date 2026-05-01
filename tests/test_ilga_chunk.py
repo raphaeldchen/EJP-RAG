@@ -170,6 +170,25 @@ def test_sentence_split_overlap(ilcs_chunks):  # noqa: F811
     )
 
 
+def test_chunk_schema_fields(ilcs_chunks):
+    """All chunks must have the required Chunk dataclass fields populated."""
+    failures = []
+    for c in ilcs_chunks:
+        if not c.display_citation:
+            failures.append(f"{c.chunk_id}: display_citation empty")
+        if " — " not in c.display_citation and c.metadata.get("section_heading"):
+            failures.append(f"{c.chunk_id}: display_citation missing ' — ' separator")
+        if c.token_count <= 0:
+            failures.append(f"{c.chunk_id}: token_count={c.token_count}")
+        if c.source != "ilcs":
+            failures.append(f"{c.chunk_id}: source={c.source!r}")
+        if "section_citation" not in c.metadata:
+            failures.append(f"{c.chunk_id}: metadata missing section_citation")
+        if not c.enriched_text:
+            failures.append(f"{c.chunk_id}: enriched_text empty")
+    assert not failures, f"{len(failures)} schema violations:\n" + "\n".join(failures[:5])
+
+
 # ---------------------------------------------------------------------------
 # S3 output verification — reads the actual chunked file from the chunked bucket
 # ---------------------------------------------------------------------------
