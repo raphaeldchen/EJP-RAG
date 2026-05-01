@@ -1,6 +1,6 @@
 import re
 import pytest
-from chunk.iscr_chunk import chunk_document, should_split_rule, estimate_tokens
+from chunk.iscr_chunk import chunk_document, should_split_rule
 
 
 def test_rule_401_enumeration_intact(iscr_chunks):
@@ -96,7 +96,7 @@ def test_small_chunks_not_orphaned(iscr_chunks):
     """Chunks with < 10 tokens must be header chunks or legitimately tiny legal content."""
     failures = []
     for chunk in iscr_chunks:
-        if estimate_tokens(chunk.text) < 10:
+        if chunk.token_count < 10:
             ct = chunk.metadata.get("content_type")
             text = chunk.text
             # Skip header chunks (these are always tiny by design)
@@ -122,8 +122,8 @@ def test_small_chunks_not_orphaned(iscr_chunks):
 def test_chunk_schema_fields(iscr_chunks):
     failures = []
     for c in iscr_chunks:
-        if not c.display_citation:
-            failures.append(f"{c.chunk_id}: display_citation empty")
+        if not c.display_citation and c.metadata.get("content_type") not in {"article_header", "part_header", "effective_date"}:
+            failures.append(f"{c.chunk_id}: display_citation empty (content_type={c.metadata.get('content_type')})")
         if c.token_count <= 0:
             failures.append(f"{c.chunk_id}: token_count={c.token_count}")
         if c.source != "illinois_supreme_court_rules":

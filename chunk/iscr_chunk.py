@@ -325,15 +325,17 @@ def _build_chunk(
             rule_title_parts.append(f": {hierarchy.current_rule_title}")
     rule_title = " ".join(rule_title_parts)
 
-    # display_citation: "Rule N: Title" for titled rules, "Rule N" for untitled
+    # display_citation: "Rule N — Title" for titled rules, "Rule N(x) — Title" for subsections
     if rule_number and hierarchy.current_rule_title and not subsection_id:
         display_citation = f"Rule {rule_number} — {hierarchy.current_rule_title}"
     elif rule_number:
         display_citation = f"Rule {rule_number}"
         if subsection_id:
             display_citation += f"({subsection_id})"
+        if hierarchy.current_rule_title:
+            display_citation += f" — {hierarchy.current_rule_title}"
     else:
-        display_citation = hierarchical_path
+        display_citation = hierarchical_path or content_type.replace("_", " ")
 
     # enriched_text: hierarchical context + text
     context_parts = []
@@ -348,14 +350,15 @@ def _build_chunk(
     return Chunk(
         chunk_id=str(uuid.uuid4()),
         parent_id=source_key,
-        chunk_index=0,          # assigned later in chunk_document
-        chunk_total=1,          # assigned later in chunk_document
+        chunk_index=0,          # for split rules, overwritten by _process_rule_text; for single-chunk paths, 0/1 is correct
+        chunk_total=1,          # for split rules, overwritten by _process_rule_text; for single-chunk paths, 0/1 is correct
         text=text,
         enriched_text=enriched,
         source="illinois_supreme_court_rules",
         token_count=count_tokens(text),
         display_citation=display_citation,
         metadata={
+            "source":             "illinois_supreme_court_rules",
             "source_s3_key":      source_key,
             "content_type":       content_type,
             "hierarchical_path":  hierarchical_path,
@@ -462,9 +465,6 @@ def chunk_document(full_text: str, source_key: str) -> list[Chunk]:
                 hierarchy=hierarchy,
                 content_type="committee_comment"
             ))
-    for i, chunk in enumerate(chunks):
-        chunk.chunk_index = i
-        chunk.chunk_total = len(chunks)
     return chunks
 
 def _process_rule_text(rule_text: str, source_key: str, hierarchy: DocumentHierarchy) -> list[Chunk]:
@@ -490,6 +490,9 @@ def _process_rule_text(rule_text: str, source_key: str, hierarchy: DocumentHiera
                     f"--- Text ---\n{text[:500]}...\n"
                     f"{'='*60}"
                 )
+        for i, c in enumerate(chunks):
+            c.chunk_index = i
+            c.chunk_total = len(chunks)
         return chunks
     else:
         # Single chunk for the whole rule
