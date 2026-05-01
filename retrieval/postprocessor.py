@@ -90,9 +90,7 @@ class CitationLabelingPostprocessor(BaseNodePostprocessor):
 
     Must run AFTER CrossEncoderReranker so it only labels the final kept nodes.
 
-    Label format:
-      ILCS:  [720 ILCS 5/7-1 — Justifiable Use of Force]:
-      ISCR:  [Rule 431 — Voir Dire]:
+    Label source: display_citation field set by each chunker at chunk time.
     """
 
     def _postprocess_nodes(
@@ -103,25 +101,9 @@ class CitationLabelingPostprocessor(BaseNodePostprocessor):
         for nws in nodes:
             node = nws.node
             meta = node.metadata or {}
-
-            section = meta.get("section_citation")
-            topic = meta.get("major_topic") or meta.get("rule_title") or ""
-            rule = meta.get("rule_number")
-
-            if section:
-                label = f"[{section}" + (f" — {topic}" if topic else "") + "]"
-            elif rule:
-                # rule_title for subsections often includes "Rule X" prefix already
-                # (e.g. "Rule 401 (a)") — strip it to avoid "Rule 401 — Rule 401 (a)"
-                if topic and topic.startswith(f"Rule {rule}"):
-                    topic = topic[len(f"Rule {rule}"):].lstrip(" .").strip()
-                label = f"[Rule {rule}" + (f" — {topic}" if topic else "") + "]"
-            else:
-                label = None
-
-            if label:
-                node.text = f"{label}:\n{node.get_content()}"
-
+            citation = meta.get("display_citation", "").strip()
+            if citation:
+                node.text = f"[{citation}]:\n{node.get_content()}"
         return nodes
 
 

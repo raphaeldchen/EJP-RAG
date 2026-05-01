@@ -46,8 +46,8 @@ class BM25Retriever:
                 offset += page_size
             return rows
 
-        ilcs_rows = fetch_all("ilcs_chunks", ["section_citation"])
-        iscr_rows = fetch_all("court_rule_chunks", ["rule_number", "rule_title"])
+        ilcs_rows = fetch_all("ilcs_chunks", ["display_citation"])
+        iscr_rows = fetch_all("court_rule_chunks", ["display_citation"])
         all_rows = ilcs_rows + iscr_rows
         self.chunk_ids = [r["chunk_id"] for r in all_rows]
         self.texts = [r["text"] for r in all_rows]
