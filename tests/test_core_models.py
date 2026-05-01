@@ -29,3 +29,11 @@ def test_chunk_asdict_round_trips():
     assert d["chunk_id"] == "test_c0"
     assert d["display_citation"] == "Citation"
     assert "metadata" in d
+
+
+def test_chunk_display_citation_defaults_to_empty():
+    c = Chunk(
+        chunk_id="spac_c0", parent_id="spac_doc_1", chunk_index=0, chunk_total=2,
+        text="text", enriched_text="enriched", source="spac", token_count=1,
+    )
+    assert c.display_citation == ""
