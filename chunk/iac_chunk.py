@@ -24,13 +24,13 @@ import logging
 import os
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
 
 from core.models import Chunk
 
 import boto3
+import tiktoken
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -69,6 +69,12 @@ CHUNK_SIZE:      int = int(os.getenv("CHUNK_SIZE",      "1500"))
 CHUNK_OVERLAP:   int = int(os.getenv("CHUNK_OVERLAP",    "200"))
 MIN_CHUNK_SIZE:  int = int(os.getenv("MIN_CHUNK_SIZE",   "100"))
 MIN_MERGE_TOKENS: int = int(os.getenv("MIN_MERGE_TOKENS", "30"))
+
+_enc = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens(text: str) -> int:
+    return len(_enc.encode(text))
 
 
 # ---------------------------------------------------------------------------
@@ -376,9 +382,9 @@ def _make_chunk(
         chunk_total=chunk_total,
         text=text,
         enriched_text=enriched,
-        source="illinois_admin_code",
-        token_count=len(text.split()),
-        display_citation=display_citation.strip(" — "),
+        source=metadata["source"],
+        token_count=count_tokens(text),
+        display_citation=display_citation,
         metadata=metadata,
     )
 

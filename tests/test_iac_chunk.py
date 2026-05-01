@@ -119,10 +119,33 @@ def test_short_but_real_section_single_chunk():
     assert chunks[0].chunk_index == 0
     assert chunks[0].chunk_total == 1
     # Schema assertions
-    assert chunks[0].display_citation  # non-empty
+    assert " — " in chunks[0].display_citation  # citation — heading format
     assert chunks[0].token_count > 0
     assert chunks[0].source == "illinois_admin_code"
     assert chunks[0].enriched_text.startswith("Illinois Administrative Code")
+
+
+def test_display_citation_no_heading():
+    """When section_heading is empty, display_citation has no ' — ' separator."""
+    rec = {
+        "id":               "iac-t20-p504-s504_10",
+        "source":           "illinois_admin_code",
+        "title_num":        "20",
+        "title_name":       "Corrections, Criminal Justice, and Law Enforcement",
+        "part_num":         "504",
+        "part_name":        "Inmate Discipline",
+        "section_num":      "504.10",
+        "section_heading":  "",
+        "section_citation": "20 Ill. Adm. Code 504.10",
+        "url":              "https://example.com",
+        "scraped_at":       "2026-04-20T00:00:00+00:00",
+        "text":             "Section 504.10  Applicability\nThis Part applies to all adult correctional facilities operated by the Illinois Department of Corrections.",
+    }
+    chunks = chunk_section(rec)
+    assert len(chunks) >= 1
+    # No heading → no " — " separator
+    assert " — " not in chunks[0].display_citation
+    assert chunks[0].display_citation  # still non-empty (contains section citation)
 
 
 def test_enumeration_not_severed():
