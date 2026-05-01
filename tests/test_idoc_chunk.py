@@ -123,7 +123,7 @@ def test_roman_sections_become_separate_chunks():
         f"II. PROCEDURE\n\nA. Purpose\n\n{_FILLER}\n"
     )
     chunks = chunk_record(_make_directive(text))
-    headings = [c.section_heading for c in chunks]
+    headings = [c.metadata.get("section_heading", "") for c in chunks]
     assert any("I. POLICY" in h for h in headings), "I. POLICY section not found in any chunk"
     assert any("II. PROCEDURE" in h for h in headings or "A. Purpose" in h for h in headings), \
         "II. PROCEDURE / A. Purpose not found in any chunk"
@@ -213,7 +213,7 @@ def test_no_page_headers_in_corpus_chunks(idoc_chunks):
 def test_chunk_index_contiguous(idoc_chunks):
     by_record = defaultdict(list)
     for c in idoc_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["parent_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -225,7 +225,7 @@ def test_chunk_index_contiguous(idoc_chunks):
 def test_chunk_total_accurate(idoc_chunks):
     by_record = defaultdict(list)
     for c in idoc_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["parent_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -254,7 +254,7 @@ def test_no_chunk_exceeds_max_tokens_corpus(idoc_chunks):
 
 def test_all_chunks_have_required_fields(idoc_chunks):
     required = {"chunk_id", "chunk_index", "chunk_total", "source", "text",
-                "enriched_text", "token_count", "record_id", "title"}
+                "enriched_text", "token_count", "parent_id"}
     failures = [
         f"{c['chunk_id']}: missing {required - c.keys()}"
         for c in idoc_chunks
@@ -276,13 +276,28 @@ def test_directive_chunks_have_correct_source(idoc_chunks):
 def test_long_directive_splits_into_sections(idoc_chunks):
     """The longest directive (04.50.151, ~68k chars) must produce many chunks
     with distinct section headings."""
-    target = [c for c in idoc_chunks if "450151" in c.get("record_id", "")
-              or "505105" in c.get("record_id", "")]
+    target = [c for c in idoc_chunks if "450151" in c.get("parent_id", "")
+              or "505105" in c.get("parent_id", "")]
     if not target:
         pytest.skip("Long directive not found in chunked output")
     assert len(target) > 5, f"Expected >5 chunks for a long directive, got {len(target)}"
-    headings = {c["section_heading"] for c in target if c["section_heading"]}
+    headings = {c.get("metadata", {}).get("section_heading", "") for c in target
+                if c.get("metadata", {}).get("section_heading", "")}
     assert len(headings) > 1, "Long directive produced only one distinct section heading"
+
+
+def test_chunk_schema_fields(idoc_chunks):
+    failures = []
+    for c in idoc_chunks:
+        if not c.get("display_citation"):
+            failures.append(f"{c['chunk_id']}: display_citation empty")
+        if c.get("token_count", 0) <= 0:
+            failures.append(f"{c['chunk_id']}: token_count={c.get('token_count')}")
+        if c.get("source") not in ("idoc_directive", "idoc_reentry"):
+            failures.append(f"{c['chunk_id']}: source={c.get('source')!r}")
+        if "record_id" not in c.get("metadata", {}):
+            failures.append(f"{c['chunk_id']}: metadata missing record_id")
+    assert not failures, f"{len(failures)} schema violations:\n" + "\n".join(failures[:5])
 
 
 # ---------------------------------------------------------------------------
