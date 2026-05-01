@@ -13,3 +13,5 @@ __pycache__/
 *.pyc
 # Test fixture cache (populated on first run)
 tests/fixtures/
+# Git worktrees
+.worktrees/
