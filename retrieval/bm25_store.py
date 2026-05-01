@@ -19,6 +19,7 @@ class BM25Retriever:
     def __init__(self, client: Client):
         self.chunk_ids: list[str] = []
         self.texts: list[str] = []
+        self.enriched_texts: list[str] = []
         self._metadata: list[dict] = []
         self.bm25: BM25Okapi | None = None
         self._load(client)
@@ -30,7 +31,7 @@ class BM25Retriever:
             rows = []
             page_size = 1000
             offset = 0
-            cols = ", ".join(["chunk_id", "text"] + extra_cols)
+            cols = ", ".join(["chunk_id", "text", "enriched_text"] + extra_cols)
             while True:
                 batch = (
                     client.table(table)
@@ -51,11 +52,15 @@ class BM25Retriever:
         all_rows = ilcs_rows + iscr_rows
         self.chunk_ids = [r["chunk_id"] for r in all_rows]
         self.texts = [r["text"] for r in all_rows]
+        # Fall back to plain text for rows written before enriched_text was added
+        self.enriched_texts = [r.get("enriched_text") or r["text"] for r in all_rows]
         self._metadata = [
-            {k: v for k, v in r.items() if k not in ("chunk_id", "text") and v is not None}
+            {k: v for k, v in r.items()
+             if k not in ("chunk_id", "text", "enriched_text") and v is not None}
             for r in all_rows
         ]
 
+        # Index on plain text — enriched_text header inflation would skew BM25 scores
         tokenized = [_tokenize(t) for t in self.texts]
         self.bm25 = BM25Okapi(tokenized)
         print(f"[BM25] Index built: {len(self.chunk_ids)} chunks")
@@ -75,7 +80,7 @@ class BM25Retriever:
             metadata = {"bm25_score": float(scores[idx]), **self._metadata[idx]}
             node = TextNode(
                 id_=self.chunk_ids[idx],
-                text=self.texts[idx],
+                text=self.enriched_texts[idx],  # reranker and LLM see enriched_text
                 metadata=metadata,
             )
             nodes.append(node)
