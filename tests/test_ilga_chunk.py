@@ -186,6 +186,10 @@ def test_chunk_schema_fields(ilcs_chunks):
             failures.append(f"{c.chunk_id}: metadata missing section_citation")
         if not c.enriched_text:
             failures.append(f"{c.chunk_id}: enriched_text empty")
+        if not c.enriched_text.endswith(c.text):
+            failures.append(f"{c.chunk_id}: enriched_text does not end with chunk text")
+        if c.text not in c.enriched_text:
+            failures.append(f"{c.chunk_id}: chunk text not present in enriched_text")
     assert not failures, f"{len(failures)} schema violations:\n" + "\n".join(failures[:5])
 
 

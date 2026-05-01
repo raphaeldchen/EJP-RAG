@@ -287,15 +287,26 @@ def _make_chunk(
 ) -> Chunk:
     section_citation = metadata.get("section_citation", "")
     section_heading  = metadata.get("section_heading", "")
+    chapter_name     = metadata.get("chapter_name", "")
     act_name         = metadata.get("act_name", "")
+    article_name     = metadata.get("article_name", "")
     major_topic      = metadata.get("major_topic", "")
 
     display_citation = section_citation
     if section_heading:
         display_citation = f"{section_citation} — {section_heading}"
 
-    enriched_parts = [p for p in [section_citation, section_heading, act_name, major_topic] if p]
-    enriched = "\n".join(enriched_parts) + "\n\n" + text if enriched_parts else text
+    # Build breadcrumb header: "[chapter | act | article]" when present
+    breadcrumb_parts = [p for p in [chapter_name, act_name, article_name] if p]
+    breadcrumb = f"[{' | '.join(breadcrumb_parts)}]" if breadcrumb_parts else ""
+
+    # Build section line: "Section citation: heading (major_topic)" when present
+    section_line = f"Section {section_citation}: {section_heading}" if section_heading else f"Section {section_citation}"
+    if major_topic:
+        section_line = f"{section_line} ({major_topic})"
+
+    enriched_lines = [p for p in [breadcrumb, section_line] if p]
+    enriched = "\n".join(enriched_lines) + "\n\n" + text if enriched_lines else text
 
     return Chunk(
         chunk_id=f"{parent_id}_c{chunk_index}",
