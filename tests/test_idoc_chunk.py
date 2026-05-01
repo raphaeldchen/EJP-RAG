@@ -125,8 +125,10 @@ def test_roman_sections_become_separate_chunks():
     chunks = chunk_record(_make_directive(text))
     headings = [c.metadata.get("section_heading", "") for c in chunks]
     assert any("I. POLICY" in h for h in headings), "I. POLICY section not found in any chunk"
-    assert any("II. PROCEDURE" in h for h in headings or "A. Purpose" in h for h in headings), \
-        "II. PROCEDURE / A. Purpose not found in any chunk"
+    assert (
+        any("II. PROCEDURE" in h for h in headings)
+        or any("A. Purpose" in h for h in headings)
+    ), "II. PROCEDURE / A. Purpose not found in any chunk"
 
 
 def test_no_page_header_in_chunk_text():
