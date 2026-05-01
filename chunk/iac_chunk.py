@@ -18,6 +18,7 @@ Usage:
 """
 
 import argparse
+import dataclasses
 import json
 import logging
 import os
@@ -26,6 +27,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
+
+from core.models import Chunk
 
 import boto3
 from dotenv import load_dotenv
@@ -279,7 +282,7 @@ def _pack_subsections(segments: list[str]) -> list[str]:
 # Chunk production
 # ---------------------------------------------------------------------------
 
-def chunk_section(record: dict) -> list[dict]:
+def chunk_section(record: dict) -> list[Chunk]:
     raw_text = record.get("text", "")
     text     = normalize_text(raw_text)
     if not text:
@@ -351,26 +354,33 @@ def _make_chunk(
     parent_id: str,
     chunk_index: int,
     chunk_total: int,
-) -> dict:
+) -> Chunk:
+    section_citation = metadata.get("section_citation", "")
+    section_heading  = metadata.get("section_heading", "")
+    display_citation = section_citation
+    if section_heading:
+        display_citation = f"{section_citation} — {section_heading}"
+
     # Enriched text prepends IAC hierarchy for embedding quality
     enriched = (
         f"Illinois Administrative Code Title {metadata['title_num']} "
         f"({metadata['title_name']}), "
         f"Part {metadata['part_num']} ({metadata['part_name']}), "
-        f"{metadata['section_citation']} {metadata['section_heading']}\n\n"
+        f"{section_citation} {section_heading}\n\n"
         f"{text}"
     )
-    return {
-        "chunk_id":       f"{parent_id}_c{chunk_index}",
-        "parent_id":      parent_id,
-        "chunk_index":    chunk_index,
-        "chunk_total":    chunk_total,
-        "text":           text,
-        "enriched_text":  enriched,
-        "token_estimate": len(text.split()),
-        "chunked_at":     datetime.now(timezone.utc).isoformat(),
-        "metadata":       metadata,
-    }
+    return Chunk(
+        chunk_id=f"{parent_id}_c{chunk_index}",
+        parent_id=parent_id,
+        chunk_index=chunk_index,
+        chunk_total=chunk_total,
+        text=text,
+        enriched_text=enriched,
+        source="illinois_admin_code",
+        token_count=len(text.split()),
+        display_citation=display_citation.strip(" — "),
+        metadata=metadata,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -446,7 +456,7 @@ def run(local_only: bool = False, limit: int = 0) -> None:
         log.info("Limiting to first %d sections.", limit)
         records = records[:limit]
 
-    all_chunks: list[dict] = []
+    all_chunks: list[Chunk] = []
     skipped = 0
     for rec in records:
         chunks = chunk_section(rec)
@@ -459,14 +469,15 @@ def run(local_only: bool = False, limit: int = 0) -> None:
         "Produced %d chunks from %d sections (%d skipped — stubs/empty)",
         len(all_chunks), len(records), skipped,
     )
-    single  = sum(1 for c in all_chunks if c["chunk_total"] == 1)
-    multi   = len({c["parent_id"] for c in all_chunks if c["chunk_total"] > 1})
+    single  = sum(1 for c in all_chunks if c.chunk_total == 1)
+    multi   = len({c.parent_id for c in all_chunks if c.chunk_total > 1})
     log.info("Single-chunk sections: %d  |  Multi-chunk sections: %d", single, multi)
 
+    serialized = [dataclasses.asdict(c) for c in all_chunks]
     if local_only:
-        write_local(all_chunks, LOCAL_OUTPUT_DIR / "iac_chunks.jsonl")
+        write_local(serialized, LOCAL_OUTPUT_DIR / "iac_chunks.jsonl")
     else:
-        write_s3(all_chunks, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
+        write_s3(serialized, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
 
     log.info("=== IAC chunking pipeline complete ===")
 

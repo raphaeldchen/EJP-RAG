@@ -116,8 +116,13 @@ def test_short_but_real_section_single_chunk():
     )
     chunks = chunk_section(rec)
     assert len(chunks) == 1
-    assert chunks[0]["chunk_index"] == 0
-    assert chunks[0]["chunk_total"] == 1
+    assert chunks[0].chunk_index == 0
+    assert chunks[0].chunk_total == 1
+    # Schema assertions
+    assert chunks[0].display_citation  # non-empty
+    assert chunks[0].token_count > 0
+    assert chunks[0].source == "illinois_admin_code"
+    assert chunks[0].enriched_text.startswith("Illinois Administrative Code")
 
 
 def test_enumeration_not_severed():
@@ -135,10 +140,10 @@ def test_enumeration_not_severed():
     chunks = chunk_section(_make_record(text))
     assert chunks, "No chunks produced"
     for chunk in chunks:
-        if chunk["chunk_index"] > 0:
-            assert not _ORPHAN_RE.match(chunk["text"]), (
-                f"Chunk {chunk['chunk_id']} (index {chunk['chunk_index']}) starts with "
-                f"orphaned subsection marker:\n{chunk['text'][:120]}"
+        if chunk.chunk_index > 0:
+            assert not _ORPHAN_RE.match(chunk.text), (
+                f"Chunk {chunk.chunk_id} (index {chunk.chunk_index}) starts with "
+                f"orphaned subsection marker:\n{chunk.text[:120]}"
             )
 
 
@@ -162,6 +167,7 @@ def test_numeric_subitems_stay_with_parent():
     )
 
 
+
 def test_enriched_text_contains_hierarchy():
     """enriched_text must include the IAC title/part/section context for embedding."""
     rec = _make_record(
@@ -170,7 +176,7 @@ def test_enriched_text_contains_hierarchy():
     )
     chunks = chunk_section(rec)
     assert chunks
-    enriched = chunks[0]["enriched_text"]
+    enriched = chunks[0].enriched_text
     assert "Title 20" in enriched
     assert "20 Ill. Adm. Code 504.80" in enriched
     assert "Part 504" in enriched
@@ -184,9 +190,9 @@ def test_chunk_ids_have_correct_format():
     )
     chunks = chunk_section(rec)
     for chunk in chunks:
-        expected_prefix = f"{rec['id']}_c{chunk['chunk_index']}"
-        assert chunk["chunk_id"] == expected_prefix, (
-            f"Unexpected chunk_id: {chunk['chunk_id']!r}"
+        expected_prefix = f"{rec['id']}_c{chunk.chunk_index}"
+        assert chunk.chunk_id == expected_prefix, (
+            f"Unexpected chunk_id: {chunk.chunk_id!r}"
         )
 
 
@@ -206,9 +212,9 @@ def test_wrap_artifact_does_not_produce_stub_chunk():
     chunks = chunk_section(_make_record(text, section_num="525.233"))
     assert chunks, "No chunks produced"
     for chunk in chunks:
-        assert len(chunk["text"]) >= MIN_CHUNK_SIZE, (
-            f"Chunk {chunk['chunk_id']} is undersized ({len(chunk['text'])} chars): "
-            f"{chunk['text']!r}"
+        assert len(chunk.text) >= MIN_CHUNK_SIZE, (
+            f"Chunk {chunk.chunk_id} is undersized ({len(chunk.text)} chars): "
+            f"{chunk.text!r}"
         )
 
 
@@ -219,9 +225,9 @@ def test_wrap_artifact_does_not_produce_stub_chunk():
 def test_no_orphaned_subsection_starts(iac_chunks):
     """No chunk at index > 0 should start with a bare IAC letter subsection marker."""
     failures = [
-        c["chunk_id"]
+        c.chunk_id
         for c in iac_chunks
-        if c["chunk_index"] > 0 and _ORPHAN_RE.match(c["text"])
+        if c.chunk_index > 0 and _ORPHAN_RE.match(c.text)
     ]
     assert not failures, (
         f"{len(failures)} chunks start with orphaned subsection markers: {failures[:5]}"
@@ -231,7 +237,7 @@ def test_no_orphaned_subsection_starts(iac_chunks):
 def test_chunk_index_contiguous(iac_chunks):
     by_parent = defaultdict(list)
     for chunk in iac_chunks:
-        by_parent[chunk["parent_id"]].append(chunk["chunk_index"])
+        by_parent[chunk.parent_id].append(chunk.chunk_index)
     failures = [
         f"{pid}: {sorted(idxs)}"
         for pid, idxs in by_parent.items()
@@ -243,31 +249,31 @@ def test_chunk_index_contiguous(iac_chunks):
 def test_chunk_total_accurate(iac_chunks):
     by_parent = defaultdict(list)
     for chunk in iac_chunks:
-        by_parent[chunk["parent_id"]].append(chunk)
+        by_parent[chunk.parent_id].append(chunk)
     failures = [
-        f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
+        f"{c.chunk_id}: chunk_total={c.chunk_total} actual={len(siblings)}"
         for siblings in by_parent.values()
         for c in siblings
-        if c["chunk_total"] != len(siblings)
+        if c.chunk_total != len(siblings)
     ]
     assert not failures, "chunk_total mismatches:\n" + "\n".join(failures[:5])
 
 
 def test_no_empty_chunks(iac_chunks):
-    failures = [c["chunk_id"] for c in iac_chunks if len(c["text"]) < MIN_CHUNK_SIZE]
+    failures = [c.chunk_id for c in iac_chunks if len(c.text) < MIN_CHUNK_SIZE]
     assert not failures, f"{len(failures)} chunks below MIN_CHUNK_SIZE: {failures[:5]}"
 
 
 def test_chunk_ids_unique(iac_chunks):
-    ids = [c["chunk_id"] for c in iac_chunks]
+    ids = [c.chunk_id for c in iac_chunks]
     assert len(ids) == len(set(ids)), "Duplicate chunk_ids in IAC chunks"
 
 
 def test_no_chunk_exceeds_max_size(iac_chunks):
     failures = [
-        (c["chunk_id"], len(c["text"]))
+        (c.chunk_id, len(c.text))
         for c in iac_chunks
-        if len(c["text"]) > CHUNK_SIZE
+        if len(c.text) > CHUNK_SIZE
     ]
     assert not failures, (
         f"{len(failures)} chunks exceed CHUNK_SIZE={CHUNK_SIZE}: {failures[:5]}"
@@ -277,9 +283,9 @@ def test_no_chunk_exceeds_max_size(iac_chunks):
 def test_all_chunks_have_required_metadata(iac_chunks):
     required = {"section_id", "source", "title_num", "part_num", "section_citation"}
     failures = [
-        f"{c['chunk_id']}: missing {required - c['metadata'].keys()}"
+        f"{c.chunk_id}: missing {required - c.metadata.keys()}"
         for c in iac_chunks
-        if not required.issubset(c["metadata"].keys())
+        if not required.issubset(c.metadata.keys())
     ]
     assert not failures, "Chunks missing required metadata fields:\n" + "\n".join(failures[:5])
 
@@ -287,9 +293,9 @@ def test_all_chunks_have_required_metadata(iac_chunks):
 def test_all_chunks_enriched_text_contains_citation(iac_chunks):
     """Every enriched_text should contain the section citation for retrieval context."""
     failures = [
-        c["chunk_id"]
+        c.chunk_id
         for c in iac_chunks
-        if c["metadata"]["section_citation"] not in c.get("enriched_text", "")
+        if c.metadata["section_citation"] not in c.enriched_text
     ]
     assert not failures, (
         f"{len(failures)} chunks missing section citation in enriched_text: {failures[:5]}"
@@ -304,16 +310,16 @@ def test_adjustment_committee_section_splits_correctly(iac_chunks):  # noqa: F81
     """
     target_chunks = [
         c for c in iac_chunks
-        if "504.80" in c["metadata"].get("section_citation", "")
+        if "504.80" in c.metadata.get("section_citation", "")
     ]
     if not target_chunks:
         pytest.skip("20 Ill. Adm. Code 504.80 not found in chunked output")
     assert len(target_chunks) > 1, "504.80 should produce multiple chunks given its length"
     for chunk in target_chunks:
-        if chunk["chunk_index"] > 0:
-            assert not _ORPHAN_RE.match(chunk["text"]), (
-                f"504.80 chunk {chunk['chunk_id']} starts with orphaned marker:\n"
-                f"{chunk['text'][:120]}"
+        if chunk.chunk_index > 0:
+            assert not _ORPHAN_RE.match(chunk.text), (
+                f"504.80 chunk {chunk.chunk_id} starts with orphaned marker:\n"
+                f"{chunk.text[:120]}"
             )
 
 
