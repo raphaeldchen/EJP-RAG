@@ -24,15 +24,16 @@ Usage:
 """
 
 import argparse
+import dataclasses
 import json
 import logging
 import os
 import re
 import sys
-from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Generator
+
+from core.models import Chunk
 
 import boto3
 import tiktoken
@@ -247,26 +248,8 @@ def _merge_micro_chunks(sections: list[tuple[str, str]]) -> list[tuple[str, str]
 
 
 # ---------------------------------------------------------------------------
-# Output schema
+# Output schema  — uses shared Chunk dataclass from core.models
 # ---------------------------------------------------------------------------
-
-@dataclass
-class FederalChunk:
-    chunk_id:        str
-    chunk_index:     int
-    chunk_total:     int
-    source:          str
-    doc_type:        str
-    text:            str
-    enriched_text:   str
-    token_count:     int
-    section_heading: str
-    record_id:       str
-    title:           str
-    citation:        str
-    url:             str
-    chunked_at:      str
-
 
 def _make_enriched(rec: dict, section_heading: str, text: str) -> str:
     parts = [f"Federal: {rec.get('title', '')}"]
@@ -294,7 +277,7 @@ def _clean_text(rec: dict) -> str:
     return text
 
 
-def chunk_record(rec: dict) -> list[FederalChunk]:
+def chunk_record(rec: dict) -> list[Chunk]:
     raw_text = rec.get("text", "").strip()
     if not raw_text:
         return []
@@ -332,23 +315,27 @@ def chunk_record(rec: dict) -> list[FederalChunk]:
         return []
 
     total  = len(filtered)
+    display_citation = f"Federal: {title}" + (f" ({citation})" if citation else "")
     result = []
     for i, (heading, chunk_text) in enumerate(filtered):
-        result.append(FederalChunk(
+        result.append(Chunk(
             chunk_id        = f"{rec_id}_c{i}",
+            parent_id       = rec_id,
             chunk_index     = i,
             chunk_total     = total,
-            source          = "federal",
-            doc_type        = doc_type,
             text            = chunk_text,
             enriched_text   = _make_enriched(rec, heading, chunk_text),
+            source          = "federal",
             token_count     = count_tokens(chunk_text),
-            section_heading = heading,
-            record_id       = rec_id,
-            title           = title,
-            citation        = citation,
-            url             = url,
-            chunked_at      = datetime.now(timezone.utc).isoformat(),
+            display_citation= display_citation,
+            metadata        = {
+                "record_id":       rec_id,
+                "title":           title,
+                "section_heading": heading,
+                "doc_type":        doc_type,
+                "citation":        citation,
+                "url":             url,
+            },
         ))
     return result
 
@@ -429,27 +416,28 @@ def run(local_only: bool = False, limit: int = 0) -> None:
         log.info("Limiting to first %d records.", limit)
         records = records[:limit]
 
-    all_chunks: list[dict] = []
+    all_chunks: list[Chunk] = []
     skipped = 0
     for rec in records:
         chunks = chunk_record(rec)
         if not chunks:
             skipped += 1
             continue
-        all_chunks.extend(asdict(c) for c in chunks)
+        all_chunks.extend(chunks)
 
     log.info(
         "Produced %d chunks from %d records (%d skipped — stubs/empty)",
         len(all_chunks), len(records), skipped,
     )
-    single = sum(1 for c in all_chunks if c["chunk_total"] == 1)
-    multi  = len({c["record_id"] for c in all_chunks if c["chunk_total"] > 1})
+    single = sum(1 for c in all_chunks if c.chunk_total == 1)
+    multi  = len({c.parent_id for c in all_chunks if c.chunk_total > 1})
     log.info("Single-chunk records: %d  |  Multi-chunk records: %d", single, multi)
 
+    serialized = [dataclasses.asdict(c) for c in all_chunks]
     if local_only:
-        write_local(all_chunks, LOCAL_OUTPUT_DIR / "federal_chunks.jsonl")
+        write_local(serialized, LOCAL_OUTPUT_DIR / "federal_chunks.jsonl")
     else:
-        write_s3(all_chunks, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
+        write_s3(serialized, cfg["chunked_bucket"], cfg["chunked_key"], cfg["aws_region"])
 
     log.info("=== Federal chunking pipeline complete ===")
 

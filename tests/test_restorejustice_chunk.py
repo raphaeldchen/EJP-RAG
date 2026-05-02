@@ -93,7 +93,7 @@ def test_short_page_single_chunk():
     chunks = chunk_record(_make_record(text))
     assert len(chunks) == 1
     assert chunks[0].chunk_total == 1
-    assert chunks[0].source == "restore_justice"
+    assert chunks[0].source == "restorejustice"
 
 
 def test_long_text_produces_multiple_chunks():
@@ -138,17 +138,17 @@ def test_chunk_id_format():
 def test_source_field_is_restore_justice():
     text = "Content paragraph. " * 20
     chunks = chunk_record(_make_record(text))
-    assert all(c.source == "restore_justice" for c in chunks)
+    assert all(c.source == "restorejustice" for c in chunks)
 
 
 def test_page_title_preserved_in_all_chunks():
     chunks = chunk_record(_make_record(_FILLER, page_title="Future Leaders Program"))
-    assert all(c.page_title == "Future Leaders Program" for c in chunks)
+    assert all(c.metadata["page_title"] == "Future Leaders Program" for c in chunks)
 
 
 def test_section_preserved_in_all_chunks():
     chunks = chunk_record(_make_record(_FILLER, section="our-work"))
-    assert all(c.section == "our-work" for c in chunks)
+    assert all(c.metadata["section"] == "our-work" for c in chunks)
 
 
 def test_no_chunk_below_min_tokens():
@@ -166,19 +166,34 @@ def test_blank_line_clusters_not_in_text():
         assert "\n\n\n" not in c.text, f"Triple blank line in {c.chunk_id}"
 
 
+def test_chunk_schema_fields():
+    """Shared Chunk schema: display_citation, token_count, source, record_id in metadata."""
+    text = "Restore Justice advocates for people with extreme sentences. " * 20
+    chunks = chunk_record(_make_record(text, page_title="Advocacy", rec_id="rj-our-work-advocacy"))
+    assert chunks
+    c = chunks[0]
+    assert c.display_citation.startswith("Restore Justice IL"), (
+        f"display_citation should start with 'Restore Justice IL', got: {c.display_citation!r}"
+    )
+    assert c.token_count > 0
+    assert c.source == "restorejustice"
+    assert c.metadata.get("record_id") == "rj-our-work-advocacy"
+    assert c.parent_id == "rj-our-work-advocacy"
+
+
 # ---------------------------------------------------------------------------
 # Corpus-level property tests (require S3 via restorejustice_chunks fixture)
 # ---------------------------------------------------------------------------
 
 def test_all_17_records_produce_chunks(restorejustice_chunks):
-    record_ids = {c["record_id"] for c in restorejustice_chunks}
+    record_ids = {c["metadata"]["record_id"] for c in restorejustice_chunks}
     assert len(record_ids) == 17, (
         f"Expected 17 distinct record IDs, got {len(record_ids)}"
     )
 
 
 def test_resources_record_produces_chunks(restorejustice_chunks):
-    resources = [c for c in restorejustice_chunks if c["record_id"] == "rj-resources"]
+    resources = [c for c in restorejustice_chunks if c["metadata"]["record_id"] == "rj-resources"]
     assert resources, "rj-resources record produced no chunks"
 
 
@@ -186,8 +201,8 @@ def test_long_record_splits(restorejustice_chunks):
     """The IDOC transfers self-advocacy notes (~10k chars) should produce multiple chunks."""
     long_rec = [
         c for c in restorejustice_chunks
-        if "loved-ones-self-advocacy" in c.get("record_id", "")
-           or "idoc-transfers" in c.get("record_id", "")
+        if "loved-ones-self-advocacy" in c["metadata"].get("record_id", "")
+           or "idoc-transfers" in c["metadata"].get("record_id", "")
     ]
     if not long_rec:
         pytest.skip("Long advocacy record not found in chunks")
@@ -197,7 +212,7 @@ def test_long_record_splits(restorejustice_chunks):
 def test_chunk_index_contiguous(restorejustice_chunks):
     by_record = defaultdict(list)
     for c in restorejustice_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["metadata"]["record_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -209,7 +224,7 @@ def test_chunk_index_contiguous(restorejustice_chunks):
 def test_chunk_total_accurate(restorejustice_chunks):
     by_record = defaultdict(list)
     for c in restorejustice_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["metadata"]["record_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -247,9 +262,8 @@ def test_no_chunk_exceeds_max_tokens_corpus(restorejustice_chunks):
 
 def test_all_chunks_have_required_fields(restorejustice_chunks):
     required = {
-        "chunk_id", "chunk_index", "chunk_total", "source",
-        "text", "enriched_text", "token_count", "record_id",
-        "page_title", "section", "url",
+        "chunk_id", "parent_id", "chunk_index", "chunk_total", "source",
+        "text", "enriched_text", "token_count", "display_citation", "metadata",
     }
     failures = [
         f"{c['chunk_id']}: missing {required - c.keys()}"
@@ -257,6 +271,16 @@ def test_all_chunks_have_required_fields(restorejustice_chunks):
         if not required.issubset(c.keys())
     ]
     assert not failures, "Chunks missing required fields:\n" + "\n".join(failures[:5])
+
+
+def test_metadata_has_required_fields(restorejustice_chunks):
+    meta_required = {"record_id", "page_title", "section", "url"}
+    failures = [
+        f"{c['chunk_id']}: metadata missing {meta_required - c['metadata'].keys()}"
+        for c in restorejustice_chunks
+        if not meta_required.issubset(c.get("metadata", {}).keys())
+    ]
+    assert not failures, "Chunks metadata missing fields:\n" + "\n".join(failures[:5])
 
 
 def test_enriched_text_nonempty(restorejustice_chunks):
@@ -270,7 +294,7 @@ def test_enriched_text_nonempty(restorejustice_chunks):
 def test_source_field_is_restore_justice_corpus(restorejustice_chunks):
     failures = [
         c["chunk_id"] for c in restorejustice_chunks
-        if c.get("source") != "restore_justice"
+        if c.get("source") != "restorejustice"
     ]
     assert not failures, f"{len(failures)} chunks have wrong source: {failures[:5]}"
 
@@ -279,7 +303,7 @@ def test_most_short_records_are_single_chunks(restorejustice_chunks):
     """Most RJ records are short HTML pages; the majority should be single chunks."""
     by_record = defaultdict(list)
     for c in restorejustice_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["metadata"]["record_id"]].append(c)
     single_chunk_records = sum(1 for chunks in by_record.values() if len(chunks) == 1)
     total_records = len(by_record)
     assert single_chunk_records / total_records >= 0.4, (
@@ -313,8 +337,11 @@ def test_s3_output_no_empty_text(restorejustice_chunks_s3):
 
 
 def test_s3_output_source_field(restorejustice_chunks_s3):
+    # Accept both the legacy value ("restore_justice") and the migrated value ("restorejustice")
+    # until the batch rechunk pass regenerates the S3 output.
+    valid_sources = {"restorejustice", "restore_justice"}
     failures = [
         c["chunk_id"] for c in restorejustice_chunks_s3
-        if c.get("source") != "restore_justice"
+        if c.get("source") not in valid_sources
     ]
-    assert not failures, f"{len(failures)} S3 chunks have wrong source: {failures[:5]}"
+    assert not failures, f"{len(failures)} S3 chunks have unexpected source: {failures[:5]}"

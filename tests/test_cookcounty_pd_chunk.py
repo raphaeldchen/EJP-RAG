@@ -139,7 +139,7 @@ def test_short_page_single_chunk():
     chunks = chunk_record(_make_record(text))
     assert len(chunks) == 1
     assert chunks[0].chunk_total == 1
-    assert chunks[0].source == "cook_county_public_defender"
+    assert chunks[0].source == "cookcounty_pd"
 
 
 def test_long_faq_produces_multiple_chunks():
@@ -199,7 +199,7 @@ def test_general_category_not_duplicated_in_enriched_text():
 
 def test_source_field_correct():
     chunks = chunk_record(_make_record("Content paragraph. " * 20))
-    assert all(c.source == "cook_county_public_defender" for c in chunks)
+    assert all(c.source == "cookcounty_pd" for c in chunks)
 
 
 def test_chunk_id_format():
@@ -209,7 +209,7 @@ def test_chunk_id_format():
 
 def test_category_preserved_in_all_chunks():
     chunks = chunk_record(_make_record(_FILLER, category="Expungement & Records Relief"))
-    assert all(c.category == "Expungement & Records Relief" for c in chunks)
+    assert all(c.metadata["category"] == "Expungement & Records Relief" for c in chunks)
 
 
 def test_no_chunk_below_min_tokens():
@@ -218,12 +218,27 @@ def test_no_chunk_below_min_tokens():
     assert not under, f"Chunks below MIN_CHUNK_TOKENS: {[(c.chunk_id, c.token_count) for c in under]}"
 
 
+def test_chunk_schema_fields():
+    """Shared Chunk schema: display_citation, token_count, source, record_id in metadata."""
+    text = "The Public Defender provides free legal representation to indigent defendants. " * 15
+    chunks = chunk_record(_make_record(text, rec_id="ccpd-Resources-public-defender-faq", page_title="Public Defender FAQ"))
+    assert chunks
+    c = chunks[0]
+    assert c.display_citation.startswith("Cook County Public Defender"), (
+        f"display_citation should start with 'Cook County Public Defender', got: {c.display_citation!r}"
+    )
+    assert c.token_count > 0
+    assert c.source == "cookcounty_pd"
+    assert c.metadata.get("record_id") == "ccpd-Resources-public-defender-faq"
+    assert c.parent_id == "ccpd-Resources-public-defender-faq"
+
+
 # ---------------------------------------------------------------------------
 # Corpus-level property tests (require S3 via cookcounty_pd_chunks fixture)
 # ---------------------------------------------------------------------------
 
 def test_all_12_records_produce_chunks(cookcounty_pd_chunks):
-    record_ids = {c["record_id"] for c in cookcounty_pd_chunks}
+    record_ids = {c["metadata"]["record_id"] for c in cookcounty_pd_chunks}
     assert len(record_ids) == 12, (
         f"Expected 12 distinct record IDs, got {len(record_ids)}: {record_ids}"
     )
@@ -231,7 +246,7 @@ def test_all_12_records_produce_chunks(cookcounty_pd_chunks):
 
 def test_legal_aid_directory_splits_into_many_chunks(cookcounty_pd_chunks):
     """The large legal-aid directory (~28k chars) should produce many chunks."""
-    dir_chunks = [c for c in cookcounty_pd_chunks if c["record_id"] == _LEGAL_AID_DIRECTORY_ID]
+    dir_chunks = [c for c in cookcounty_pd_chunks if c["metadata"]["record_id"] == _LEGAL_AID_DIRECTORY_ID]
     assert dir_chunks, f"No chunks found for {_LEGAL_AID_DIRECTORY_ID}"
     assert len(dir_chunks) > 10, (
         f"Expected >10 chunks for legal-aid directory, got {len(dir_chunks)}"
@@ -239,14 +254,14 @@ def test_legal_aid_directory_splits_into_many_chunks(cookcounty_pd_chunks):
 
 
 def test_faq_record_produces_chunks(cookcounty_pd_chunks):
-    faq = [c for c in cookcounty_pd_chunks if "public-defender-faq" in c["record_id"]]
+    faq = [c for c in cookcounty_pd_chunks if "public-defender-faq" in c["metadata"]["record_id"]]
     assert faq, "FAQ record produced no chunks"
 
 
 def test_chunk_index_contiguous(cookcounty_pd_chunks):
     by_record = defaultdict(list)
     for c in cookcounty_pd_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["metadata"]["record_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -258,7 +273,7 @@ def test_chunk_index_contiguous(cookcounty_pd_chunks):
 def test_chunk_total_accurate(cookcounty_pd_chunks):
     by_record = defaultdict(list)
     for c in cookcounty_pd_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["metadata"]["record_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -296,9 +311,8 @@ def test_no_chunk_exceeds_max_tokens_corpus(cookcounty_pd_chunks):
 
 def test_all_chunks_have_required_fields(cookcounty_pd_chunks):
     required = {
-        "chunk_id", "chunk_index", "chunk_total", "source",
-        "text", "enriched_text", "token_count", "record_id",
-        "page_title", "category", "url",
+        "chunk_id", "parent_id", "chunk_index", "chunk_total", "source",
+        "text", "enriched_text", "token_count", "display_citation", "metadata",
     }
     failures = [
         f"{c['chunk_id']}: missing {required - c.keys()}"
@@ -306,6 +320,16 @@ def test_all_chunks_have_required_fields(cookcounty_pd_chunks):
         if not required.issubset(c.keys())
     ]
     assert not failures, "Chunks missing required fields:\n" + "\n".join(failures[:5])
+
+
+def test_metadata_has_required_fields(cookcounty_pd_chunks):
+    meta_required = {"record_id", "page_title", "category", "url"}
+    failures = [
+        f"{c['chunk_id']}: metadata missing {meta_required - c['metadata'].keys()}"
+        for c in cookcounty_pd_chunks
+        if not meta_required.issubset(c.get("metadata", {}).keys())
+    ]
+    assert not failures, "Chunks metadata missing fields:\n" + "\n".join(failures[:5])
 
 
 def test_enriched_text_nonempty(cookcounty_pd_chunks):
@@ -319,7 +343,7 @@ def test_enriched_text_nonempty(cookcounty_pd_chunks):
 def test_source_field_correct_corpus(cookcounty_pd_chunks):
     failures = [
         c["chunk_id"] for c in cookcounty_pd_chunks
-        if c.get("source") != "cook_county_public_defender"
+        if c.get("source") != "cookcounty_pd"
     ]
     assert not failures, f"{len(failures)} chunks have wrong source: {failures[:5]}"
 
@@ -328,7 +352,7 @@ def test_short_records_are_single_chunks(cookcounty_pd_chunks):
     """Short stub pages (< 400 chars) should produce a single chunk each."""
     by_record = defaultdict(list)
     for c in cookcounty_pd_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["metadata"]["record_id"]].append(c)
     # "ccpd-resources" (289 chars) and "ccpd-Resources-someones-need-services" (317 chars)
     stub_ids = ["ccpd-resources", "ccpd-Resources-someones-need-services"]
     for rid in stub_ids:
@@ -364,8 +388,11 @@ def test_s3_output_no_empty_text(cookcounty_pd_chunks_s3):
 
 
 def test_s3_output_source_field(cookcounty_pd_chunks_s3):
+    # Accept both the legacy value ("cook_county_public_defender") and the migrated value
+    # ("cookcounty_pd") until the batch rechunk pass regenerates the S3 output.
+    valid_sources = {"cookcounty_pd", "cook_county_public_defender"}
     failures = [
         c["chunk_id"] for c in cookcounty_pd_chunks_s3
-        if c.get("source") != "cook_county_public_defender"
+        if c.get("source") not in valid_sources
     ]
-    assert not failures, f"{len(failures)} S3 chunks have wrong source: {failures[:5]}"
+    assert not failures, f"{len(failures)} S3 chunks have unexpected source: {failures[:5]}"

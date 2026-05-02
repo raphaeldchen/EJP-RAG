@@ -456,3 +456,69 @@ def cookcounty_pd_chunks_s3():
     except Exception as e:
         pytest.skip(f"Could not download cookcounty_pd_chunks.jsonl from S3: {e}")
     return [json.loads(l) for l in raw.splitlines() if l.strip()]
+
+
+# ---------------------------------------------------------------------------
+# CourtListener fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def cl_raw_dfs():
+    """Download CL bulk CSVs from S3; return (clusters_df, dockets_df, opinions_df, parentheticals_df)."""
+    import io
+    import pandas as pd
+    bucket = os.environ.get("RAW_S3_BUCKET")
+    if not bucket:
+        pytest.skip("RAW_S3_BUCKET not set")
+    cl_prefix = os.environ.get("RAW_COURTLISTENER_S3_PREFIX", "courtlistener").rstrip("/")
+    prefix = f"{cl_prefix}/bulk"
+    s3 = boto3.client("s3")
+    dfs = {}
+    for name in ("clusters", "dockets", "opinions", "parentheticals"):
+        key = f"{prefix}/{name}.csv"
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            dfs[name] = pd.read_csv(
+                io.BytesIO(obj["Body"].read()),
+                low_memory=False,
+                dtype=str,
+                keep_default_na=False,
+            )
+        except Exception as e:
+            pytest.skip(f"Could not download s3://{bucket}/{key}: {e}")
+    return dfs["clusters"], dfs["dockets"], dfs["opinions"], dfs["parentheticals"]
+
+
+@pytest.fixture(scope="session")
+def cl_opinion_chunks(cl_raw_dfs):
+    """Run chunk_opinion() over all CL opinions; return flat list of chunks as dicts."""
+    import dataclasses
+    from chunk.courtlistener_chunk import (
+        build_lookup_maps, chunk_opinion, safe_str, MIN_CHUNK_TOKENS,
+    )
+    clusters_df, dockets_df, opinions_df, _ = cl_raw_dfs
+    cluster_map, docket_map = build_lookup_maps(clusters_df, dockets_df)
+    chunks = []
+    for _, row in opinions_df.iterrows():
+        opinion_chunks = chunk_opinion(row, cluster_map, docket_map)
+        chunks.extend(dataclasses.asdict(c) for c in opinion_chunks if c.token_count >= MIN_CHUNK_TOKENS)
+    if not chunks:
+        pytest.skip("No CL opinion chunks produced — corpus may be empty")
+    return chunks
+
+
+@pytest.fixture(scope="session")
+def cl_opinion_chunks_s3():
+    """Load the actual opinion_chunks.jsonl from the chunked S3 bucket."""
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    cl_prefix = os.environ.get("RAW_COURTLISTENER_S3_PREFIX", "courtlistener").rstrip("/")
+    key = f"{cl_prefix}/bulk/opinion_chunks.jsonl"
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        raw = obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        pytest.skip(f"Could not download {key} from S3: {e}")
+    return [json.loads(l) for l in raw.splitlines() if l.strip()]

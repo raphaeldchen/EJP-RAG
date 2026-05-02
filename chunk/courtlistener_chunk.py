@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import boto3
@@ -13,6 +13,8 @@ import pandas as pd
 import tiktoken
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+
+from core.models import Chunk
 
 load_dotenv()
 
@@ -81,54 +83,38 @@ COURT_LABELS = {
     "illappct": "Illinois Appellate Court",
 }
 
-@dataclass
-class OpinionChunk:
-    chunk_id:            str
-    chunk_index:         int
-    chunk_type:          str    # "opinion_section" | "opinion_paragraph"
-    source:              str    # always "courtlistener"
-    text:                str
-    token_count:         int
-    section_heading:     str
-    section_index:       int
-    opinion_id:          str
-    opinion_type:        str
-    is_majority:         bool
-    author:              str
-    per_curiam:          bool
-    cluster_id:          str
-    case_name:           str
-    case_name_short:     str
-    date_filed:          str
-    judges:              str
-    precedential_status: str
-    precedential_weight: float
-    citation_count:      int
-    docket_id:           str
-    court_id:            str
-    court_label:         str
-    docket_number:       str
-    nature_of_suit:      str
-    cause:               str
-    date_terminated:     str
+def _opinion_enriched_text(
+    case_name_short: str,
+    date_filed: str,
+    court_label: str,
+    section_heading: str,
+    chunk_text: str,
+) -> str:
+    header_parts = [x for x in [case_name_short, date_filed, court_label] if x]
+    header = " | ".join(header_parts)
+    if section_heading:
+        return f"{header}\n{section_heading}\n\n{chunk_text}"
+    return f"{header}\n\n{chunk_text}" if header else chunk_text
 
 
-@dataclass
-class ParentheticalChunk:
-    chunk_id:               str
-    chunk_type:             str    # always "parenthetical"
-    source:                 str    # always "courtlistener"
-    text:                   str
-    token_count:            int
-    describing_opinion_id:  str
-    described_opinion_id:   str
-    score:                  float
-    case_name:              str
-    date_filed:             str
-    court_id:               str
-    court_label:            str
-    precedential_status:    str
-    precedential_weight:    float
+def _opinion_display_citation(case_name_short: str, date_filed: str) -> str:
+    year = date_filed[:4] if date_filed and len(date_filed) >= 4 else ""
+    if case_name_short and year:
+        return f"{case_name_short} ({year})"
+    return case_name_short or ""
+
+
+def _par_enriched_text(case_name: str, date_filed: str, court_label: str, text: str) -> str:
+    header_parts = [x for x in [case_name, date_filed, court_label] if x]
+    header = " | ".join(header_parts)
+    prefix = f"{header} [parenthetical]" if header else "[parenthetical]"
+    return f"{prefix}\n\n{text}"
+
+
+def _par_display_citation(case_name: str, date_filed: str) -> str:
+    year = date_filed[:4] if date_filed and len(date_filed) >= 4 else ""
+    base = f"{case_name} ({year})" if case_name and year else case_name or ""
+    return f"{base} — parenthetical" if base else "parenthetical"
 
 def s3_client():
     return boto3.client("s3")
@@ -332,7 +318,7 @@ def chunk_opinion(
     opinion_row: pd.Series,
     cluster_map: dict,
     docket_map: dict,
-) -> list[OpinionChunk]:
+) -> list[Chunk]:
     opinion_id   = safe_str(opinion_row.get("id"))
     cluster_id   = safe_str(opinion_row.get("cluster_id"))
     opinion_type = safe_str(opinion_row.get("type"))
@@ -348,47 +334,76 @@ def chunk_opinion(
     prec_status = row_get(cluster, "precedential_status")
     court_id    = row_get(docket, "court_id")
     op_label    = OPINION_TYPE_LABELS.get(opinion_type, opinion_type)
+    case_name        = row_get(cluster, "case_name")
+    case_name_short  = row_get(cluster, "case_name_short")
+    date_filed       = row_get(cluster, "date_filed")
+    court_label      = COURT_LABELS.get(court_id, court_id)
+    display_citation = _opinion_display_citation(case_name_short, date_filed)
+    author           = safe_str(opinion_row.get("author_str"))
+    per_curiam       = safe_str(opinion_row.get("per_curiam")).lower() == "true"
+    judges           = row_get(cluster, "judges")
+    prec_weight      = PRECEDENTIAL_WEIGHT.get(prec_status, 0.3)
+    citation_count   = safe_int(row_get(cluster, "citation_count"))
+    docket_number    = row_get(docket, "docket_number")
+    nature_of_suit   = row_get(docket, "nature_of_suit")
+    cause            = row_get(docket, "cause")
+    date_terminated  = row_get(docket, "date_terminated")
+
     sections = detect_sections(plain)
     flat: list[tuple[str, str, int]] = []
     for sec_idx, (heading, body) in enumerate(sections):
         for h, text in split_section(heading, body):
             flat.append((h, text, sec_idx))
-    result: list[OpinionChunk] = []
-    for chunk_idx, (heading, chunk_text, sec_idx) in enumerate(flat):
+
+    # Filter noise/short, carrying token_count to avoid recomputing
+    prelim: list[tuple[str, str, int, int]] = []  # (heading, text, sec_idx, token_count)
+    for heading, chunk_text, sec_idx in flat:
         token_count = count_tokens(chunk_text)
         if token_count < MIN_CHUNK_TOKENS:
             continue
         if is_noise_chunk(chunk_text, token_count):
             continue
-        result.append(OpinionChunk(
-            chunk_id            = f"{opinion_id}_{chunk_idx}",
-            chunk_index         = chunk_idx,
-            chunk_type          = "opinion_section" if heading else "opinion_paragraph",
-            source              = "courtlistener",
-            text                = chunk_text,
-            token_count         = token_count,
-            section_heading     = heading,
-            section_index       = sec_idx,
-            opinion_id          = opinion_id,
-            opinion_type        = op_label,
-            is_majority         = op_label in MAJORITY_TYPES,
-            author              = safe_str(opinion_row.get("author_str")),
-            per_curiam          = safe_str(opinion_row.get("per_curiam")).lower() == "true",
-            cluster_id          = cluster_id,
-            case_name           = row_get(cluster, "case_name"),
-            case_name_short     = row_get(cluster, "case_name_short"),
-            date_filed          = row_get(cluster, "date_filed"),
-            judges              = row_get(cluster, "judges"),
-            precedential_status = prec_status,
-            precedential_weight = PRECEDENTIAL_WEIGHT.get(prec_status, 0.3),
-            citation_count      = safe_int(row_get(cluster, "citation_count")),
-            docket_id           = docket_id,
-            court_id            = court_id,
-            court_label         = COURT_LABELS.get(court_id, court_id),
-            docket_number       = row_get(docket, "docket_number"),
-            nature_of_suit      = row_get(docket, "nature_of_suit"),
-            cause               = row_get(docket, "cause"),
-            date_terminated     = row_get(docket, "date_terminated"),
+        prelim.append((heading, chunk_text, sec_idx, token_count))
+
+    chunk_total = len(prelim)
+    result: list[Chunk] = []
+    for chunk_index, (heading, chunk_text, sec_idx, token_count) in enumerate(prelim):
+        enriched = _opinion_enriched_text(case_name_short, date_filed, court_label, heading, chunk_text)
+        result.append(Chunk(
+            chunk_id         = f"{opinion_id}_c{chunk_index}",
+            parent_id        = opinion_id,
+            chunk_index      = chunk_index,
+            chunk_total      = chunk_total,
+            text             = chunk_text,
+            enriched_text    = enriched,
+            source           = "courtlistener",
+            token_count      = token_count,
+            display_citation = display_citation,
+            metadata={
+                "chunk_type":          "opinion_section" if heading else "opinion_paragraph",
+                "section_heading":     heading,
+                "section_index":       sec_idx,
+                "opinion_id":          opinion_id,
+                "opinion_type":        op_label,
+                "is_majority":         op_label in MAJORITY_TYPES,
+                "author":              author,
+                "per_curiam":          per_curiam,
+                "cluster_id":          cluster_id,
+                "case_name":           case_name,
+                "case_name_short":     case_name_short,
+                "date_filed":          date_filed,
+                "judges":              judges,
+                "precedential_status": prec_status,
+                "precedential_weight": prec_weight,
+                "citation_count":      citation_count,
+                "docket_id":           docket_id,
+                "court_id":            court_id,
+                "court_label":         court_label,
+                "docket_number":       docket_number,
+                "nature_of_suit":      nature_of_suit,
+                "cause":               cause,
+                "date_terminated":     date_terminated,
+            },
         ))
     return result
 
@@ -397,8 +412,8 @@ def chunk_parentheticals(
     cluster_map: dict,
     docket_map: dict,
     opinion_to_cluster: dict[str, str],
-) -> list[ParentheticalChunk]:
-    result: list[ParentheticalChunk] = []
+) -> list[Chunk]:
+    result: list[Chunk] = []
     for _, row in parentheticals_df.iterrows():
         text = safe_str(row.get("text"))
         if not text:
@@ -410,21 +425,32 @@ def chunk_parentheticals(
         docket        = docket_map.get(docket_id, {})
         court_id      = row_get(docket, "court_id")
         prec_status   = row_get(cluster, "precedential_status")
-        result.append(ParentheticalChunk(
-            chunk_id              = f"par_{safe_str(row.get('id'))}",
-            chunk_type            = "parenthetical",
-            source                = "courtlistener",
-            text                  = text,
-            token_count           = count_tokens(text),
-            describing_opinion_id = describing_id,
-            described_opinion_id  = safe_str(row.get("described_opinion_id")),
-            score                 = safe_float(row.get("score")),
-            case_name             = row_get(cluster, "case_name"),
-            date_filed            = row_get(cluster, "date_filed"),
-            court_id              = court_id,
-            court_label           = COURT_LABELS.get(court_id, court_id),
-            precedential_status   = prec_status,
-            precedential_weight   = PRECEDENTIAL_WEIGHT.get(prec_status, 0.3),
+        case_name     = row_get(cluster, "case_name")
+        date_filed    = row_get(cluster, "date_filed")
+        court_label   = COURT_LABELS.get(court_id, court_id)
+        par_id        = safe_str(row.get("id"))
+        result.append(Chunk(
+            chunk_id         = f"par_{par_id}",
+            parent_id        = describing_id,
+            chunk_index      = 0,
+            chunk_total      = 1,
+            text             = text,
+            enriched_text    = _par_enriched_text(case_name, date_filed, court_label, text),
+            source           = "courtlistener",
+            token_count      = count_tokens(text),
+            display_citation = _par_display_citation(case_name, date_filed),
+            metadata={
+                "chunk_type":            "parenthetical",
+                "describing_opinion_id": describing_id,
+                "described_opinion_id":  safe_str(row.get("described_opinion_id")),
+                "score":                 safe_float(row.get("score")),
+                "case_name":             case_name,
+                "date_filed":            date_filed,
+                "court_id":              court_id,
+                "court_label":           court_label,
+                "precedential_status":   prec_status,
+                "precedential_weight":   PRECEDENTIAL_WEIGHT.get(prec_status, 0.3),
+            },
         ))
     return result
 
@@ -467,7 +493,7 @@ def run(local_only: bool = False, limit: int = 0):
         log.info(f"  Limiting to first {limit} opinions (by text length).")
         opinions_df = opinions_df.head(limit)
     log.info("Chunking opinions...")
-    opinion_chunks: list[OpinionChunk] = []
+    opinion_chunks: list[Chunk] = []
     opinions_with_chunks = 0
     skipped_no_text   = 0
     skipped_too_short = 0
@@ -476,17 +502,14 @@ def run(local_only: bool = False, limit: int = 0):
         if not chunks:
             skipped_no_text += 1
             continue
-        useful = [c for c in chunks if c.token_count >= MIN_CHUNK_TOKENS]
-        if useful:
-            opinion_chunks.extend(useful)
-            opinions_with_chunks += 1
-        else:
-            skipped_too_short += 1
+        # chunk_opinion already filters noise/short; all returned chunks are useful
+        opinion_chunks.extend(chunks)
+        opinions_with_chunks += 1
         if (i + 1) % 1000 == 0:
             log.info(f"  {i + 1:,} opinions processed → {len(opinion_chunks):,} chunks...")
     log.info(
         f"  Done. {len(opinion_chunks):,} chunks produced from {opinions_with_chunks:,} opinions. "
-        f"Skipped: {skipped_no_text} (no text), {skipped_too_short} (too short <{MIN_CHUNK_TOKENS} tokens)."
+        f"Skipped: {skipped_no_text} (no text)."
     )
     log.info("Chunking parentheticals...")
     par_chunks = chunk_parentheticals(

@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import io
 import json
 import logging
@@ -6,12 +7,13 @@ import os
 import re
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict
 import boto3
 import pdfplumber
+import tiktoken
 from dotenv import load_dotenv
+from core.models import Chunk
 
 load_dotenv()
 
@@ -53,6 +55,13 @@ SKIP_PATTERNS = [
     r"^Adopted\s+.*$",                    # Adoption lines alone
     r"^Committee Comments?$",              # Committee Comment headers (will be handled with content)
 ]
+
+_enc = tiktoken.get_encoding("cl100k_base")
+
+
+def count_tokens(text: str) -> int:
+    return len(_enc.encode(text))
+
 
 def should_keep_text(text: str) -> bool:
     text_stripped = text.strip()
@@ -291,49 +300,83 @@ def _build_chunk(
     content_type: str = "rule_text",
     subsection_id: Optional[str] = None,
     committee_comments: Optional[str] = None,
-) -> dict:
+) -> Chunk:
     # Build hierarchical path
-    hierarchical_path = []
+    hierarchical_path_parts = []
     if hierarchy.current_article_number:
-        hierarchical_path.append(f"Article {hierarchy.current_article_number}")
+        hierarchical_path_parts.append(f"Article {hierarchy.current_article_number}")
     if hierarchy.current_part_letter:
-        hierarchical_path.append(f"Part {hierarchy.current_part_letter}")
+        hierarchical_path_parts.append(f"Part {hierarchy.current_part_letter}")
     if hierarchy.current_rule_number:
         rule_ref = f"Rule {hierarchy.current_rule_number}"
         if subsection_id:
             rule_ref += f"({subsection_id})"
-        hierarchical_path.append(rule_ref)
-    # Build rule title
+        hierarchical_path_parts.append(rule_ref)
+    hierarchical_path = " → ".join(hierarchical_path_parts) if hierarchical_path_parts else ""
+
+    # Build rule title string
+    rule_number = hierarchy.current_rule_number or ""
     rule_title_parts = []
-    if hierarchy.current_rule_number:
-        rule_title_parts.append(f"Rule {hierarchy.current_rule_number}")
+    if rule_number:
+        rule_title_parts.append(f"Rule {rule_number}")
         if subsection_id:
             rule_title_parts.append(f"({subsection_id})")
         if hierarchy.current_rule_title and not subsection_id:
             rule_title_parts.append(f": {hierarchy.current_rule_title}")
-    return {
-        "chunk_id": str(uuid.uuid4()),
-        "source_s3_key": source_key,
-        "source_corpus": "illinois_supreme_court_rules",
-        "content_type": content_type,
-        "hierarchical_path": " → ".join(hierarchical_path) if hierarchical_path else None,
-        "article_number": hierarchy.current_article_number,
-        "article_title": hierarchy.current_article_title,
-        "part_letter": hierarchy.current_part_letter,
-        "part_title": hierarchy.current_part_title,
-        "rule_number": hierarchy.current_rule_number,
-        "rule_title": " ".join(rule_title_parts) if rule_title_parts else None,
-        "subsection_id": subsection_id,
-        "effective_date": hierarchy.effective_date,
-        "amendment_history": extract_amendment_history(text),
-        "text": text,
-        "committee_comments": committee_comments,
-        "cross_references": extract_cross_references(text),
-        "token_estimate": estimate_tokens(text),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
+    rule_title = " ".join(rule_title_parts)
 
-def chunk_document(full_text: str, source_key: str) -> list[dict]:
+    # display_citation: "Rule N — Title" for titled rules, "Rule N(x) — Title" for subsections
+    if rule_number and hierarchy.current_rule_title and not subsection_id:
+        display_citation = f"Rule {rule_number} — {hierarchy.current_rule_title}"
+    elif rule_number:
+        display_citation = f"Rule {rule_number}"
+        if subsection_id:
+            display_citation += f"({subsection_id})"
+        if hierarchy.current_rule_title:
+            display_citation += f" — {hierarchy.current_rule_title}"
+    else:
+        display_citation = hierarchical_path or content_type.replace("_", " ")
+
+    # enriched_text: hierarchical context + text
+    context_parts = []
+    if hierarchy.current_article_title:
+        context_parts.append(f"[{hierarchy.current_article_title}]")
+    if hierarchy.current_part_title:
+        context_parts.append(hierarchy.current_part_title)
+    if rule_title:
+        context_parts.append(rule_title)
+    enriched = "\n".join(context_parts) + "\n\n" + text if context_parts else text
+
+    return Chunk(
+        chunk_id=str(uuid.uuid4()),
+        parent_id=source_key,
+        chunk_index=0,          # for split rules, overwritten by _process_rule_text; for single-chunk paths, 0/1 is correct
+        chunk_total=1,          # for split rules, overwritten by _process_rule_text; for single-chunk paths, 0/1 is correct
+        text=text,
+        enriched_text=enriched,
+        source="illinois_supreme_court_rules",
+        token_count=count_tokens(text),
+        display_citation=display_citation,
+        metadata={
+            "source":             "illinois_supreme_court_rules",
+            "source_s3_key":      source_key,
+            "content_type":       content_type,
+            "hierarchical_path":  hierarchical_path,
+            "article_number":     hierarchy.current_article_number,
+            "article_title":      hierarchy.current_article_title,
+            "part_letter":        hierarchy.current_part_letter,
+            "part_title":         hierarchy.current_part_title,
+            "rule_number":        rule_number,
+            "rule_title":         rule_title,
+            "subsection_id":      subsection_id,
+            "effective_date":     hierarchy.effective_date,
+            "amendment_history":  extract_amendment_history(text),
+            "committee_comments": committee_comments,
+            "cross_references":   extract_cross_references(text),
+        },
+    )
+
+def chunk_document(full_text: str, source_key: str) -> list[Chunk]:
     chunks = []
     hierarchy = DocumentHierarchy()
     # Strip [PAGE N] markers injected by merge_pages_to_text before line processing.
@@ -424,7 +467,7 @@ def chunk_document(full_text: str, source_key: str) -> list[dict]:
             ))
     return chunks
 
-def _process_rule_text(rule_text: str, source_key: str, hierarchy: DocumentHierarchy) -> list[dict]:
+def _process_rule_text(rule_text: str, source_key: str, hierarchy: DocumentHierarchy) -> list[Chunk]:
     # Check if we should split this rule
     if should_split_rule(rule_text):
         sections = split_rule_into_subsections(rule_text, hierarchy.current_rule_number or "unknown")
@@ -447,6 +490,9 @@ def _process_rule_text(rule_text: str, source_key: str, hierarchy: DocumentHiera
                     f"--- Text ---\n{text[:500]}...\n"
                     f"{'='*60}"
                 )
+        for i, c in enumerate(chunks):
+            c.chunk_index = i
+            c.chunk_total = len(chunks)
         return chunks
     else:
         # Single chunk for the whole rule
@@ -477,7 +523,8 @@ def process_pdf(s3: "boto3.client", pdf_key: str, config: dict) -> int:
     chunks = chunk_document(full_text, source_key=pdf_key)
     pdf_filename = Path(pdf_key).stem
     output_key = f"{config['chunked_prefix']}/{pdf_filename}_chunks.jsonl"
-    upload_jsonl(s3, config["chunked_bucket"], output_key, chunks)
+    serialized = [dataclasses.asdict(c) for c in chunks]
+    upload_jsonl(s3, config["chunked_bucket"], output_key, serialized)
     log.info(f"Processed {pdf_key}: {len(chunks)} chunks created")
     return len(chunks)
 

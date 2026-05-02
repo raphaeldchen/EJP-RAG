@@ -66,13 +66,18 @@ def write_jsonl_local(records: list[dict], path: Path):
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     log.info(f"  Saved {len(records):,} records → {path}")
 
+def _opinion_key(chunk: dict) -> str:
+    # bulk chunks (courtlistener_chunk.py) use parent_id; API chunks use opinion_id
+    return chunk.get("parent_id") or chunk.get("opinion_id", "")
+
+
 def merge(bulk: list[dict], api: list[dict]) -> list[dict]:
     bulk_by_opinion: dict[str, list[dict]] = defaultdict(list)
     api_by_opinion:  dict[str, list[dict]] = defaultdict(list)
     for chunk in bulk:
-        bulk_by_opinion[chunk["opinion_id"]].append(chunk)
+        bulk_by_opinion[_opinion_key(chunk)].append(chunk)
     for chunk in api:
-        api_by_opinion[chunk["opinion_id"]].append(chunk)
+        api_by_opinion[_opinion_key(chunk)].append(chunk)
     all_ids = set(bulk_by_opinion) | set(api_by_opinion)
     bulk_only = len(set(bulk_by_opinion) - set(api_by_opinion))
     api_only  = len(set(api_by_opinion)  - set(bulk_by_opinion))
