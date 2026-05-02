@@ -63,6 +63,7 @@ def _build_sources() -> list[Source]:
     ).rstrip("/")
     spac_prefix = os.environ.get("SPAC_S3_PREFIX", "spac/").rstrip("/")
     iscr_prefix = os.environ.get("SUPREME_COURT_RULES_S3_PREFIX", "illinois-supreme-court-rules/").rstrip("/")
+    cap_prefix  = os.environ.get("CAP_S3_PREFIX", "cap").rstrip("/")
 
     return [
         Source(
@@ -91,6 +92,11 @@ def _build_sources() -> list[Source]:
             "courtlistener",
             "chunk.courtlistener_chunk",
             s3_check_key=f"{cl_prefix}/bulk/opinion_chunks.jsonl",
+        ),
+        Source(
+            "cap",
+            "chunk.cap_chunk",
+            s3_check_key=f"{cap_prefix}/cap_opinion_chunks.jsonl",
         ),
     ]
 
@@ -206,7 +212,7 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Sources: ilga, iscr, iac, iccb, idoc, spac, federal, "
-            "restorejustice, cookcounty-pd, courtlistener"
+            "restorejustice, cookcounty-pd, courtlistener, cap"
         ),
     )
     parser.add_argument(
