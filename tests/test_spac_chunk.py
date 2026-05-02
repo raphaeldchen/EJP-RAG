@@ -230,7 +230,7 @@ def test_all_caps_headings_split_into_separate_chunks():
         f"MANDATORY SUPERVISED RELEASE\n\n{body}"
     )
     chunks = chunk_record(_make_record(text))
-    headings = {c.section_heading for c in chunks}
+    headings = {c.metadata.get("section_heading", "") for c in chunks}
     assert "DRUG OFFENSE REFORM" in headings
     assert "MANDATORY SUPERVISED RELEASE" in headings
 
@@ -239,7 +239,7 @@ def test_two_word_heading_does_not_split():
     body = "Content paragraph. " * 20
     text = f"RETAIL THEFT\n\n{body}\n\nMore content follows here."
     chunks = chunk_record(_make_record(text))
-    headings = {c.section_heading for c in chunks}
+    headings = {c.metadata.get("section_heading", "") for c in chunks}
     assert "RETAIL THEFT" not in headings, "Two-word heading incorrectly triggered a split"
 
 
@@ -256,7 +256,7 @@ def test_enriched_text_contains_section_heading():
     body = "Content. " * 30
     text = f"DRUG OFFENSE REFORM\n\n{body}"
     chunks = chunk_record(_make_record(text))
-    drug_chunks = [c for c in chunks if c.section_heading == "DRUG OFFENSE REFORM"]
+    drug_chunks = [c for c in chunks if c.metadata.get("section_heading") == "DRUG OFFENSE REFORM"]
     assert drug_chunks
     assert "DRUG OFFENSE REFORM" in drug_chunks[0].enriched_text
 
@@ -267,6 +267,20 @@ def test_no_chunk_exceeds_max_tokens():
     chunks = chunk_record(_make_record(text))
     over = [(c.chunk_id, c.token_count) for c in chunks if c.token_count > MAX_TOKENS]
     assert not over, f"Chunks exceed MAX_TOKENS={MAX_TOKENS}: {over}"
+
+
+def test_chunk_schema_fields():
+    text = "Substantial policy content paragraph. " * 15
+    chunks = chunk_record(_make_record(
+        text, category="Report", year="2020", title="Test Report"
+    ))
+    assert chunks
+    c = chunks[0]
+    assert c.source == "spac"
+    assert c.token_count > 0
+    assert "Test Report" in c.display_citation
+    assert c.metadata["record_id"] == "spac-test-001"
+    assert c.parent_id == "spac-test-001"
 
 
 def test_chunk_ids_contiguous():
@@ -341,7 +355,7 @@ def test_no_page_headers_in_corpus_chunks(spac_chunks):
 def test_chunk_index_contiguous(spac_chunks):
     by_record = defaultdict(list)
     for c in spac_chunks:
-        by_record[c["record_id"]].append(c["chunk_index"])
+        by_record[c["parent_id"]].append(c["chunk_index"])
     failures = [
         f"{rid}: {sorted(idxs)}"
         for rid, idxs in by_record.items()
@@ -353,7 +367,7 @@ def test_chunk_index_contiguous(spac_chunks):
 def test_chunk_total_accurate(spac_chunks):
     by_record = defaultdict(list)
     for c in spac_chunks:
-        by_record[c["record_id"]].append(c)
+        by_record[c["parent_id"]].append(c)
     failures = [
         f"{c['chunk_id']}: chunk_total={c['chunk_total']} actual={len(siblings)}"
         for siblings in by_record.values()
@@ -389,16 +403,20 @@ def test_no_chunk_exceeds_max_tokens_corpus(spac_chunks):
 
 
 def test_all_chunks_have_required_fields(spac_chunks):
-    required = {
-        "chunk_id", "chunk_index", "chunk_total", "source",
-        "text", "enriched_text", "token_count", "record_id",
-        "title", "category", "year", "url",
+    required_top = {
+        "chunk_id", "parent_id", "chunk_index", "chunk_total", "source",
+        "text", "enriched_text", "token_count", "display_citation", "metadata",
     }
-    failures = [
-        f"{c['chunk_id']}: missing {required - c.keys()}"
-        for c in spac_chunks
-        if not required.issubset(c.keys())
-    ]
+    required_meta = {"record_id", "title", "category", "year", "url"}
+    failures = []
+    for c in spac_chunks:
+        missing_top = required_top - c.keys()
+        if missing_top:
+            failures.append(f"{c['chunk_id']}: missing top-level {missing_top}")
+            continue
+        missing_meta = required_meta - c.get("metadata", {}).keys()
+        if missing_meta:
+            failures.append(f"{c['chunk_id']}: missing metadata keys {missing_meta}")
     assert not failures, "Chunks missing required fields:\n" + "\n".join(failures[:5])
 
 
@@ -417,11 +435,12 @@ def test_source_field_is_spac_corpus(spac_chunks):
 
 def test_large_report_splits_into_multiple_chunks(spac_chunks):
     """The largest SPAC record (hb3355, ~193k chars) must produce many chunks."""
-    target = [c for c in spac_chunks if "hb3355" in c.get("record_id", "")]
+    target = [c for c in spac_chunks if "hb3355" in c.get("parent_id", "")]
     if not target:
         pytest.skip("hb3355 record not found in chunked output")
     assert len(target) > 10, f"Expected >10 chunks for hb3355, got {len(target)}"
-    headings = {c["section_heading"] for c in target if c["section_heading"]}
+    headings = {c.get("metadata", {}).get("section_heading", "") for c in target}
+    headings.discard("")
     assert len(headings) > 3, "Large report produced too few distinct section headings"
 
 
