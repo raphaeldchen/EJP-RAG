@@ -150,13 +150,8 @@ def test_s3_output_record_count(iscr_chunks, iscr_chunks_s3):
 
 
 def test_s3_output_no_corrupt_records(iscr_chunks_s3):
-    """Every record in S3 must have the required top-level keys.
-
-    NOTE: S3 currently holds pre-migration flat-schema records (no ``metadata`` key).
-    This test checks the keys that are present in the stale S3 output.  It will be
-    tightened to ``{"chunk_id", "text", "metadata"}`` after the batch rechunk run.
-    """
-    required = {"chunk_id", "text", "rule_number", "content_type", "hierarchical_path"}
+    """Every record in S3 must have the required top-level keys (shared Chunk schema)."""
+    required = {"chunk_id", "text", "metadata", "source", "token_count"}
     failures = [
         f"record {i}: missing {required - c.keys()}"
         for i, c in enumerate(iscr_chunks_s3)
