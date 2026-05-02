@@ -51,6 +51,7 @@ _OPINION_TYPE_NORM: dict[str, str] = {
     "rehearing":           "rehearing",
     "per curiam":          "majority",
     "opinion":             "majority",
+    "preamble":            "preamble",
     "unanimous":           "majority",
     "plurality":           "majority",
     "combined":            "majority",
@@ -58,7 +59,7 @@ _OPINION_TYPE_NORM: dict[str, str] = {
     "remittitur":          "remittitur",
 }
 
-_MAJORITY_TYPES = {"majority", "unanimous", "plurality", "combined"}
+_MAJORITY_TYPES = {"majority"}
 
 
 def _require_env(key: str) -> str:
@@ -90,7 +91,7 @@ def _split_opinion_segments(text: str) -> list[tuple[str, str]]:
     if matches[0].start() > 0:
         preamble = text[: matches[0].start()].strip()
         if preamble:
-            segments.append(("majority", preamble))
+            segments.append(("preamble", preamble))
     for i, m in enumerate(matches):
         label     = m.group(1).lower()
         norm_type = _OPINION_TYPE_NORM.get(label, label)
