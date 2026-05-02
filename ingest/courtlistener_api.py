@@ -6,7 +6,7 @@ import os
 import re
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import boto3
@@ -15,6 +15,8 @@ import requests
 import tiktoken
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+
+from core.models import Chunk
 
 load_dotenv()
 
@@ -36,21 +38,21 @@ def get_config(local_only: bool = False) -> dict:
     api_token  = _require_env("COURTLISTENER_API_TOKEN")
     cl_prefix  = os.environ.get("RAW_COURTLISTENER_S3_PREFIX", "courtlistener/").rstrip("/")
     cfg = {
-        "raw_bucket":     raw_bucket,
-        "raw_prefix":     f"{cl_prefix}/bulk",
-        "api_token":      api_token,
+        "raw_bucket":  raw_bucket,
+        "raw_prefix":  f"{cl_prefix}/bulk",
+        "api_token":   api_token,
     }
     if not local_only:
-        cfg["chunked_bucket"]  = _require_env("CHUNKED_S3_BUCKET")
-        cfg["chunked_prefix"]  = f"{cl_prefix}/bulk"
+        cfg["chunked_bucket"] = _require_env("CHUNKED_S3_BUCKET")
+        cfg["chunked_prefix"] = f"{cl_prefix}/bulk"
     return cfg
 
-API_BASE = "https://www.courtlistener.com/api/rest/v4/opinions"
-REQUEST_TIMEOUT  = 30      # seconds per request
-RETRY_ATTEMPTS   = 3       # retries on transient failures
-RETRY_BACKOFF    = 2.0     # seconds; doubled on each retry
-RATE_LIMIT_PAUSE = 0.5     # seconds between successful requests (authenticated = ~5 req/s max)
-BATCH_CHECKPOINT = 500     # write a progress checkpoint every N opinions fetched
+API_BASE         = "https://www.courtlistener.com/api/rest/v4/opinions"
+REQUEST_TIMEOUT  = 30
+RETRY_ATTEMPTS   = 3
+RETRY_BACKOFF    = 2.0
+RATE_LIMIT_PAUSE = 0.5
+BATCH_CHECKPOINT = 500  # flush to disk every N opinions
 
 TARGET_TOKENS    = 600
 MAX_TOKENS       = 800
@@ -59,6 +61,8 @@ ENCODING_NAME    = "cl100k_base"
 MIN_CHUNK_TOKENS = 50
 
 LOCAL_OUTPUT_DIR = Path("./data_files/chunked_output")
+OUTPUT_PATH      = LOCAL_OUTPUT_DIR / "api_opinion_chunks.jsonl"
+DONE_PATH        = LOCAL_OUTPUT_DIR / "api_opinion_chunks.jsonl.done"
 
 PRECEDENTIAL_WEIGHT = {
     "Published":   1.0,
@@ -93,36 +97,30 @@ COURT_LABELS = {
     "illappct": "Illinois Appellate Court",
 }
 
-@dataclass
-class OpinionChunk:
-    chunk_id:            str
-    chunk_index:         int
-    chunk_type:          str
-    source:              str
-    text:                str
-    token_count:         int
-    section_heading:     str
-    section_index:       int
-    opinion_id:          str
-    opinion_type:        str
-    is_majority:         bool
-    author:              str
-    per_curiam:          bool
-    cluster_id:          str
-    case_name:           str
-    case_name_short:     str
-    date_filed:          str
-    judges:              str
-    precedential_status: str
-    precedential_weight: float
-    citation_count:      int
-    docket_id:           str
-    court_id:            str
-    court_label:         str
-    docket_number:       str
-    nature_of_suit:      str
-    cause:               str
-    date_terminated:     str
+
+# ---------------------------------------------------------------------------
+# Checkpoint helpers
+# ---------------------------------------------------------------------------
+
+def load_done_set() -> set[str]:
+    """Return set of opinion IDs already successfully chunked."""
+    if not DONE_PATH.exists():
+        return set()
+    with open(DONE_PATH, encoding="utf-8") as f:
+        return {line.strip() for line in f if line.strip()}
+
+
+def mark_done(opinion_ids: list[str]):
+    """Append a batch of opinion IDs to the done file."""
+    DONE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DONE_PATH, "a", encoding="utf-8") as f:
+        for oid in opinion_ids:
+            f.write(f"{oid}\n")
+
+
+# ---------------------------------------------------------------------------
+# S3 / local I/O
+# ---------------------------------------------------------------------------
 
 def s3_client():
     return boto3.client("s3")
@@ -137,29 +135,16 @@ def read_csv_from_s3(bucket: str, key: str) -> pd.DataFrame:
         keep_default_na=False,
     )
 
-def write_jsonl_to_s3(records: list[dict], bucket: str, key: str):
-    log.info(f"  Writing {len(records):,} records → s3://{bucket}/{key}")
-    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
-    s3_client().put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=body.encode("utf-8"),
-        ContentType="application/x-ndjson",
-    )
-    log.info("  Upload complete.")
-
-def write_jsonl_local(records: list[dict], path: Path):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    log.info(f"  Saved locally: {path}  ({len(records):,} records)")
-
 def append_jsonl_local(records: list[dict], path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         for record in records:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# Text utilities
+# ---------------------------------------------------------------------------
 
 _enc = tiktoken.get_encoding(ENCODING_NAME)
 
@@ -197,17 +182,16 @@ def safe_int(val, default: int = 0) -> int:
     except (TypeError, ValueError):
         return default
 
-def safe_float(val, default: float = 0.0) -> float:
-    try:
-        return float(val)
-    except (TypeError, ValueError):
-        return default
-
 def row_get(row, key: str) -> str:
     try:
         return safe_str(row[key])
     except (KeyError, TypeError):
         return ""
+
+
+# ---------------------------------------------------------------------------
+# Noise / section detection (mirrors courtlistener_chunk.py)
+# ---------------------------------------------------------------------------
 
 _NOISE_PATTERNS = [
     re.compile(r"^\s*-\s*\d+\s*-\s*$", re.MULTILINE),
@@ -233,7 +217,7 @@ def is_noise_chunk(text: str, token_count: int) -> bool:
 
 _SECTION_PATTERNS = [
     re.compile(
-        r"^\s*(X{0,3}(?:IX|IV|V?I{0,3}))\s*[.\-\u2014]\s*(.{0,80})$",
+        r"^\s*(X{0,3}(?:IX|IV|V?I{0,3}))\s*[.\-—]\s*(.{0,80})$",
         re.MULTILINE | re.IGNORECASE,
     ),
     re.compile(
@@ -245,7 +229,7 @@ _SECTION_PATTERNS = [
     ),
     re.compile(r"^\s*([A-Z][A-Z\s]{4,60})\s*$", re.MULTILINE),
     re.compile(
-        r"^\s*([A-Z]|\d+)\s*[.\-\u2014]\s*([A-Z][^.\n]{5,60})\s*$",
+        r"^\s*([A-Z]|\d+)\s*[.\-—]\s*([A-Z][^.\n]{5,60})\s*$",
         re.MULTILINE,
     ),
 ]
@@ -277,7 +261,7 @@ def detect_sections(text: str) -> list[tuple[str, str]]:
     return sections if sections else [("", text)]
 
 def _sentence_split(text: str) -> list[str]:
-    return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z\u00b6])", text) if s.strip()]
+    return [s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z¶])", text) if s.strip()]
 
 def _accumulate(units: list[str], separator: str) -> list[str]:
     result: list[str] = []
@@ -311,7 +295,7 @@ def _accumulate(units: list[str], separator: str) -> list[str]:
 def split_section(heading: str, body: str) -> list[tuple[str, str]]:
     if count_tokens(body) <= MAX_TOKENS:
         return [(heading, body)]
-    normalised = re.sub(r"(?<=[.!?]) *\n(?=[A-Z\u00b6])", "\n\n", body)
+    normalised = re.sub(r"(?<=[.!?]) *\n(?=[A-Z¶])", "\n\n", body)
     paragraphs = [p.strip() for p in normalised.split("\n\n") if p.strip()]
     if len(paragraphs) <= 2:
         sentences = _sentence_split(body)
@@ -319,6 +303,36 @@ def split_section(heading: str, body: str) -> list[tuple[str, str]]:
             paragraphs = sentences
     chunks = _accumulate(paragraphs, "\n\n")
     return [(heading, chunk) for chunk in chunks]
+
+
+# ---------------------------------------------------------------------------
+# enriched_text / display_citation helpers
+# ---------------------------------------------------------------------------
+
+def _enriched_text(
+    case_name_short: str,
+    date_filed: str,
+    court_label: str,
+    section_heading: str,
+    chunk_text: str,
+) -> str:
+    header_parts = [x for x in [case_name_short, date_filed, court_label] if x]
+    header = " | ".join(header_parts)
+    if section_heading:
+        return f"{header}\n{section_heading}\n\n{chunk_text}"
+    return f"{header}\n\n{chunk_text}" if header else chunk_text
+
+
+def _display_citation(case_name_short: str, date_filed: str) -> str:
+    year = date_filed[:4] if date_filed and len(date_filed) >= 4 else ""
+    if case_name_short and year:
+        return f"{case_name_short} ({year})"
+    return case_name_short or ""
+
+
+# ---------------------------------------------------------------------------
+# API fetch
+# ---------------------------------------------------------------------------
 
 def fetch_opinion(opinion_id: str, session: requests.Session) -> dict | None:
     url     = f"{API_BASE}/{opinion_id}/"
@@ -369,13 +383,18 @@ def extract_text(api_response: dict) -> str:
             return strip_html(html)
     return ""
 
+
+# ---------------------------------------------------------------------------
+# Chunking
+# ---------------------------------------------------------------------------
+
 def chunk_opinion_from_api(
-    opinion_id:   str,
-    api_data:     dict,
-    csv_row:      pd.Series,
-    cluster_map:  dict,
-    docket_map:   dict,
-) -> list[OpinionChunk]:
+    opinion_id:  str,
+    api_data:    dict,
+    csv_row:     pd.Series,
+    cluster_map: dict,
+    docket_map:  dict,
+) -> list[Chunk]:
     plain = extract_text(api_data)
     if not plain:
         return []
@@ -387,55 +406,88 @@ def chunk_opinion_from_api(
     prec_status = row_get(cluster, "precedential_status")
     court_id    = row_get(docket, "court_id")
     op_label    = OPINION_TYPE_LABELS.get(opinion_type, opinion_type)
+    case_name        = row_get(cluster, "case_name")
+    case_name_short  = row_get(cluster, "case_name_short")
+    date_filed       = row_get(cluster, "date_filed")
+    court_label      = COURT_LABELS.get(court_id, court_id)
+    display_citation = _display_citation(case_name_short, date_filed)
+    author           = safe_str(csv_row.get("author_str"))
+    per_curiam       = safe_str(csv_row.get("per_curiam")).lower() == "true"
+
     sections = detect_sections(plain)
     flat: list[tuple[str, str, int]] = []
     for sec_idx, (heading, body) in enumerate(sections):
         for h, text in split_section(heading, body):
             flat.append((h, text, sec_idx))
-    result: list[OpinionChunk] = []
-    for chunk_idx, (heading, chunk_text, sec_idx) in enumerate(flat):
+
+    # Filter noise/short in one pass, carrying token_count
+    prelim: list[tuple[str, str, int, int]] = []  # (heading, text, sec_idx, token_count)
+    for heading, chunk_text, sec_idx in flat:
         token_count = count_tokens(chunk_text)
         if token_count < MIN_CHUNK_TOKENS:
             continue
         if is_noise_chunk(chunk_text, token_count):
             continue
-        result.append(OpinionChunk(
-            chunk_id            = f"{opinion_id}_api_{chunk_idx}",
-            chunk_index         = chunk_idx,
-            chunk_type          = "opinion_section" if heading else "opinion_paragraph",
-            source              = "courtlistener_api",
-            text                = chunk_text,
-            token_count         = token_count,
-            section_heading     = heading,
-            section_index       = sec_idx,
-            opinion_id          = opinion_id,
-            opinion_type        = op_label,
-            is_majority         = op_label in MAJORITY_TYPES,
-            author              = safe_str(csv_row.get("author_str")),
-            per_curiam          = safe_str(csv_row.get("per_curiam")).lower() == "true",
-            cluster_id          = cluster_id,
-            case_name           = row_get(cluster, "case_name"),
-            case_name_short     = row_get(cluster, "case_name_short"),
-            date_filed          = row_get(cluster, "date_filed"),
-            judges              = row_get(cluster, "judges"),
-            precedential_status = prec_status,
-            precedential_weight = PRECEDENTIAL_WEIGHT.get(prec_status, 0.3),
-            citation_count      = safe_int(row_get(cluster, "citation_count")),
-            docket_id           = docket_id,
-            court_id            = court_id,
-            court_label         = COURT_LABELS.get(court_id, court_id),
-            docket_number       = row_get(docket, "docket_number"),
-            nature_of_suit      = row_get(docket, "nature_of_suit"),
-            cause               = row_get(docket, "cause"),
-            date_terminated     = row_get(docket, "date_terminated"),
+        prelim.append((heading, chunk_text, sec_idx, token_count))
+
+    chunk_total = len(prelim)
+    result: list[Chunk] = []
+    for chunk_index, (heading, chunk_text, sec_idx, token_count) in enumerate(prelim):
+        result.append(Chunk(
+            chunk_id         = f"{opinion_id}_api_c{chunk_index}",
+            parent_id        = opinion_id,
+            chunk_index      = chunk_index,
+            chunk_total      = chunk_total,
+            text             = chunk_text,
+            enriched_text    = _enriched_text(case_name_short, date_filed, court_label, heading, chunk_text),
+            source           = "courtlistener",
+            token_count      = token_count,
+            display_citation = display_citation,
+            metadata={
+                "fetch_method":        "api",
+                "chunk_type":          "opinion_section" if heading else "opinion_paragraph",
+                "section_heading":     heading,
+                "section_index":       sec_idx,
+                "opinion_id":          opinion_id,
+                "opinion_type":        op_label,
+                "is_majority":         op_label in MAJORITY_TYPES,
+                "author":              author,
+                "per_curiam":          per_curiam,
+                "cluster_id":          cluster_id,
+                "case_name":           case_name,
+                "case_name_short":     case_name_short,
+                "date_filed":          date_filed,
+                "judges":              row_get(cluster, "judges"),
+                "precedential_status": prec_status,
+                "precedential_weight": PRECEDENTIAL_WEIGHT.get(prec_status, 0.3),
+                "citation_count":      safe_int(row_get(cluster, "citation_count")),
+                "docket_id":           docket_id,
+                "court_id":            court_id,
+                "court_label":         court_label,
+                "docket_number":       row_get(docket, "docket_number"),
+                "nature_of_suit":      row_get(docket, "nature_of_suit"),
+                "cause":               row_get(docket, "cause"),
+                "date_terminated":     row_get(docket, "date_terminated"),
+            },
         ))
     return result
+
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
 
 def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
     cfg        = get_config(local_only=local_only)
     raw_bucket = cfg["raw_bucket"]
     raw_prefix = cfg["raw_prefix"]
     api_token  = cfg["api_token"]
+
+    # Load checkpoint — skip opinions already processed
+    done_set = load_done_set() if not ids else set()
+    if done_set:
+        log.info(f"  Resuming: {len(done_set):,} opinions already done (checkpoint).")
+
     log.info("Loading metadata tables from S3...")
     clusters_df = read_csv_from_s3(raw_bucket, f"{raw_prefix}/clusters.csv")
     dockets_df  = read_csv_from_s3(raw_bucket, f"{raw_prefix}/dockets.csv")
@@ -446,48 +498,58 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
     )
     cluster_map = {safe_str(r["id"]): r for _, r in clusters_df.iterrows()}
     docket_map  = {safe_str(r["id"]): r for _, r in dockets_df.iterrows()}
-    opinions_df = opinions_df.set_index("id", drop=False)
-    opinion_ids = list(opinions_df.index)
-    opinion_ids = [oid for oid in opinion_ids if re.match(r'^\d+$', str(oid))]
+
+    opinions_df  = opinions_df.set_index("id", drop=False)
+    opinion_ids  = [oid for oid in opinions_df.index if re.match(r'^\d+$', str(oid))]
+
     if ids:
-        opinion_ids = [oid for oid in opinion_ids if str(oid) in set(ids)]
+        wanted = set(ids)
+        opinion_ids = [oid for oid in opinion_ids if str(oid) in wanted]
         log.info(f"  Filtered to {len(opinion_ids)} specified IDs.")
-    log.info(f"  {len(opinion_ids):,} valid numeric opinion IDs after filtering.")
+    else:
+        before = len(opinion_ids)
+        opinion_ids = [oid for oid in opinion_ids if str(oid) not in done_set]
+        log.info(f"  {before - len(opinion_ids):,} already done; "
+                 f"{len(opinion_ids):,} remaining.")
+
     if limit:
-        log.info(f"  Limiting to first {limit} opinion IDs.")
+        log.info(f"  Limiting to first {limit} remaining IDs.")
         opinion_ids = opinion_ids[:limit]
+
     total = len(opinion_ids)
     log.info(f"  Will fetch {total:,} opinions from the CourtListener API.")
+
     session = requests.Session()
     session.headers.update({
         "Authorization": f"Token {api_token}",
         "User-Agent":    "illinois-legal-rag-pipeline/1.0",
     })
-    all_chunks:      list[OpinionChunk] = []
-    checkpoint_buf:  list[dict]         = []
+
+    all_chunks:      list[Chunk] = []
+    checkpoint_buf:  list[dict]  = []
+    checkpoint_ids:  list[str]   = []
     fetched          = 0
     skipped_no_text  = 0
     skipped_api_fail = 0
-    checkpoint_path  = LOCAL_OUTPUT_DIR / "api_opinion_chunks.jsonl"
-    if checkpoint_path.exists():
-        checkpoint_path.unlink()
-        log.info(f"  Cleared previous checkpoint: {checkpoint_path}")
+
     log.info("Fetching opinions from API...")
     for i, opinion_id in enumerate(opinion_ids):
         api_data = fetch_opinion(opinion_id, session)
         if api_data is None:
             skipped_api_fail += 1
-            continue
-        csv_row = opinions_df.loc[opinion_id] if opinion_id in opinions_df.index else pd.Series()
-        chunks  = chunk_opinion_from_api(
-            opinion_id, api_data, csv_row, cluster_map, docket_map
-        )
-        if not chunks:
-            skipped_no_text += 1
+            # Still mark as done so reruns don't hammer the API on permanent failures
+            checkpoint_ids.append(str(opinion_id))
         else:
-            all_chunks.extend(chunks)
-            checkpoint_buf.extend(asdict(c) for c in chunks)
-            fetched += 1
+            csv_row = opinions_df.loc[opinion_id] if opinion_id in opinions_df.index else pd.Series()
+            chunks  = chunk_opinion_from_api(opinion_id, api_data, csv_row, cluster_map, docket_map)
+            if not chunks:
+                skipped_no_text += 1
+            else:
+                all_chunks.extend(chunks)
+                checkpoint_buf.extend(asdict(c) for c in chunks)
+                fetched += 1
+            checkpoint_ids.append(str(opinion_id))
+
         if (i + 1) % 100 == 0:
             log.info(
                 f"  {i + 1:,}/{total:,} processed | "
@@ -496,14 +558,21 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
             )
 
         if len(checkpoint_buf) >= BATCH_CHECKPOINT:
-            append_jsonl_local(checkpoint_buf, checkpoint_path)
+            append_jsonl_local(checkpoint_buf, OUTPUT_PATH)
+            mark_done(checkpoint_ids)
             checkpoint_buf.clear()
-            log.info(f"  Checkpoint written → {checkpoint_path}")
+            checkpoint_ids.clear()
+            log.info(f"  Checkpoint flushed → {OUTPUT_PATH}")
+
         time.sleep(RATE_LIMIT_PAUSE)
-    if checkpoint_buf:
-        append_jsonl_local(checkpoint_buf, checkpoint_path)
-        checkpoint_buf.clear()
-        log.info(f"  Final checkpoint flush → {checkpoint_path}")
+
+    # Final flush
+    if checkpoint_buf or checkpoint_ids:
+        if checkpoint_buf:
+            append_jsonl_local(checkpoint_buf, OUTPUT_PATH)
+        mark_done(checkpoint_ids)
+        log.info(f"  Final flush → {OUTPUT_PATH}")
+
     log.info(
         f"  Done. {len(all_chunks):,} chunks from {fetched:,} opinions. "
         f"Skipped: {skipped_no_text} (no text), {skipped_api_fail} (API failure)."
@@ -514,13 +583,14 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
             f"  Chunk token stats: avg {sum(tokens)/len(tokens):.0f} | "
             f"min {min(tokens)} | max {max(tokens)}"
         )
+
     if local_only:
         log.info(f"  Output in: {LOCAL_OUTPUT_DIR.resolve()}")
     else:
         chunked_bucket = cfg["chunked_bucket"]
         chunked_prefix = cfg["chunked_prefix"]
-        if checkpoint_path.exists():
-            with open(checkpoint_path, "rb") as f:
+        if OUTPUT_PATH.exists():
+            with open(OUTPUT_PATH, "rb") as f:
                 body = f.read()
             boto3.client("s3").put_object(
                 Bucket=chunked_bucket,
@@ -528,9 +598,10 @@ def run(local_only: bool = False, limit: int = 0, ids: list[str] | None = None):
                 Body=body,
                 ContentType="application/x-ndjson",
             )
-            log.info(f"  Output at s3://{chunked_bucket}/{chunked_prefix}/api_opinion_chunks.jsonl")
+            log.info(f"  Uploaded → s3://{chunked_bucket}/{chunked_prefix}/api_opinion_chunks.jsonl")
         else:
-            log.warning("  Checkpoint file not found — nothing uploaded to S3.")
+            log.warning("  No output file found — nothing uploaded to S3.")
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -545,15 +616,16 @@ def main():
         "--limit",
         type=int,
         default=0,
-        help="Process only the first N opinion IDs (0 = all). For testing.",
+        help="Process only the first N remaining opinion IDs (0 = all). For testing.",
     )
     parser.add_argument(
         "--ids",
         nargs="+",
-        help="Fetch specific opinion IDs only. e.g. --ids 11211928 11206006",
+        help="Fetch specific opinion IDs only (bypasses done-set). e.g. --ids 11211928 11206006",
     )
     args = parser.parse_args()
     run(local_only=args.local_only, limit=args.limit, ids=args.ids)
+
 
 if __name__ == "__main__":
     main()
