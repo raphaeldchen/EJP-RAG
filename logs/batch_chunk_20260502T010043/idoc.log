@@ -1,0 +1,10 @@
+2026-05-02T01:00:44 [INFO] === IDOC chunking pipeline starting ===
+2026-05-02T01:00:44 [INFO] Reading s3://illinois-legal-corpus-raw/idoc/idoc_corpus.jsonl
+2026-05-02T01:00:44 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T01:00:44 [INFO] Loaded 103 raw records
+2026-05-02T01:00:44 [INFO] De-duplicated 103 → 95 records
+2026-05-02T01:00:45 [INFO] Produced 643 chunks from 95 records (0 skipped)
+2026-05-02T01:00:45 [INFO] Single-chunk records: 1  |  Multi-chunk records: 94
+2026-05-02T01:00:45 [INFO] Writing 643 chunks → s3://illinois-legal-corpus-chunked/idoc/idoc_chunks.jsonl
+2026-05-02T01:00:45 [INFO] Upload complete.
+2026-05-02T01:00:45 [INFO] === IDOC chunking pipeline complete ===

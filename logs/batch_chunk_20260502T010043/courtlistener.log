@@ -1,0 +1,27 @@
+2026-05-02 01:00:44,530 [INFO] Loading raw tables from S3...
+2026-05-02 01:00:44,530 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/clusters.csv
+2026-05-02 01:00:44,535 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02 01:00:45,644 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/dockets.csv
+2026-05-02 01:00:46,479 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/opinions.csv
+2026-05-02 01:00:47,222 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/parentheticals.csv
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/raphaelchen/Desktop/legal_rag/chunk/courtlistener_chunk.py", line 555, in <module>
+    main()
+    ~~~~^^
+  File "/Users/raphaelchen/Desktop/legal_rag/chunk/courtlistener_chunk.py", line 552, in main
+    run(local_only=args.local_only, limit=args.limit)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/raphaelchen/Desktop/legal_rag/chunk/courtlistener_chunk.py", line 467, in run
+    parentheticals_df = read_csv_from_s3(raw_bucket, f"{raw_prefix}/parentheticals.csv")
+  File "/Users/raphaelchen/Desktop/legal_rag/chunk/courtlistener_chunk.py", line 124, in read_csv_from_s3
+    obj = s3_client().get_object(Bucket=bucket, Key=key)
+  File "/Users/raphaelchen/Desktop/legal_rag/venv/lib/python3.14/site-packages/botocore/client.py", line 602, in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/raphaelchen/Desktop/legal_rag/venv/lib/python3.14/site-packages/botocore/context.py", line 123, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/raphaelchen/Desktop/legal_rag/venv/lib/python3.14/site-packages/botocore/client.py", line 1078, in _make_api_call
+    raise error_class(parsed_response, operation_name)
+botocore.errorfactory.NoSuchKey: An error occurred (NoSuchKey) when calling the GetObject operation: The specified key does not exist.

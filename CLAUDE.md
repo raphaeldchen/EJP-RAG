@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Illinois Legal Research RAG system for querying Illinois criminal law. Pipeline: scrape → chunk → embed → retrieve.
+Illinois criminal justice RAG system focused on higher education in prison and reentry. Pipeline: scrape → chunk → embed → retrieve.
 
-**Goal:** Exceed the accuracy of general-purpose LLMs (ChatGPT, DeepSeek, Claude) on complex Illinois criminal law queries, with cited sources. Target users are criminal justice researchers.
+**Goal:** Exceed the accuracy of general-purpose LLMs (ChatGPT, DeepSeek, Claude) on Illinois criminal justice queries — including correctional education, reentry, sentencing policy, and the federal law intersecting with Illinois prisoners — with cited sources. Target users are researchers, practitioners (public defenders, legal advocates), and incarcerated persons.
 
-**Corpus sources (as of 2026-04-19):**
+**Corpus sources (as of 2026-05-02):**
 
 | Source | Script | Output | Contents |
 |--------|--------|--------|----------|
@@ -30,7 +30,7 @@ Illinois Legal Research RAG system for querying Illinois criminal law. Pipeline:
 
 Three priorities in order:
 
-1. **Ingest court opinions** — CAP bulk download in progress (`cap_ingest.py --after 1980-01-01`); supplement with CourtListener 7th Circuit after; then embed into retrieval path
+1. **Ingest court opinions** — CAP bulk download complete; CourtListener 7th Circuit supplement complete; next: write CAP bulk chunker, then embed both into retrieval path
 2. **Chunking validation** — audit ILCS and ISCR chunking with a spot-check test suite before any re-embedding work
 3. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
 
@@ -208,6 +208,7 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 **3. Embed** (`embed/`)
 - `ilga_embed.py` / `iscr_embed.py` — reads chunks from S3, embeds via Ollama (`nomic-embed-text`, 768-dim), upserts to Supabase in batches of 200; checkpoint-based resumption
 - Enriched text prepends structural headers (chapter/act/section) before embedding
+- **TODO (before batch rechunk):** `ilga_embed.py` currently calls its own `build_chunk()` to construct `enriched_text` rather than reading it from the JSONL. After the shared Chunk migration (`feat/shared-chunk-interface`) is merged, update `ilga_embed.py` to consume `record["enriched_text"]` directly and remove `build_chunk()` so header formats stay in sync with the chunker.
 
 **4. Retrieval** (`retrieval/`)
 - `config.py` — Supabase URL/key, RPC names, top-k defaults
@@ -339,6 +340,17 @@ All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16
 - [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1").
 - [ ] **Query decomposition** — for hard multi-statute queries, decompose into sub-queries, retrieve separately, merge results. Would directly address low Recall@6 on hard cases.
 
+### Architecture (code quality — deferred)
+
+Identified 2026-04-30. In priority order:
+
+- [ ] **Shared Chunk interface across all chunkers** (`chunk/`) — 12 chunkers emit incompatible schemas (different field names, `metadata` dict vs flat, hierarchical IDs vs UUIDs). `vector_store.py` and `bm25_store.py` hard-code field names to compensate. Fix: define a shared `Chunk` dataclass with universal fields (`chunk_id`, `text`, `source`, `token_count`, `metadata: dict`) and adapt all chunkers to emit it. *In progress — see current grilling session.*
+- [ ] **`_secondary_query` private-state seam** (`retrieval/indexes.py` + `retrieval/main.py`) — caller sets `dual_retriever._secondary_query` before `engine.query()` and clears it in `finally`. Should be a parameter to `retrieve()` instead. Eliminates the fragile mutation + cleanup pattern.
+- [ ] **Extract system prompts from source files** (`retrieval/reflection.py`, `retrieval/query_engine.py`) — Query Analysis system prompt (65 lines) and QA answer prompt (26 lines) are embedded in code. Hard to version, compare, or test. Move to `config/prompts/` as plain text or YAML.
+- [ ] **Split `postprocessor.py` responsibilities** — currently owns RRF fusion (imported at runtime by `indexes.py`), a second RRF variant, Citation labeling, and cross-encoder reranking. RRF belongs with ranking logic, Citation labeling belongs with answer assembly, reranking is a separate concern. Runtime import is a circular-dependency risk.
+- [ ] **`BM25Retriever` hardcodes ILCS + ISCR tables** (`retrieval/bm25_store.py`) — every new Collection requires editing `_load()`. A Collection registry or config-driven table list would give leverage: add a Collection without touching retrieval code.
+- [ ] **BM25 nodes reach the LLM without `enriched_text`** (`retrieval/bm25_store.py`, `retrieval/indexes.py`) — BM25 correctly scores on plain `text` (to avoid header inflation), but returns nodes with plain `text` as their body. After RRF fusion, the LLM sees a mix: vector-retrieved Chunks have `enriched_text` (with citation headers), BM25-retrieved Chunks have plain `text` (no headers). Fix: after RRF merge, replace each BM25 node's text with its `enriched_text` before passing to the reranker and LLM. BM25 scoring stays on plain `text`; LLM generation always sees `enriched_text`.
+
 ### Eval / measurement
 
 - [ ] **`--no-pinning` flag in `eval/run_eval.py`** — disable citation pinning during eval to isolate true retrieval quality from hardcoded heuristics. The gap between pinned and unpinned scores reveals dependence on the lookup table.
@@ -352,7 +364,7 @@ Every chunking script must have a test suite in `tests/` with two layers:
 1. **Unit + corpus tests** — run `chunk_section()` / `chunk_document()` in memory against the raw S3 corpus via a `*_chunks` fixture; cover orphaned subsection starts, contiguous indices, accurate chunk totals, no empty chunks, unique IDs, no oversized chunks, required metadata fields, and any source-specific invariants (normalization, enriched text hierarchy, etc.)
 2. **S3 output verification** — a separate `*_chunks_s3` fixture that reads the actual chunked JSONL from the chunked S3 bucket; must include: record count matches in-memory output, no corrupt/missing keys, no empty text, correct source field. This catches write-path bugs (wrong key, truncation, encoding) that in-memory tests cannot.
 
-Both fixture types already exist in `tests/conftest.py` for IAC, ILCS, and ISCR as the reference pattern.
+Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justice, Cook County PD. Missing: `courtlistener_chunk.py` and `merge_opinion_chunks.py` — these need test suites before the shared Chunk interface migration reaches them.
 
 ## Key Implementation Notes
 
@@ -367,3 +379,17 @@ Both fixture types already exist in `tests/conftest.py` for IAC, ILCS, and ISCR 
 - BM25 index is rebuilt in-memory on every `retrieval/main.py` startup (loads all chunks from Supabase)
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
 - Court opinions (CAP + CourtListener) are not yet embedded into Supabase — chunker for CAP bulk output is the blocking step
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub (`raphaeldchen/EJP-RAG`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

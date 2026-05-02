@@ -1,0 +1,10 @@
+2026-05-02T01:00:44 [INFO] === IAC chunking pipeline starting ===
+2026-05-02T01:00:44 [INFO] Reading s3://illinois-legal-corpus-raw/iac/iac_corpus.jsonl
+2026-05-02T01:00:44 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T01:00:44 [INFO] Loaded 519 raw sections
+2026-05-02T01:00:44 [INFO] De-duplicated 519 → 265 records
+2026-05-02T01:00:44 [INFO] Produced 435 chunks from 265 sections (15 skipped — stubs/empty)
+2026-05-02T01:00:44 [INFO] Single-chunk sections: 178  |  Multi-chunk sections: 72
+2026-05-02T01:00:44 [INFO] Writing 435 chunks → s3://illinois-legal-corpus-chunked/iac/iac_chunks.jsonl
+2026-05-02T01:00:44 [INFO] Upload complete.
+2026-05-02T01:00:44 [INFO] === IAC chunking pipeline complete ===

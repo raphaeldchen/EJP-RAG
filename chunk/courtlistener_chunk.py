@@ -10,6 +10,7 @@ from pathlib import Path
 
 import boto3
 import pandas as pd
+from botocore.exceptions import ClientError
 import tiktoken
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -464,7 +465,15 @@ def run(local_only: bool = False, limit: int = 0):
     clusters_df       = read_csv_from_s3(raw_bucket, f"{raw_prefix}/clusters.csv")
     dockets_df        = read_csv_from_s3(raw_bucket, f"{raw_prefix}/dockets.csv")
     opinions_df       = read_csv_from_s3(raw_bucket, f"{raw_prefix}/opinions.csv")
-    parentheticals_df = read_csv_from_s3(raw_bucket, f"{raw_prefix}/parentheticals.csv")
+    par_key = f"{raw_prefix}/parentheticals.csv"
+    try:
+        parentheticals_df = read_csv_from_s3(raw_bucket, par_key)
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            log.warning(f"  s3://{raw_bucket}/{par_key} not found — skipping parentheticals.")
+            parentheticals_df = pd.DataFrame()
+        else:
+            raise
     log.info(
         f"  {len(opinions_df):,} opinions | {len(clusters_df):,} clusters | "
         f"{len(dockets_df):,} dockets | {len(parentheticals_df):,} parentheticals"

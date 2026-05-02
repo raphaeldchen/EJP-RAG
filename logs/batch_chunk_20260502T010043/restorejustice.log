@@ -1,0 +1,9 @@
+2026-05-02T01:00:44 [INFO] === Restore Justice chunking pipeline starting ===
+2026-05-02T01:00:44 [INFO] Reading s3://illinois-legal-corpus-raw/restorejustice/restorejustice_corpus.jsonl
+2026-05-02T01:00:44 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T01:00:44 [INFO] Loaded 17 raw records
+2026-05-02T01:00:44 [INFO] Produced 32 chunks from 17 records (0 skipped — stubs/empty)
+2026-05-02T01:00:44 [INFO] Single-chunk records: 8  |  Multi-chunk records: 9
+2026-05-02T01:00:44 [INFO] Writing 32 chunks → s3://illinois-legal-corpus-chunked/restorejustice/restorejustice_chunks.jsonl
+2026-05-02T01:00:44 [INFO] Upload complete.
+2026-05-02T01:00:44 [INFO] === Restore Justice chunking pipeline complete ===

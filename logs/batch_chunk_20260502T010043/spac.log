@@ -1,0 +1,10 @@
+2026-05-02T01:00:44 [INFO] === SPAC chunking pipeline starting ===
+2026-05-02T01:00:44 [INFO] Reading s3://illinois-legal-corpus-raw/spac/spac_corpus.jsonl
+2026-05-02T01:00:44 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T01:00:44 [INFO] Loaded 166 raw records
+2026-05-02T01:00:44 [INFO] De-duplicated 166 → 152 records
+2026-05-02T01:00:47 [INFO] Produced 1765 chunks from 152 records (1 skipped — stubs/empty)
+2026-05-02T01:00:47 [INFO] Single-chunk records: 16  |  Multi-chunk records: 135
+2026-05-02T01:00:47 [INFO] Writing 1765 chunks → s3://illinois-legal-corpus-chunked/spac/spac_chunks.jsonl
+2026-05-02T01:00:48 [INFO] Upload complete.
+2026-05-02T01:00:48 [INFO] === SPAC chunking pipeline complete ===

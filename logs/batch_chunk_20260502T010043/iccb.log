@@ -1,0 +1,9 @@
+2026-05-02T01:00:44 [INFO] === ICCB chunking pipeline starting ===
+2026-05-02T01:00:44 [INFO] Reading s3://illinois-legal-corpus-raw/iccb/iccb_corpus.jsonl
+2026-05-02T01:00:44 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T01:00:44 [INFO] Loaded 5 raw records
+2026-05-02T01:00:44 [INFO] Produced 503 chunks from 5 records (0 skipped — stubs/empty)
+2026-05-02T01:00:44 [INFO] Single-chunk records: 0  |  Multi-chunk records: 5
+2026-05-02T01:00:44 [INFO] Writing 503 chunks → s3://illinois-legal-corpus-chunked/iccb/iccb_chunks.jsonl
+2026-05-02T01:00:45 [INFO] Upload complete.
+2026-05-02T01:00:45 [INFO] === ICCB chunking pipeline complete ===

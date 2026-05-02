@@ -1,0 +1,18 @@
+2026-05-02 01:01:27,101 [INFO]   Reading s3://illinois-legal-corpus-chunked/courtlistener/bulk/opinion_chunks.jsonl
+2026-05-02 01:01:27,107 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02 01:01:27,411 [INFO]   Reading s3://illinois-legal-corpus-chunked/courtlistener/bulk/api_opinion_chunks.jsonl
+2026-05-02 01:01:29,767 [INFO] Loaded 450 bulk chunks, 13,924 API chunks.
+2026-05-02 01:01:29,770 [INFO]   Opinion overlap report:
+2026-05-02 01:01:29,770 [INFO]     Bulk only : 111
+2026-05-02 01:01:29,770 [INFO]     API only  : 684
+2026-05-02 01:01:29,770 [INFO]     In both   : 0
+2026-05-02 01:01:29,770 [INFO]     Total unique opinions: 795
+2026-05-02 01:01:29,771 [INFO]   Conflict resolution (opinion in both sources):
+2026-05-02 01:01:29,771 [INFO]     API  won : 0  (higher token count or tie)
+2026-05-02 01:01:29,771 [INFO]     Bulk won : 0 (higher token count)
+2026-05-02 01:01:29,771 [INFO]   Chunks kept from bulk: 111 opinions
+2026-05-02 01:01:29,771 [INFO]   Chunks kept from API : 684  opinions
+2026-05-02 01:01:29,771 [INFO] Merged total: 14,374 chunks
+2026-05-02 01:01:29,772 [INFO] Token stats: avg 478 | min 50 | max 800
+2026-05-02 01:01:29,772 [INFO]   Writing 14,374 records → s3://illinois-legal-corpus-chunked/courtlistener/bulk/merged_opinion_chunks.jsonl
+2026-05-02 01:01:31,423 [INFO]   Upload complete.
