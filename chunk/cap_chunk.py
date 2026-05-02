@@ -37,21 +37,28 @@ CAP_COURT_LABELS = {
 }
 
 _OPINION_MARKER_RE = re.compile(
-    r"^\[(Majority|Dissent|Concurrence|Concur|Rehearing|Per Curiam|Opinion)\]",
+    r"^\[(Majority|Dissent|Concurrence(?:-In-Part)?|Concur|Rehearing|Per Curiam|"
+    r"Opinion|Unanimous|Plurality|Combined|Addendum|Remittitur)\]",
     re.MULTILINE | re.IGNORECASE,
 )
 
 _OPINION_TYPE_NORM: dict[str, str] = {
-    "majority":   "majority",
-    "dissent":    "dissent",
-    "concurrence": "concurrence",
-    "concur":     "concurrence",
-    "rehearing":  "rehearing",
-    "per curiam": "majority",
-    "opinion":    "majority",
+    "majority":            "majority",
+    "dissent":             "dissent",
+    "concurrence":         "concurrence",
+    "concur":              "concurrence",
+    "concurrence-in-part": "concurrence",
+    "rehearing":           "rehearing",
+    "per curiam":          "majority",
+    "opinion":             "majority",
+    "unanimous":           "majority",
+    "plurality":           "majority",
+    "combined":            "majority",
+    "addendum":            "addendum",
+    "remittitur":          "remittitur",
 }
 
-_MAJORITY_TYPES = {"majority"}
+_MAJORITY_TYPES = {"majority", "unanimous", "plurality", "combined"}
 
 
 def _require_env(key: str) -> str:
@@ -80,6 +87,10 @@ def _split_opinion_segments(text: str) -> list[tuple[str, str]]:
     if not matches:
         return [("majority", text.strip())]
     segments = []
+    if matches[0].start() > 0:
+        preamble = text[: matches[0].start()].strip()
+        if preamble:
+            segments.append(("majority", preamble))
     for i, m in enumerate(matches):
         label     = m.group(1).lower()
         norm_type = _OPINION_TYPE_NORM.get(label, label)
@@ -147,7 +158,7 @@ def chunk_entry(entry: dict) -> list[Chunk]:
                 chunk_text,
             )
             result.append(Chunk(
-                chunk_id         = f"{entry_id}_t{type_idx}_c{chunk_index}",
+                chunk_id         = f"{entry_id}_{opinion_type}_c{chunk_index}",
                 parent_id        = entry_id,
                 chunk_index      = chunk_index,
                 chunk_total      = chunk_total,
