@@ -87,7 +87,7 @@ def is_noise_chunk(text: str, token_count: int) -> bool:
 
 _SECTION_PATTERNS = [
     re.compile(
-        r"^\s*(X{0,3}(?:IX|IV|V?I{0,3}))\s*[.\-—]\s*(.{0,80})$",
+        r"^\s*(X{0,3}(?:IX|IV|VI{0,3}|V|I{1,3})|X{1,3})\s*[.\-—]\s*(.{0,80})$",
         re.MULTILINE | re.IGNORECASE,
     ),
     re.compile(
