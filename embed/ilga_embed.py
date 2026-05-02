@@ -117,15 +117,6 @@ def iter_records(source: str) -> Generator[dict, None, None]:
             log.warning("Skipping malformed line %d: %s", line_no, exc)
 
 
-def build_chunk(chunk: dict) -> str:
-    m = chunk["metadata"]
-    header = (
-        f"[{m['chapter_name']} | {m['act_name']} | {m['article_name']}]\n"
-        f"Section {m['section_citation']}: {m['section_heading']}\n\n"
-    )
-    return header + chunk["text"]
-
-
 def clean_chunk_text(text: str) -> str:
     text = re.sub(r'\(from Ch\.\s+\d+[^)]*\)', '', text)
     text = re.sub(r'\(Source:[^)]*\)', '', text)
@@ -240,7 +231,7 @@ def run(local_input: Path | None = None, table: str = "ilcs_chunks") -> None:
             continue
         cleaned_text = clean_chunk_text(record["text"])
         record["text"] = cleaned_text
-        enriched_text = build_chunk(record)
+        enriched_text = record["enriched_text"]
         if len(enriched_text) > MAX_EMBED_CHARS:
             log.warning("Chunk %s exceeds max embed length (%d chars), truncating.", chunk_id, len(enriched_text))
             enriched_text = enriched_text[:MAX_EMBED_CHARS]
