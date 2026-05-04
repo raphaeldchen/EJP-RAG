@@ -4,7 +4,7 @@ from llama_index.core import Settings
 
 from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL, OLLAMA_BASE_URL
 from retrieval.embeddings import get_embedding_model
-from retrieval.indexes import get_supabase_client, build_dual_retriever
+from retrieval.indexes import get_supabase_client, build_multi_retriever
 from retrieval.query_engine import build_query_engine
 from retrieval.bm25_store import BM25Retriever
 from retrieval.reflection import reflect, QueryIntent
@@ -27,7 +27,7 @@ def build_rag(use_local: bool = False) -> tuple:
     reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
     reranker._get_model()  # force load now
 
-    dual_retriever = build_dual_retriever(client, bm25)
+    dual_retriever = build_multi_retriever(client, bm25)
     engine = build_query_engine(
         dual_retriever=dual_retriever,
         llm=llm,
@@ -78,19 +78,26 @@ def _extract_citations(response) -> list[str]:
     for node_with_score in response.source_nodes:
         meta = node_with_score.node.metadata
 
-        # ILCS citation
+        # New sources: display_citation is the canonical field
+        dc = (meta.get("display_citation") or "").strip()
+        if dc and dc not in seen:
+            seen.add(dc)
+            citations.append(dc)
+            continue
+
+        # Legacy: ilcs_chunks uses section_citation
         section = meta.get("section_citation")
         if section and section not in seen:
             seen.add(section)
             citations.append(section)
+            continue
 
-        # ISCR citation
+        # Legacy: court_rule_chunks uses rule_number + rule_title
         rule = meta.get("rule_number")
-        title = meta.get("rule_title", "")
         if rule:
-            # Strip "Rule X" prefix from title to match CitationLabelingPostprocessor
+            title = meta.get("rule_title", "")
             if title and title.startswith(f"Rule {rule}"):
-                title = title[len(f"Rule {rule}"):].lstrip(" .").strip()
+                title = title[len(f"Rule {rule}"):].lstrip(" .—-").strip()
             label = f"Rule {rule}" + (f" — {title}" if title else "")
             if label not in seen:
                 seen.add(label)
@@ -135,8 +142,17 @@ if __name__ == "__main__":
 
         # --- HEP Demo Queries ---
         "What education or vocational programs are incarcerated individuals entitled to under Illinois law?",
-       
-        "Can a judge impose education requirements as a condition of probation in Illinois?"
+
+        "Can a judge impose education requirements as a condition of probation in Illinois?",
+
+        # --- Court opinions (CAP / CourtListener) ---
+        "What has the Illinois Supreme Court held about proportionality review for extended-term sentences?",
+
+        # --- IDOC regulations ---
+        "What does IDOC policy say about disciplinary segregation and access to educational programming?",
+
+        # --- Policy documents ---
+        "What does SPAC data show about the racial composition of Illinois prison admissions for drug offenses?",
     ]
 
     for q in test_queries:
