@@ -80,14 +80,20 @@ class BM25Retriever:
         self._metadata = corpus["metadata"]
 
     def _build_from_supabase(self, client: Client):
-        def fetch_all(table: str) -> list[dict]:
+        _LEGACY_COLS = {
+            "ilcs": "chunk_id, text, enriched_text, section_citation",
+            "iscr":  "chunk_id, text, enriched_text, rule_number, rule_title",
+        }
+        _DEFAULT_COLS = "chunk_id, text, enriched_text, display_citation"
+
+        def fetch_all(table: str, select_cols: str) -> list[dict]:
             rows = []
             page_size = 1000
             offset = 0
             while True:
                 batch = (
                     client.table(table)
-                    .select("chunk_id, text, enriched_text, display_citation")
+                    .select(select_cols)
                     .not_.is_("text", "null")
                     .range(offset, offset + page_size - 1)
                     .execute()
@@ -102,7 +108,8 @@ class BM25Retriever:
         all_rows: list[dict] = []
         for col in COLLECTIONS:
             print(f"[BM25] Fetching {col.table}...")
-            all_rows.extend(fetch_all(col.table))
+            cols = _LEGACY_COLS.get(col.id, _DEFAULT_COLS)
+            all_rows.extend(fetch_all(col.table, cols))
 
         self.chunk_ids = [r["chunk_id"] for r in all_rows]
         self.texts = [r["text"] for r in all_rows]
