@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -32,3 +33,19 @@ ILCS_TABLE = os.getenv("ILCS_TABLE", "ilcs_chunks")
 ISCR_TABLE = os.getenv("ISCR_TABLE", "court_rule_chunks")
 ILCS_RPC   = os.getenv("ILCS_RPC",   "match_ilcs_chunks")
 ISCR_RPC   = os.getenv("ISCR_RPC",   "match_court_rule_chunks")
+
+
+@dataclass(frozen=True)
+class CollectionConfig:
+    id: str    # "ilcs" | "iscr" | "opinions" | "regulations" | "documents"
+    table: str # Supabase table name
+    rpc: str   # vector search RPC function name
+
+
+COLLECTIONS: list[CollectionConfig] = [
+    CollectionConfig("ilcs",        ILCS_TABLE,             ILCS_RPC),
+    CollectionConfig("iscr",        ISCR_TABLE,             ISCR_RPC),
+    CollectionConfig("opinions",    "opinion_chunks",        "match_opinion_chunks"),
+    CollectionConfig("regulations", "regulation_chunks",     "match_regulation_chunks"),
+    CollectionConfig("documents",   "document_chunks",       "match_document_chunks"),
+]
