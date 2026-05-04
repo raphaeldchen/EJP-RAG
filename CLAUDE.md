@@ -285,7 +285,7 @@ Leverage ranking for this corpus (highest to lowest):
 ### High priority (largest accuracy impact)
 
 - [x] **Write CAP bulk chunker** — `cap_chunk.py` done; original output was 1,211,329 chunks from 151,228 opinions. S3 file has since been filtered to 337,505 criminal-relevant chunks (1973–2011, 1.82 GB) via two passes: date cutoff (`≥ 1973`) then `_is_cap_criminal` (People/In re case name or 705/720/725/730 ILCS citation). Location: `s3://illinois-legal-corpus-chunked/cap/cap_opinion_chunks.jsonl`.
-- [ ] **Embed court opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law (CAP + CourtListener 7th Circuit) is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent. Estimated Supabase footprint for CAP: ~3.6–4.6 GB (embeddings ~1 GB, text columns ~1.5 GB, vector index ~1–2 GB).
+- [ ] **Embed court opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law (CAP + CourtListener 7th Circuit) is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent. CAP will add ~3.6–4.6 GB to Supabase (embeddings ~1 GB, text columns ~1.5 GB, vector index ~1–2 GB).
 - [ ] **Fine-tune embedding model** — `nomic-embed-text` is the best out-of-the-box model tested so far and remains the production baseline. Alternatives tested and ruled out: `BAAI/bge-base-en-v1.5` (nDCG@6 0.317, -0.28 vs nomic), `mxbai-embed-large` (nDCG@6 0.389, -0.21 vs nomic). Neither closed the gap without fine-tuning. Next step: fine-tune `nomic-embed-text` or `BAAI/bge-large-en-v1.5` on lawyer-verified (query, relevant chunk) pairs using contrastive/bi-encoder loss (MultipleNegativesRankingLoss in sentence-transformers). Hard negatives already available from eval failures. **Highest single-leverage change. Planned after lawyer refinement sessions.** Expect +5–8 nDCG points.
 
   **Remaining candidate to evaluate before committing to fine-tuning:**
@@ -339,6 +339,7 @@ All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16
 
 - [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1"). See Planned Architecture Evolution for source placement decisions and retrieval integration design.
 - [ ] **Query decomposition** — for hard multi-statute queries, decompose into sub-queries, retrieve separately, merge results. Would directly address low Recall@6 on hard cases.
+- [ ] **Differential collection weighting in RRF** — `MultiCollectionRetriever` currently merges all 5 collections with equal RRF weights. Future exploration: weight authoritative sources (statutes, rules, opinions, regulations) higher than advisory documents (SPAC, ICCB, Restore Justice, Cook County PD) to bias the candidate pool before reranking. Run eval with and without to measure impact — the CrossEncoder may already compensate sufficiently.
 
 ### Architecture (code quality — deferred)
 
@@ -348,7 +349,7 @@ Identified 2026-04-30. In priority order:
 - [ ] **`_secondary_query` private-state seam** (`retrieval/indexes.py` + `retrieval/main.py`) — caller sets `dual_retriever._secondary_query` before `engine.query()` and clears it in `finally`. Should be a parameter to `retrieve()` instead. Eliminates the fragile mutation + cleanup pattern.
 - [ ] **Extract system prompts from source files** (`retrieval/reflection.py`, `retrieval/query_engine.py`) — Query Analysis system prompt (65 lines) and QA answer prompt (26 lines) are embedded in code. Hard to version, compare, or test. Move to `config/prompts/` as plain text or YAML.
 - [ ] **Split `postprocessor.py` responsibilities** — currently owns RRF fusion (imported at runtime by `indexes.py`), a second RRF variant, Citation labeling, and cross-encoder reranking. RRF belongs with ranking logic, Citation labeling belongs with answer assembly, reranking is a separate concern. Runtime import is a circular-dependency risk.
-- [ ] **`BM25Retriever` hardcodes ILCS + ISCR tables** (`retrieval/bm25_store.py`) — every new Collection requires editing `_load()`. A Collection registry or config-driven table list would give leverage: add a Collection without touching retrieval code.
+- [x] **`BM25Retriever` hardcodes ILCS + ISCR tables** (`retrieval/bm25_store.py`) — resolved by `CollectionConfig` registry in multi-collection retrieval design (2026-05-03).
 - [ ] **BM25 nodes reach the LLM without `enriched_text`** (`retrieval/bm25_store.py`, `retrieval/indexes.py`) — BM25 correctly scores on plain `text` (to avoid header inflation), but returns nodes with plain `text` as their body. After RRF fusion, the LLM sees a mix: vector-retrieved Chunks have `enriched_text` (with citation headers), BM25-retrieved Chunks have plain `text` (no headers). Fix: after RRF merge, replace each BM25 node's text with its `enriched_text` before passing to the reranker and LLM. BM25 scoring stays on plain `text`; LLM generation always sees `enriched_text`.
 
 ### Eval / measurement
