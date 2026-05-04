@@ -1,7 +1,17 @@
+import json
 import re
+from pathlib import Path
+
+import bm25s
 from supabase import Client
-from rank_bm25 import BM25Okapi
 from llama_index.core.schema import TextNode
+
+from retrieval.config import COLLECTIONS
+
+BM25_CACHE_DIR = Path("data_files/bm25_cache")
+_BM25_INDEX_DIR = BM25_CACHE_DIR / "index"
+_BM25_CORPUS_PATH = BM25_CACHE_DIR / "corpus.json"
+_BM25_META_PATH = BM25_CACHE_DIR / "meta.json"
 
 
 def _tokenize(text: str) -> list[str]:
@@ -10,9 +20,32 @@ def _tokenize(text: str) -> list[str]:
     statute_pattern = re.findall(r'\d+/\d+[\-\.\d]*', text)
     text = re.sub(r"[^\w\s]", " ", text)
     tokens = text.split()
-    # Re-add statute citations as tokens
     tokens.extend(statute_pattern)
     return tokens
+
+
+def _fetch_counts(client: Client) -> dict[str, int]:
+    counts = {}
+    for col in COLLECTIONS:
+        result = (
+            client.table(col.table)
+            .select("chunk_id", count="exact")
+            .limit(0)
+            .execute()
+        )
+        counts[col.id] = result.count or 0
+    return counts
+
+
+def _cache_is_fresh(current_counts: dict[str, int]) -> bool:
+    if not _BM25_META_PATH.exists():
+        return False
+    if not _BM25_INDEX_DIR.exists():
+        return False
+    if not _BM25_CORPUS_PATH.exists():
+        return False
+    stored = json.loads(_BM25_META_PATH.read_text())
+    return stored == current_counts
 
 
 class BM25Retriever:
@@ -21,21 +54,40 @@ class BM25Retriever:
         self.texts: list[str] = []
         self.enriched_texts: list[str] = []
         self._metadata: list[dict] = []
-        self.bm25: BM25Okapi | None = None
+        self.bm25: bm25s.BM25 | None = None
         self._load(client)
 
     def _load(self, client: Client):
-        print("[BM25] Loading corpus from Supabase...")
+        print("[BM25] Checking cache...")
+        current_counts = _fetch_counts(client)
 
-        def fetch_all(table: str, extra_cols: list[str]) -> list[dict]:
+        if _cache_is_fresh(current_counts):
+            print("[BM25] Cache is fresh — loading from disk (mmap)...")
+            self._load_from_cache()
+        else:
+            print("[BM25] Cache stale or missing — rebuilding from Supabase...")
+            self._build_from_supabase(client)
+            self._save_cache(current_counts)
+
+        print(f"[BM25] Index ready: {len(self.chunk_ids)} chunks")
+
+    def _load_from_cache(self):
+        self.bm25 = bm25s.BM25.load(str(_BM25_INDEX_DIR), mmap=True)
+        corpus = json.loads(_BM25_CORPUS_PATH.read_text(encoding="utf-8"))
+        self.chunk_ids = corpus["chunk_ids"]
+        self.texts = corpus["texts"]
+        self.enriched_texts = corpus["enriched_texts"]
+        self._metadata = corpus["metadata"]
+
+    def _build_from_supabase(self, client: Client):
+        def fetch_all(table: str) -> list[dict]:
             rows = []
             page_size = 1000
             offset = 0
-            cols = ", ".join(["chunk_id", "text", "enriched_text"] + extra_cols)
             while True:
                 batch = (
                     client.table(table)
-                    .select(cols)
+                    .select("chunk_id, text, enriched_text, display_citation")
                     .not_.is_("text", "null")
                     .range(offset, offset + page_size - 1)
                     .execute()
@@ -47,12 +99,13 @@ class BM25Retriever:
                 offset += page_size
             return rows
 
-        ilcs_rows = fetch_all("ilcs_chunks", ["display_citation"])
-        iscr_rows = fetch_all("court_rule_chunks", ["display_citation"])
-        all_rows = ilcs_rows + iscr_rows
+        all_rows: list[dict] = []
+        for col in COLLECTIONS:
+            print(f"[BM25] Fetching {col.table}...")
+            all_rows.extend(fetch_all(col.table))
+
         self.chunk_ids = [r["chunk_id"] for r in all_rows]
         self.texts = [r["text"] for r in all_rows]
-        # Fall back to plain text for rows written before enriched_text was added
         self.enriched_texts = [r.get("enriched_text") or r["text"] for r in all_rows]
         self._metadata = [
             {k: v for k, v in r.items()
@@ -60,27 +113,53 @@ class BM25Retriever:
             for r in all_rows
         ]
 
-        # Index on plain text — enriched_text header inflation would skew BM25 scores
-        tokenized = [_tokenize(t) for t in self.texts]
-        self.bm25 = BM25Okapi(tokenized)
-        print(f"[BM25] Index built: {len(self.chunk_ids)} chunks")
+        if not self.chunk_ids:
+            print("[BM25] No chunks found — index will be empty.")
+            self.bm25 = None
+            return
+
+        print(f"[BM25] Tokenizing {len(self.texts)} chunks...")
+        corpus_tokens = [_tokenize(t) for t in self.texts]
+        self.bm25 = bm25s.BM25()
+        self.bm25.index(corpus_tokens, show_progress=False)
+
+    def _save_cache(self, counts: dict[str, int]):
+        print("[BM25] Saving cache to disk...")
+        BM25_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _BM25_INDEX_DIR.mkdir(parents=True, exist_ok=True)
+
+        if self.bm25 is not None:
+            self.bm25.save(str(_BM25_INDEX_DIR))
+        _BM25_CORPUS_PATH.write_text(
+            json.dumps({
+                "chunk_ids": self.chunk_ids,
+                "texts": self.texts,
+                "enriched_texts": self.enriched_texts,
+                "metadata": self._metadata,
+            }, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        _BM25_META_PATH.write_text(json.dumps(counts))
+        print("[BM25] Cache saved.")
 
     def retrieve(self, query: str, top_k: int = 20) -> list[TextNode]:
-        tokens = _tokenize(query)
-        scores = self.bm25.get_scores(tokens)
+        if not self.chunk_ids or self.bm25 is None:
+            return []
 
-        top_indices = sorted(
-            range(len(scores)), key=lambda i: scores[i], reverse=True
-        )[:top_k]
+        k = min(top_k, len(self.chunk_ids))
+        query_tokens = [_tokenize(query)]
+        results, scores = self.bm25.retrieve(query_tokens, k=k, show_progress=False)
 
         nodes = []
-        for idx in top_indices:
-            if scores[idx] == 0:
-                continue  # skip zero-score results entirely
-            metadata = {"bm25_score": float(scores[idx]), **self._metadata[idx]}
+        for idx, score in zip(results[0], scores[0]):
+            idx = int(idx)
+            score = float(score)
+            if score <= 0:
+                continue
+            metadata = {"bm25_score": score, **self._metadata[idx]}
             node = TextNode(
                 id_=self.chunk_ids[idx],
-                text=self.enriched_texts[idx],  # reranker and LLM see enriched_text
+                text=self.enriched_texts[idx],
                 metadata=metadata,
             )
             nodes.append(node)
