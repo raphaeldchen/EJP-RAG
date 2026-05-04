@@ -10,7 +10,6 @@ from retrieval.config import (
     SUPABASE_SERVICE_KEY,
     ILCS_TABLE,
     ILCS_RPC,
-    ISCR_RPC,
     DEFAULT_TOP_K,
 )
 from retrieval.embeddings import get_embedding_model
@@ -157,49 +156,48 @@ def build_fusion_retriever(
 def build_all_retrievers(
     client: Client,
     bm25: BM25Retriever,
-) -> dict[str, FusionRetriever]:
-    return {
-        "ilcs": build_fusion_retriever(client, bm25, ILCS_RPC),
-        "iscr": build_fusion_retriever(client, bm25, ISCR_RPC),
-    }
+) -> list[FusionRetriever]:
+    from retrieval.config import COLLECTIONS
+    return [
+        build_fusion_retriever(client, bm25, col.rpc)
+        for col in COLLECTIONS
+    ]
 
 
-class DualFusionRetriever(BaseRetriever):
+class MultiCollectionRetriever(BaseRetriever):
     """
-    Runs both ILCS and ISCR FusionRetrievers in parallel and merges results
-    via RRF. Handles cross-domain queries (e.g. a statute question whose answer
-    spans both an ILCS section and an ISCR rule) without requiring a router.
+    Runs one FusionRetriever per collection in parallel and merges results
+    via RRF. Handles cross-domain queries without a router — all collections
+    are always searched and the CrossEncoder reranker is the final arbiter.
 
     Set _secondary_query before calling retrieve() to enable multi-query mode;
-    it is propagated to both sub-retrievers automatically.
+    it is propagated to all sub-retrievers and cleared in a finally block.
     """
 
-    def __init__(self, ilcs: FusionRetriever, iscr: FusionRetriever):
-        self._ilcs = ilcs
-        self._iscr = iscr
+    def __init__(self, retrievers: list[FusionRetriever]):
+        self._retrievers = retrievers
         self._secondary_query: str | None = None
         super().__init__()
 
     def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
         from retrieval.postprocessor import merge_ranked_lists
 
-        self._ilcs._secondary_query = self._secondary_query
-        self._iscr._secondary_query = self._secondary_query
+        for r in self._retrievers:
+            r._secondary_query = self._secondary_query
         try:
-            ilcs_nodes = self._ilcs._retrieve(query_bundle)
-            iscr_nodes = self._iscr._retrieve(query_bundle)
+            results = [r._retrieve(query_bundle) for r in self._retrievers]
         finally:
-            self._ilcs._secondary_query = None
-            self._iscr._secondary_query = None
+            for r in self._retrievers:
+                r._secondary_query = None
 
-        return merge_ranked_lists([ilcs_nodes, iscr_nodes], top_n=40)
+        return merge_ranked_lists(results, top_n=40)
 
 
-def build_dual_retriever(
+def build_multi_retriever(
     client: Client,
     bm25: BM25Retriever,
-    retrievers: dict[str, FusionRetriever] | None = None,
-) -> DualFusionRetriever:
+    retrievers: list[FusionRetriever] | None = None,
+) -> MultiCollectionRetriever:
     if retrievers is None:
         retrievers = build_all_retrievers(client, bm25)
-    return DualFusionRetriever(ilcs=retrievers["ilcs"], iscr=retrievers["iscr"])
+    return MultiCollectionRetriever(retrievers=retrievers)
