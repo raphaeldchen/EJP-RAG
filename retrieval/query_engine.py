@@ -2,7 +2,7 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.prompts import PromptTemplate
 from llama_index.llms.anthropic import Anthropic
 
-from retrieval.indexes import DualFusionRetriever
+from retrieval.indexes import MultiCollectionRetriever
 from retrieval.postprocessor import CrossEncoderReranker, CitationLabelingPostprocessor
 
 
@@ -27,7 +27,7 @@ _QA_PROMPT = PromptTemplate(
 
 
 def build_query_engine(
-    dual_retriever: DualFusionRetriever,
+    dual_retriever: MultiCollectionRetriever,
     llm: Anthropic,
     reranker: CrossEncoderReranker = None,
 ) -> RetrieverQueryEngine:
