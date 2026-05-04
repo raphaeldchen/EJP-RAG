@@ -165,3 +165,64 @@ def test_retrieve_empty_corpus():
     r.bm25 = None
     results = r.retrieve("any query", top_k=5)
     assert results == []
+
+
+# ---------------------------------------------------------------------------
+# _build_from_supabase — column-select branching (regression guard)
+# ---------------------------------------------------------------------------
+
+def test_build_from_supabase_uses_correct_columns_per_table():
+    """Regression guard: ilcs/iscr use legacy citation columns, new tables use display_citation."""
+    from retrieval.bm25_store import BM25Retriever
+    from retrieval.config import COLLECTIONS
+
+    select_calls: list[str] = []
+
+    def make_client():
+        client = MagicMock()
+        execute_result = MagicMock()
+        execute_result.data = []  # empty = exits pagination loop immediately
+
+        def table_mock(table_name):
+            tbl = MagicMock()
+
+            def select_mock(cols):
+                select_calls.append((table_name, cols))
+                chain = MagicMock()
+                chain.not_ = MagicMock()
+                chain.not_.is_ = MagicMock(return_value=MagicMock(
+                    range=MagicMock(return_value=MagicMock(
+                        execute=MagicMock(return_value=execute_result)
+                    ))
+                ))
+                return chain
+
+            tbl.select = select_mock
+            return tbl
+
+        client.table = table_mock
+        return client
+
+    r = BM25Retriever.__new__(BM25Retriever)
+    r.chunk_ids = []
+    r.texts = []
+    r.enriched_texts = []
+    r._metadata = []
+    r.bm25 = None
+    r._build_from_supabase(make_client())
+
+    select_map = dict(select_calls)
+
+    # Legacy tables use their own citation columns
+    ilcs_col = next(c for c in COLLECTIONS if c.id == "ilcs")
+    iscr_col = next(c for c in COLLECTIONS if c.id == "iscr")
+    assert "section_citation" in select_map[ilcs_col.table]
+    assert "display_citation" not in select_map[ilcs_col.table]
+    assert "rule_number" in select_map[iscr_col.table]
+    assert "display_citation" not in select_map[iscr_col.table]
+
+    # New tables use display_citation
+    for col in COLLECTIONS:
+        if col.id in ("ilcs", "iscr"):
+            continue
+        assert "display_citation" in select_map[col.table]

@@ -33,7 +33,12 @@ def _fetch_counts(client: Client) -> dict[str, int]:
             .limit(0)
             .execute()
         )
-        counts[col.id] = result.count or 0
+        if result.count is None:
+            raise RuntimeError(
+                f"[BM25] Could not get row count for table '{col.table}' "
+                f"(collection '{col.id}'). Check that the table exists in Supabase."
+            )
+        counts[col.id] = result.count
     return counts
 
 
