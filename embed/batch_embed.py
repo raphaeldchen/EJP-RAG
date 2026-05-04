@@ -284,23 +284,72 @@ def load_checkpoint(supabase: "Client", table: str) -> set[str]:
     return db_ids
 
 
-def flush_batch(supabase: "Client", batch: list[dict], table: str) -> list[str]:
-    """Upsert batch; on failure, binary-split and retry. Returns flushed chunk_ids."""
+_SCHEMA_CACHE_ERRORS = ("PGRST002", "schema cache", "upstream connect error", "503")
+
+
+def _is_availability_error(exc: Exception) -> bool:
+    msg = str(exc)
+    return any(marker in msg for marker in _SCHEMA_CACHE_ERRORS)
+
+
+def flush_batch(
+    supabase: "Client",
+    batch: list[dict],
+    table: str,
+    *,
+    _max_avail_retries: int = 8,
+    _base_avail_delay: float = 30.0,
+) -> list[str]:
+    """Upsert batch to Supabase. Returns list of successfully flushed chunk_ids.
+
+    Two distinct retry strategies:
+    - Availability errors (PGRST002 / 503 / schema cache): Supabase is temporarily
+      overwhelmed. Splitting the batch does not help — wait with exponential backoff
+      and retry the full batch (up to _max_avail_retries times).
+    - Other errors (payload size, encoding, etc.): binary-split and retry halves
+      independently, since a smaller payload may succeed.
+    """
     if not batch:
         return []
-    try:
-        supabase.table(table).upsert(batch).execute()
-        log.info("Flushed %d chunks to %s.", len(batch), table)
-        return [p["chunk_id"] for p in batch]
-    except Exception as e:
-        if len(batch) == 1:
-            log.error("Failed to flush chunk %s: %s", batch[0]["chunk_id"], e)
-            return []
-        mid = len(batch) // 2
-        log.warning("Batch of %d failed (%s), splitting %d + %d and retrying.",
-                    len(batch), e, mid, len(batch) - mid)
-        time.sleep(2)
-        return flush_batch(supabase, batch[:mid], table) + flush_batch(supabase, batch[mid:], table)
+
+    for attempt in range(_max_avail_retries):
+        try:
+            supabase.table(table).upsert(batch).execute()
+            log.info("Flushed %d chunks to %s.", len(batch), table)
+            return [p["chunk_id"] for p in batch]
+        except Exception as e:
+            if _is_availability_error(e):
+                if attempt == _max_avail_retries - 1:
+                    break
+                delay = min(_base_avail_delay * (2 ** attempt), 300.0)
+                log.warning(
+                    "Batch of %d hit availability error (attempt %d/%d), waiting %.0fs: %s",
+                    len(batch), attempt + 1, _max_avail_retries, delay, e,
+                )
+                time.sleep(delay)
+                continue
+
+            # Non-availability error — binary split may help.
+            if len(batch) == 1:
+                log.error("Failed to flush chunk %s: %s", batch[0]["chunk_id"], e)
+                return []
+            mid = len(batch) // 2
+            log.warning(
+                "Batch of %d failed (%s), splitting %d + %d and retrying.",
+                len(batch), e, mid, len(batch) - mid,
+            )
+            time.sleep(2)
+            return (
+                flush_batch(supabase, batch[:mid], table) +
+                flush_batch(supabase, batch[mid:], table)
+            )
+
+    log.error(
+        "Failed to flush %d chunks after %d availability retries. chunk_ids: %s",
+        len(batch), _max_avail_retries,
+        [p["chunk_id"] for p in batch[:5]] + (["..."] if len(batch) > 5 else []),
+    )
+    return []
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +371,7 @@ def embed_source(
     chunked_bucket: str,
     aws_region: str | None,
     local_input: Path | None = None,
+    batch_delay: float = 1.0,
 ) -> None:
     entry = SOURCE_REGISTRY[source_id]
     table = entry.table
@@ -370,6 +420,8 @@ def embed_source(
             failed += len(batch) - len(flushed)
             processed.update(flushed)
             batch = []
+            if batch_delay > 0:
+                time.sleep(batch_delay)
 
     if batch:
         flushed = flush_batch(supabase, batch, table)
@@ -414,6 +466,13 @@ def main() -> None:
         default=None,
         help="Read chunks from a local JSONL file instead of S3. Requires exactly one --source.",
     )
+    parser.add_argument(
+        "--batch-delay",
+        type=float,
+        default=1.0,
+        metavar="SECONDS",
+        help="Sleep between successful Supabase flushes to throttle write pressure (default: 1.0).",
+    )
     args = parser.parse_args()
 
     if args.local_input and len(args.source) > 1:
@@ -431,6 +490,7 @@ def main() -> None:
             source_id, supabase, embed_model,
             chunked_bucket, aws_region,
             local_input=args.local_input,
+            batch_delay=args.batch_delay,
         )
 
 
