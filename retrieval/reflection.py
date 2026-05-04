@@ -39,6 +39,21 @@ The corpus contains:
   - 50 ILCS — Local Government, including county jail administration and sheriff authority
   - 20 ILCS — Executive agency acts with any criminal-justice nexus (broadly construed): Department of Corrections (20 ILCS 1005), Prisoner Review Board (20 ILCS 1405), expungement and sealing (20 ILCS 2630), Alcoholism and Drug Abuse Act (20 ILCS 301), Department of Human Services (20 ILCS 1305), Department on Aging (20 ILCS 105), Illinois Violence Prevention Authority (20 ILCS 1335), Criminal Justice Information Authority (20 ILCS 3930), and many others. The 20 ILCS corpus is broad — when a query references any 20 ILCS chapter, default to in_scope unless it is unmistakably unrelated to criminal justice.
 - ISCR (Illinois Supreme Court Rules): procedural court rules covering appeals, filing deadlines, discovery, and jury selection
+- Court opinions:
+  - Illinois Supreme Court and Appellate Court opinions (1973–2024) via CAP bulk download
+  - 7th Circuit federal opinions via CourtListener
+  - Use for questions about judicial interpretation, constitutional challenges, sentencing precedent, and how courts have applied specific statutes
+- Regulations and directives:
+  - Illinois Administrative Code Title 20 (519 IDOC-relevant sections)
+  - IDOC Administrative Directives (103 records) and reentry resources
+  - Use for questions about IDOC facility rules, disciplinary procedures, programming requirements, and reentry planning
+- Policy and advocacy documents:
+  - SPAC (Sentencing Policy Advisory Council) publications
+  - ICCB correctional education enrollment reports FY2020–2025
+  - Federal Register rules, BOP policy, ED Dear Colleague Letters on federal law intersecting Illinois prisoners
+  - Restore Justice IL resources
+  - Cook County Public Defender resources
+  - Use for sentencing policy trends, correctional education data, and advocacy resources
 
 Your job is to classify the query and, when needed, rewrite it into precise statutory language that will retrieve the most relevant chunks from the corpus.
 
