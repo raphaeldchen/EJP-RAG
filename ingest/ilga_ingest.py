@@ -98,6 +98,7 @@ def fetch(url: str) -> BeautifulSoup | None:
     return None
 
 CITATION_RE   = re.compile(r"\(\s*(\d+)\s+ILCS\s+([\w/.\-]+)\)", re.IGNORECASE)
+ACT_NUM_RE    = re.compile(r"ILCS\s+([\d.]+)/")
 SEC_MARKER_RE = re.compile(r"\bSec\.\s+[\w./\-]+\.", re.IGNORECASE)
 
 # FIX 1: HEADING_RE — original pattern stopped at the first \n, so multi-line
@@ -371,6 +372,7 @@ def mark_act_done(output_file: str, act_id: str):
 
 def scrape(
     filter_chapters: list[str] | None = None,
+    filter_acts: list[str] | None = None,
     debug: bool = False,
     limit: int | None = None,
     skip_repealed: bool = True,
@@ -408,6 +410,12 @@ def scrape(
                 continue
             acts = parse_acts(acts_soup, ch, debug)
             log.info(f"  Found {len(acts)} acts")
+            if filter_acts:
+                acts = [
+                    a for a in acts
+                    if (m := ACT_NUM_RE.search(a["act_name"])) and m.group(1) in filter_acts
+                ]
+                log.info(f"  Filtered to {len(acts)} act(s) matching --acts {filter_acts}")
             for act in acts:
                 if act["act_id"] in done_acts:
                     log.debug(f"  Skipping completed act {act['act_id']}")
@@ -469,6 +477,10 @@ def main():
         help="Chapter numbers to scrape (e.g. --chapters 720 725 730). Default: all.",
     )
     parser.add_argument(
+        "--acts", nargs="+", metavar="NUM",
+        help="Act numbers to scrape within each chapter (e.g. --acts 2630). Default: all.",
+    )
+    parser.add_argument(
         "--debug", action="store_true",
         help="Print raw HTML snippets at each level to diagnose issues.",
     )
@@ -501,6 +513,7 @@ def main():
     DELAY = args.delay
     log.info("ILCS Scraper")
     log.info(f"  Chapters     : {args.chapters or 'ALL'}")
+    log.info(f"  Acts         : {args.acts or 'ALL'}")
     log.info(f"  Output       : {args.output}")
     log.info(f"  Request delay: {DELAY}s")
     log.info(f"  Skip repealed: {not args.keep_repealed}")
@@ -511,6 +524,7 @@ def main():
         log.info(f"  Section limit: {args.limit}")
     scrape(
         filter_chapters=args.chapters,
+        filter_acts=args.acts,
         debug=args.debug,
         limit=args.limit,
         skip_repealed=not args.keep_repealed,

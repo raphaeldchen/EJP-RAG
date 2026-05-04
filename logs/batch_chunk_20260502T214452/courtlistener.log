@@ -1,0 +1,20 @@
+2026-05-02 21:44:53,457 [INFO] Loading raw tables from S3...
+2026-05-02 21:44:53,457 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/clusters.csv
+2026-05-02 21:44:53,464 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02 21:44:54,508 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/dockets.csv
+2026-05-02 21:44:55,242 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/opinions.csv
+2026-05-02 21:44:55,906 [INFO]   Reading s3://illinois-legal-corpus-raw/courtlistener/bulk/parentheticals.csv
+2026-05-02 21:44:56,002 [WARNING]   s3://illinois-legal-corpus-raw/courtlistener/bulk/parentheticals.csv not found — skipping parentheticals.
+2026-05-02 21:44:56,003 [INFO]   12,808 opinions | 85,290 clusters | 91,875 dockets | 0 parentheticals
+2026-05-02 21:44:56,010 [INFO]   Text coverage: 12,744 html_with_citations | 12,806 plain_text | 2 have NO text
+2026-05-02 21:44:56,010 [INFO] Building metadata lookup maps...
+2026-05-02 21:44:58,543 [INFO] Chunking opinions...
+2026-05-02 21:44:59,536 [INFO]   Done. 2,164 chunks produced from 754 opinions. Skipped: 12054 (no text).
+2026-05-02 21:44:59,536 [INFO] Chunking parentheticals...
+2026-05-02 21:44:59,536 [INFO]   0 parenthetical chunks produced.
+2026-05-02 21:44:59,548 [INFO]   Chunk token stats: avg 349 | min 50 | max 800
+2026-05-02 21:44:59,548 [INFO]   Writing 2,164 records → s3://illinois-legal-corpus-chunked/courtlistener/bulk/opinion_chunks.jsonl
+2026-05-02 21:45:00,015 [INFO]   Upload complete.
+2026-05-02 21:45:00,016 [INFO]   Writing 0 records → s3://illinois-legal-corpus-chunked/courtlistener/bulk/parenthetical_chunks.jsonl
+2026-05-02 21:45:00,161 [INFO]   Upload complete.
+2026-05-02 21:45:00,161 [INFO]   Output at s3://illinois-legal-corpus-chunked/courtlistener/bulk/

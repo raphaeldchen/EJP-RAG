@@ -209,13 +209,15 @@ def _write_jsonl_local(records: list[dict], path: Path) -> None:
 
 def _write_jsonl_s3(records: list[dict], bucket: str, key: str) -> None:
     log.info(f"  Writing {len(records):,} records → s3://{bucket}/{key}")
-    body = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
-    boto3.client("s3").put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=body.encode("utf-8"),
-        ContentType="application/x-ndjson",
-    )
+    import tempfile
+    with tempfile.TemporaryFile() as tmp:
+        for record in records:
+            tmp.write((json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8"))
+        tmp.seek(0)
+        boto3.client("s3").upload_fileobj(
+            tmp, bucket, key,
+            ExtraArgs={"ContentType": "application/x-ndjson"},
+        )
     log.info("  Upload complete.")
 
 

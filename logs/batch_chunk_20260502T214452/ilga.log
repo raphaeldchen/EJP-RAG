@@ -1,0 +1,11 @@
+2026-05-02T21:44:52 [INFO] === ILCS chunking pipeline starting ===
+2026-05-02T21:44:52 [INFO] Config: CHUNK_SIZE=1500  CHUNK_OVERLAP=200  MIN_CHUNK_SIZE=100  MIN_MERGE_TOKENS=30
+2026-05-02T21:44:52 [INFO] Reading raw corpus from s3://illinois-legal-corpus-raw/ilcs/ilcs_corpus.jsonl
+2026-05-02T21:44:52 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02T21:44:54 [INFO] Loaded 3757 raw sections
+2026-05-02T21:44:54 [INFO] Produced 9045 chunks from 3757 sections (5 skipped)
+2026-05-02T21:44:54 [INFO] Single-chunk sections: 2515  |  Multi-chunk sections: 1237
+2026-05-02T21:44:54 [INFO] Writing 9045 chunks to s3://illinois-legal-corpus-chunked/ilcs/ilcs_chunks.jsonl
+2026-05-02T21:44:57 [INFO] Upload complete.
+2026-05-02T21:44:57 [INFO] Output at s3://illinois-legal-corpus-chunked/ilcs/ilcs_chunks.jsonl
+2026-05-02T21:44:57 [INFO] === ILCS chunking pipeline complete ===

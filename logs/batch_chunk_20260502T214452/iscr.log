@@ -1,0 +1,7 @@
+2026-05-02 21:44:53,094 [INFO] Found credentials in shared credentials file: ~/.aws/credentials
+2026-05-02 21:44:53,130 [INFO] Listing PDFs in s3://illinois-legal-corpus-raw/illinois-supreme-court-rules/
+2026-05-02 21:44:53,222 [INFO] Found 1 PDF(s)
+2026-05-02 21:44:53,222 [INFO] Downloading s3://illinois-legal-corpus-raw/illinois-supreme-court-rules/S_Ct_Rules_full.pdf
+2026-05-02 21:45:33,337 [INFO] Uploaded 1625 chunks → s3://illinois-legal-corpus-chunked/illinois-supreme-court-rules/S_Ct_Rules_full_chunks.jsonl
+2026-05-02 21:45:33,339 [INFO] Processed illinois-supreme-court-rules/S_Ct_Rules_full.pdf: 1625 chunks created
+2026-05-02 21:45:33,343 [INFO] Done. Total chunks produced: 1625

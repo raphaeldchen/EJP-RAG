@@ -24,21 +24,25 @@ Illinois criminal justice RAG system focused on higher education in prison and r
 | Restore Justice | `restorejustice_ingest.py` | `data_files/corpus/restorejustice_corpus.jsonl` | Advocacy org resources (HTML + PDFs) |
 | Cook County PD | `cookcounty_pd_ingest.py` | `data_files/corpus/cookcounty_pd_corpus.jsonl` | Public Defender resources |
 
-## Week of 2026-04-15 — Current Focus
+## Week of 2026-05-02 — Current Focus
 
-**Pending:** Once all chunking scripts are written, run a single batch script to rechunk and push all sources to S3 in one pass (parallel where possible). ILCS and ISCR S3 outputs are currently stale (pre-fix) and need regenerating along with the new sources. Do not re-run individual chunkers before this batch run.
-
-Three priorities in order:
-
-1. **Ingest court opinions** — CAP bulk download complete; CourtListener 7th Circuit supplement complete; next: write CAP bulk chunker, then embed both into retrieval path
-2. **Chunking validation** — audit ILCS and ISCR chunking with a spot-check test suite before any re-embedding work
-3. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
+**Done:** All chunking scripts have run; S3 chunked bucket is up to date (including 1.2M CAP opinion chunks).
+1. **Embedding** — embed all chunked sources into Supabase (ILCS + ISCR already done; CAP, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD pending)
+2. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
 
 ## Planned Architecture Evolution
 
 The system is being developed toward:
 
-- **Hybrid retrieval:** Supabase vector DB + a graph DB (Neo4j or similar) to capture relationships between statutes, case law, and rules
+- **Hybrid retrieval:** Supabase vector DB + a graph DB (Neo4j or similar) to capture relationships between statutes, case law, and rules.
+
+  **Graph-native sources (dual placement — vector DB *and* graph DB):** ILCS statutes, IL Admin Code, IDOC directives, court opinions (CAP + CourtListener), IL Supreme Court Rules. These form the authoritative legal hierarchy: statute → regulation → directive, with opinions citing across all levels. CAP bulk JSON includes structured citation lists, making case→statute edges cheap to extract. Statute cross-references require a regex pass over section text.
+
+  **Vector-only sources:** SPAC, ICCB, federal docs, Restore Justice, Cook County PD. These are analytical/advocacy documents that reference the legal hierarchy but aren't authoritative nodes in it — no meaningful graph traversal starts from or arrives at them.
+
+  **Why dual placement isn't redundant:** The graph answers structural queries ("what cases cited 730 ILCS 5/3-6-3?"); the vector DB answers semantic queries ("find chunks discussing proportionality in sentencing"). They're orthogonal.
+
+  **Retrieval integration:** Do NOT add graph traversal as a third RRF arm — graph-native sources would accumulate an extra RRF vote on every query and crowd out vector-only sources unfairly. Instead, use graph traversal as a **pre-filter / candidate expander**: for structural queries, traverse the graph to get a candidate node set, then run vector search scoped to those nodes. Always run vector + BM25 over all sources in parallel. The CrossEncoder reranker is the single relevance arbiter — it scores purely on content quality regardless of which retrieval arm produced the chunk.
 - **Hosted LLM for query analysis:** Replace local Ollama with a capable hosted model for query decomposition, classification, and rewriting before retrieval — keeping Ollama as a fallback or for embedding only
 
 **Design constraints:**
@@ -147,11 +151,7 @@ python3 ingest/courtlistener_api.py --local-only
 
 ### Step 3 — Embed Court Opinions
 
-(Pending — chunker for CAP bulk output not yet written.)
-
 ```bash
-# TODO: chunk data_files/corpus/cap_bulk_corpus.jsonl → data_files/chunked_output/cap_opinion_chunks.jsonl
-# Then embed both:
 python3 embed/opinion_embed.py --local-input data_files/chunked_output/cap_opinion_chunks.jsonl
 python3 embed/opinion_embed.py --local-input chunked_output/api_opinion_chunks.jsonl
 ```
@@ -203,12 +203,12 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 - `ilga_chunk.py` — character-based splitting with subsection boundaries (`(a)`, `(b)`, etc.); 1500-char chunks, 200-char overlap; outputs `ilcs_chunks.jsonl`
 - `courtlistener_chunk.py` — token-aware (tiktoken); detects section headings (Roman numerals, procedural headers); target 600 tokens, max 800, 75-token overlap
 - `iscr_chunk.py` — preserves hierarchical structure (article → part → rule → subsection)
-- CAP bulk chunker — not yet written; needed before opinions can be embedded
+- `cap_chunk.py` — token-aware (tiktoken); section-heading detection; opinion-type segmentation (majority/dissent/concurrence); originally 1,211,329 chunks from 151,228 opinions; S3 file filtered to 337,505 criminal-relevant chunks (1973+); outputs `cap_opinion_chunks.jsonl`
 
 **3. Embed** (`embed/`)
 - `ilga_embed.py` / `iscr_embed.py` — reads chunks from S3, embeds via Ollama (`nomic-embed-text`, 768-dim), upserts to Supabase in batches of 200; checkpoint-based resumption
 - Enriched text prepends structural headers (chapter/act/section) before embedding
-- **TODO (before batch rechunk):** `ilga_embed.py` currently calls its own `build_chunk()` to construct `enriched_text` rather than reading it from the JSONL. After the shared Chunk migration (`feat/shared-chunk-interface`) is merged, update `ilga_embed.py` to consume `record["enriched_text"]` directly and remove `build_chunk()` so header formats stay in sync with the chunker.
+- **TODO (after shared Chunk migration):** `ilga_embed.py` currently calls its own `build_chunk()` to construct `enriched_text` rather than reading it from the JSONL. After the shared Chunk migration (`feat/shared-chunk-interface`) is merged, update `ilga_embed.py` to consume `record["enriched_text"]` directly and remove `build_chunk()` so header formats stay in sync with the chunker.
 
 **4. Retrieval** (`retrieval/`)
 - `config.py` — Supabase URL/key, RPC names, top-k defaults
@@ -284,8 +284,8 @@ Leverage ranking for this corpus (highest to lowest):
 
 ### High priority (largest accuracy impact)
 
-- [ ] **Write CAP bulk chunker** — `cap_bulk_corpus.jsonl` needs a chunker before opinions can be embedded. Can reuse `courtlistener_chunk.py` logic (token-aware, section-heading detection) with minor schema adaptation for the `cap_bulk` source field.
-- [ ] **Embed court opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law (CAP + CourtListener 7th Circuit) is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent.
+- [x] **Write CAP bulk chunker** — `cap_chunk.py` done; original output was 1,211,329 chunks from 151,228 opinions. S3 file has since been filtered to 337,505 criminal-relevant chunks (1973–2011, 1.82 GB) via two passes: date cutoff (`≥ 1973`) then `_is_cap_criminal` (People/In re case name or 705/720/725/730 ILCS citation). Location: `s3://illinois-legal-corpus-chunked/cap/cap_opinion_chunks.jsonl`.
+- [ ] **Embed court opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law (CAP + CourtListener 7th Circuit) is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent. Estimated Supabase footprint for CAP: ~3.6–4.6 GB (embeddings ~1 GB, text columns ~1.5 GB, vector index ~1–2 GB).
 - [ ] **Fine-tune embedding model** — `nomic-embed-text` is the best out-of-the-box model tested so far and remains the production baseline. Alternatives tested and ruled out: `BAAI/bge-base-en-v1.5` (nDCG@6 0.317, -0.28 vs nomic), `mxbai-embed-large` (nDCG@6 0.389, -0.21 vs nomic). Neither closed the gap without fine-tuning. Next step: fine-tune `nomic-embed-text` or `BAAI/bge-large-en-v1.5` on lawyer-verified (query, relevant chunk) pairs using contrastive/bi-encoder loss (MultipleNegativesRankingLoss in sentence-transformers). Hard negatives already available from eval failures. **Highest single-leverage change. Planned after lawyer refinement sessions.** Expect +5–8 nDCG points.
 
   **Remaining candidate to evaluate before committing to fine-tuning:**
@@ -337,7 +337,7 @@ All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16
 
 ### Architecture (planned evolution)
 
-- [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1").
+- [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1"). See Planned Architecture Evolution for source placement decisions and retrieval integration design.
 - [ ] **Query decomposition** — for hard multi-statute queries, decompose into sub-queries, retrieve separately, merge results. Would directly address low Recall@6 on hard cases.
 
 ### Architecture (code quality — deferred)
@@ -378,7 +378,7 @@ Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justi
 - `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
 - BM25 index is rebuilt in-memory on every `retrieval/main.py` startup (loads all chunks from Supabase)
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
-- Court opinions (CAP + CourtListener) are not yet embedded into Supabase — chunker for CAP bulk output is the blocking step
+- Court opinions (CAP + CourtListener) are not yet embedded into Supabase — chunking is complete; `opinion_embed.py` is the next step
 
 ## Agent skills
 

@@ -459,6 +459,70 @@ def cookcounty_pd_chunks_s3():
 
 
 # ---------------------------------------------------------------------------
+# CAP fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session")
+def cap_chunks_s3():
+    """Sample CAP opinion chunks from 5 evenly-spaced positions across the S3 file.
+
+    The full file is ~6.4 GB / 1.2M records — loading it entirely is impractical.
+    Instead, Range-request 2 MB from each of 5 positions; skip the first (partial)
+    line at each non-zero offset.  Yields ~10,000–20,000 de-duplicated records for
+    structural verification.
+    """
+    MB = 1024 * 1024
+    SAMPLE_BYTES = 2 * MB
+    bucket = os.environ.get("CHUNKED_S3_BUCKET")
+    cap_prefix = os.environ.get("CAP_S3_PREFIX", "cap").rstrip("/")
+    key = f"{cap_prefix}/cap_opinion_chunks.jsonl"
+    if not bucket:
+        pytest.skip("CHUNKED_S3_BUCKET not set")
+    s3 = boto3.client("s3")
+    try:
+        meta = s3.head_object(Bucket=bucket, Key=key)
+        file_size = meta["ContentLength"]
+    except Exception as e:
+        pytest.skip(f"Could not stat s3://{bucket}/{key}: {e}")
+
+    offsets = [
+        0,
+        file_size // 4,
+        file_size // 2,
+        3 * file_size // 4,
+        max(0, file_size - SAMPLE_BYTES),
+    ]
+
+    sample: list[dict] = []
+    seen: set[str] = set()
+    for offset in offsets:
+        end = min(offset + SAMPLE_BYTES - 1, file_size - 1)
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key, Range=f"bytes={offset}-{end}")
+            raw = obj["Body"].read().decode("utf-8", errors="replace")
+        except Exception as e:
+            pytest.skip(f"Could not Range-read s3://{bucket}/{key}: {e}")
+        lines = raw.splitlines()
+        # First line at a non-zero offset is likely partial — skip it.
+        start = 0 if offset == 0 else 1
+        for line in lines[start:]:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                cid = record.get("chunk_id", "")
+                if cid and cid not in seen:
+                    seen.add(cid)
+                    sample.append(record)
+            except json.JSONDecodeError:
+                pass  # last line of each range may be partial
+    if not sample:
+        pytest.skip("No CAP chunks could be sampled from S3")
+    return sample
+
+
+# ---------------------------------------------------------------------------
 # CourtListener fixtures
 # ---------------------------------------------------------------------------
 
