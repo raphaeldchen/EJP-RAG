@@ -377,6 +377,10 @@ def embed_source(
     aws_region: str | None,
     local_input: Path | None = None,
     batch_delay: float = 1.0,
+    batch_size: int = BATCH_SIZE,
+    max_chunks: int | None = None,
+    bulk_loader: "BulkLoader | None" = None,
+    manage_indexes: bool = False,
 ) -> None:
     entry = SOURCE_REGISTRY[source_id]
     table = entry.table
@@ -396,6 +400,10 @@ def embed_source(
     embedded = skipped = filtered = failed = 0
 
     for record in iter_records(lines):
+        if max_chunks is not None and embedded >= max_chunks:
+            log.info("[%s] --max-chunks=%d reached, stopping early.", source_id, max_chunks)
+            break
+
         chunk_id = record["chunk_id"]
         if chunk_id in processed:
             skipped += 1
@@ -420,7 +428,7 @@ def embed_source(
         batch.append(build_payload(record, embedding, table))
         embedded += 1
 
-        if len(batch) >= BATCH_SIZE:
+        if len(batch) >= batch_size:
             flushed = flush_batch(supabase, batch, table)
             failed += len(batch) - len(flushed)
             processed.update(flushed)
@@ -478,6 +486,23 @@ def main() -> None:
         metavar="SECONDS",
         help="Sleep between successful Supabase flushes to throttle write pressure (default: 1.0).",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=BATCH_SIZE,
+        metavar="N",
+        help=(
+            "Number of records per Supabase upsert batch (default: %(default)s). "
+            "Pro tier handles 500–1000 well; free tier should stay at 50–200."
+        ),
+    )
+    parser.add_argument(
+        "--max-chunks",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Process at most N chunks per source (for test runs). Omit to process all.",
+    )
     args = parser.parse_args()
 
     if args.local_input and len(args.source) > 1:
@@ -496,6 +521,8 @@ def main() -> None:
             chunked_bucket, aws_region,
             local_input=args.local_input,
             batch_delay=args.batch_delay,
+            batch_size=args.batch_size,
+            max_chunks=args.max_chunks,
         )
 
 
