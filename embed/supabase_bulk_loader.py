@@ -181,21 +181,18 @@ class BulkLoader:
     def recreate_embedding_indexes(self, index_defs: list[tuple[str, str]]):
         """Recreate indexes that were dropped before bulk load.
 
-        Uses CREATE INDEX CONCURRENTLY so the table stays readable during the build.
-        CONCURRENTLY requires autocommit mode — psycopg2 autocommit is toggled here.
+        Uses CREATE INDEX IF NOT EXISTS (non-concurrent) which works through
+        the Supabase session pooler. Locks the table for writes during the build,
+        but that is acceptable for bulk loads where no concurrent writers exist.
         """
         if not index_defs:
             return
 
-        old_autocommit = self.conn.autocommit
-        self.conn.autocommit = True
-        try:
-            for name, indexdef in index_defs:
-                create_sql = indexdef.replace("CREATE INDEX", "CREATE INDEX CONCURRENTLY IF NOT EXISTS", 1)
-                log.info("Recreating index %s (CONCURRENTLY)…", name)
-                with self.conn.cursor() as cur:
-                    cur.execute(create_sql)
-                log.info("Index %s rebuilt.", name)
-        finally:
-            self.conn.autocommit = old_autocommit
+        for name, indexdef in index_defs:
+            create_sql = indexdef.replace("CREATE INDEX", "CREATE INDEX IF NOT EXISTS", 1)
+            log.info("Recreating index %s…", name)
+            with self.conn.cursor() as cur:
+                cur.execute(create_sql)
+            self.conn.commit()
+            log.info("Index %s rebuilt.", name)
         _INDEX_BACKUP_PATH.unlink(missing_ok=True)
