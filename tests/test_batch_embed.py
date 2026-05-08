@@ -1,12 +1,17 @@
 import json
+import time
+from unittest.mock import MagicMock, patch, call
+
 import pytest
 
 from embed.batch_embed import (
     SOURCE_REGISTRY,
+    _is_availability_error,
     _is_cap_criminal,
     _is_ilcs_in_scope,
     _normalize_cl_chunk,
     build_payload,
+    flush_batch,
     iter_records,
 )
 
@@ -405,3 +410,76 @@ def test_normalize_cl_chunk_build_payload_succeeds():
     assert payload["enriched_text"]
     assert isinstance(payload["metadata"], dict)
     assert payload["metadata"]["case_name"] == "Evans v. Poskon"
+
+
+# ---------------------------------------------------------------------------
+# _is_availability_error
+# ---------------------------------------------------------------------------
+
+def test_is_availability_error_catches_57014_code():
+    assert _is_availability_error(Exception("canceling statement due to statement timeout (57014)"))
+
+
+def test_is_availability_error_catches_statement_timeout_text():
+    assert _is_availability_error(Exception("statement timeout exceeded"))
+
+
+def test_is_availability_error_still_catches_pgrst002():
+    assert _is_availability_error(Exception("PGRST002: schema reload pending"))
+
+
+def test_is_availability_error_still_catches_503():
+    assert _is_availability_error(Exception("upstream returned 503"))
+
+
+def test_is_availability_error_false_for_encoding_error():
+    assert not _is_availability_error(Exception("invalid byte sequence for encoding UTF8"))
+
+
+# ---------------------------------------------------------------------------
+# flush_batch — 57014 must NOT trigger binary split
+# ---------------------------------------------------------------------------
+
+def _make_batch(n: int) -> list[dict]:
+    return [{"chunk_id": f"c{i}", "embedding": [0.1] * 768} for i in range(n)]
+
+
+def test_flush_batch_retries_full_batch_on_57014():
+    """A 57014 error must retry the same full batch, not split it."""
+    supabase = MagicMock()
+    supabase.table.return_value.upsert.return_value.execute.side_effect = [
+        Exception("canceling statement due to statement timeout (57014)"),
+        MagicMock(data=[]),  # success on retry
+    ]
+    batch = _make_batch(10)
+
+    with patch("time.sleep"):
+        result = flush_batch(
+            supabase, batch, "opinion_chunks",
+            _max_avail_retries=2, _base_avail_delay=0.01,
+        )
+
+    assert len(result) == 10
+    # Only two calls — the initial attempt and one retry (full batch both times)
+    assert supabase.table.return_value.upsert.call_count == 2
+    # Both calls received the full 10-row batch, not halves
+    for c in supabase.table.return_value.upsert.call_args_list:
+        assert len(c.args[0]) == 10
+
+
+def test_flush_batch_splits_on_non_timeout_error():
+    """Non-timeout errors (e.g. encoding) should still trigger binary split."""
+    supabase = MagicMock()
+    supabase.table.return_value.upsert.return_value.execute.side_effect = [
+        Exception("invalid byte sequence"),  # triggers split
+        MagicMock(data=[]),                  # first half succeeds
+        MagicMock(data=[]),                  # second half succeeds
+    ]
+    batch = _make_batch(4)
+
+    with patch("time.sleep"):
+        result = flush_batch(supabase, batch, "opinion_chunks")
+
+    assert len(result) == 4
+    # Three calls: 1 failed (4-row), then 2 halves (2-row each)
+    assert supabase.table.return_value.upsert.call_count == 3

@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import random
 import re
 import sys
 import time
@@ -284,7 +285,10 @@ def load_checkpoint(supabase: "Client", table: str) -> set[str]:
     return db_ids
 
 
-_SCHEMA_CACHE_ERRORS = ("PGRST002", "schema cache", "upstream connect error", "503")
+_SCHEMA_CACHE_ERRORS = (
+    "PGRST002", "schema cache", "upstream connect error", "503",
+    "57014", "statement timeout",
+)
 
 
 def _is_availability_error(exc: Exception) -> bool:
@@ -322,11 +326,12 @@ def flush_batch(
                 if attempt == _max_avail_retries - 1:
                     break
                 delay = min(_base_avail_delay * (2 ** attempt), 300.0)
+                jitter = random.uniform(0, delay * 0.2)
                 log.warning(
                     "Batch of %d hit availability error (attempt %d/%d), waiting %.0fs: %s",
                     len(batch), attempt + 1, _max_avail_retries, delay, e,
                 )
-                time.sleep(delay)
+                time.sleep(delay + jitter)
                 continue
 
             # Non-availability error — binary split may help.
