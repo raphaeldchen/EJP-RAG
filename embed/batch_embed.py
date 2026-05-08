@@ -22,6 +22,13 @@ BATCH_SIZE = 200
 # so 2000 chars ≈ 1333 tokens — safely within the limit for all current embed backends.
 MAX_EMBED_CHARS = 2000
 
+# Required env vars:
+#   SUPABASE_URL, SUPABASE_SERVICE_KEY — always required
+# Optional — only needed for --direct-db:
+#   SUPABASE_DB_URL: postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
+#   (Supabase dashboard → Settings → Database → Connection string → URI, Direct connection)
+#   Note: this contains the raw DB password — keep it out of version control (.gitignore .env).
+
 
 # ---------------------------------------------------------------------------
 # Source filters
@@ -395,9 +402,15 @@ def embed_source(
         obj = boto3.client("s3", **kwargs).get_object(Bucket=chunked_bucket, Key=entry.s3_key)
         lines = obj["Body"].iter_lines()
 
-    processed = load_checkpoint(supabase, table)
+    if bulk_loader is not None:
+        processed = bulk_loader.load_checkpoint(table)
+    else:
+        processed = load_checkpoint(supabase, table)
+
     batch: list[dict] = []
     embedded = skipped = filtered = failed = 0
+    dropped_indexes: list[tuple[str, str]] = []
+    batch_count = 0
 
     for record in iter_records(lines):
         if max_chunks is not None and embedded >= max_chunks:
@@ -429,16 +442,37 @@ def embed_source(
         embedded += 1
 
         if len(batch) >= batch_size:
-            flushed = flush_batch(supabase, batch, table)
-            failed += len(batch) - len(flushed)
-            processed.update(flushed)
+            batch_count += 1
+            if batch_count == 1 or batch_count % 10 == 0:
+                log.info("[%s] Progress: %d rows embedded (batch %d)…", source_id, embedded, batch_count)
+
+            if bulk_loader is not None:
+                if manage_indexes and not dropped_indexes:
+                    dropped_indexes = bulk_loader.drop_embedding_indexes(table)
+                count = bulk_loader.bulk_upsert(batch, table)
+                failed += len(batch) - count
+                processed.update(p["chunk_id"] for p in batch)
+            else:
+                flushed = flush_batch(supabase, batch, table)
+                failed += len(batch) - len(flushed)
+                processed.update(flushed)
             batch = []
             if batch_delay > 0:
                 time.sleep(batch_delay)
 
+    # Flush remaining records
     if batch:
-        flushed = flush_batch(supabase, batch, table)
-        failed += len(batch) - len(flushed)
+        if bulk_loader is not None:
+            if manage_indexes and not dropped_indexes:
+                dropped_indexes = bulk_loader.drop_embedding_indexes(table)
+            count = bulk_loader.bulk_upsert(batch, table)
+            failed += len(batch) - count
+        else:
+            flushed = flush_batch(supabase, batch, table)
+            failed += len(batch) - len(flushed)
+
+    if dropped_indexes and bulk_loader is not None:
+        bulk_loader.recreate_embedding_indexes(dropped_indexes)
 
     log.info(
         "[%s] Done. embedded=%d  skipped=%d  filtered=%d  failed=%d  → %s",
@@ -503,10 +537,48 @@ def main() -> None:
         metavar="N",
         help="Process at most N chunks per source (for test runs). Omit to process all.",
     )
+    parser.add_argument(
+        "--direct-db",
+        action="store_true",
+        default=False,
+        help=(
+            "Use a direct psycopg2 connection instead of PostgREST. "
+            "Requires SUPABASE_DB_URL in .env. "
+            "Sets statement_timeout=10min per-session, eliminating 57014 errors. "
+            "Recommended for large sources (cap_bulk, courtlistener)."
+        ),
+    )
+    parser.add_argument(
+        "--manage-indexes",
+        action="store_true",
+        default=False,
+        help=(
+            "Drop vector indexes before bulk load and rebuild after. "
+            "Only valid with --direct-db. "
+            "Use for first-time loads of large sources (>50k rows). "
+            "Skips per-insert HNSW maintenance overhead; rebuilds once at the end. "
+            "If the script crashes, run --recreate-indexes <table> to rebuild."
+        ),
+    )
+    parser.add_argument(
+        "--recreate-indexes",
+        metavar="TABLE",
+        default=None,
+        help=(
+            "Standalone recovery mode: read .embed_index_backup.json and rebuild "
+            "the vector indexes on TABLE. Use if the script crashed after --manage-indexes "
+            "dropped indexes but before recreating them. Requires --direct-db."
+        ),
+    )
     args = parser.parse_args()
 
     if args.local_input and len(args.source) > 1:
         parser.error("--local-input requires exactly one --source")
+
+    if args.manage_indexes and not args.direct_db:
+        parser.error("--manage-indexes requires --direct-db")
+    if args.recreate_indexes and not args.direct_db:
+        parser.error("--recreate-indexes requires --direct-db")
 
     from retrieval.embeddings import get_embedding_model
     supabase = create_client(_require_env("SUPABASE_URL"), _require_env("SUPABASE_SERVICE_KEY"))
@@ -514,16 +586,84 @@ def main() -> None:
     chunked_bucket = _require_env("CHUNKED_S3_BUCKET")
     aws_region = os.getenv("AWS_REGION")
 
-    log.info("Embedding %d source(s): %s", len(args.source), ", ".join(args.source))
-    for source_id in args.source:
-        embed_source(
-            source_id, supabase, embed_model,
-            chunked_bucket, aws_region,
-            local_input=args.local_input,
-            batch_delay=args.batch_delay,
-            batch_size=args.batch_size,
-            max_chunks=args.max_chunks,
-        )
+    bulk_loader = None
+    if args.direct_db:
+        from embed.supabase_bulk_loader import BulkLoader, _INDEX_BACKUP_PATH, _VECTOR_INDEX_QUERY
+        db_url = _require_env("SUPABASE_DB_URL")
+        bulk_loader = BulkLoader(db_url)
+        bulk_loader.connect()
+
+    # Standalone index recovery mode — skip embedding
+    if args.recreate_indexes:
+        import json as _json
+
+        if _INDEX_BACKUP_PATH.exists():
+            index_defs = _json.loads(_INDEX_BACKUP_PATH.read_text())
+            log.info("Using index definitions from %s (%d indexes).", _INDEX_BACKUP_PATH, len(index_defs))
+        else:
+            log.warning("%s not found — querying pg_indexes for existing vector indexes on %s.",
+                        _INDEX_BACKUP_PATH, args.recreate_indexes)
+            with bulk_loader.conn.cursor() as cur:
+                cur.execute(_VECTOR_INDEX_QUERY, (args.recreate_indexes,))
+                existing = cur.fetchall()
+            if existing:
+                log.info("Vector indexes already present on %s — no action needed.", args.recreate_indexes)
+                bulk_loader.close()
+                return
+            log.error(
+                "Vector indexes are missing on %s and no backup file exists. "
+                "Re-create them manually via the Supabase SQL editor:\n"
+                "  CREATE INDEX CONCURRENTLY IF NOT EXISTS %s_embedding_idx\n"
+                "    ON %s USING hnsw (embedding vector_cosine_ops)\n"
+                "    WITH (m = 16, ef_construction = 64);",
+                args.recreate_indexes, args.recreate_indexes, args.recreate_indexes,
+            )
+            bulk_loader.close()
+            raise SystemExit(1)
+
+        log.info("Recreating %d index(es) on %s…", len(index_defs), args.recreate_indexes)
+        try:
+            bulk_loader.recreate_embedding_indexes(index_defs)
+        finally:
+            bulk_loader.close()
+        return
+
+    # Auto-recover missing indexes from a previous crashed run before embedding begins.
+    if bulk_loader is not None and _INDEX_BACKUP_PATH.exists():
+        import json as _json
+        backed_up = _json.loads(_INDEX_BACKUP_PATH.read_text())
+        if backed_up:
+            with bulk_loader.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT indexname FROM pg_indexes WHERE indexname = ANY(%s)",
+                    ([name for name, _ in backed_up],),
+                )
+                existing_names = {row[0] for row in cur.fetchall()}
+            missing = [(name, defn) for name, defn in backed_up if name not in existing_names]
+            if missing:
+                log.warning(
+                    "Auto-recovery: %d vector index(es) missing from a previous crashed run — "
+                    "rebuilding before embedding begins.",
+                    len(missing),
+                )
+                bulk_loader.recreate_embedding_indexes(missing)
+
+    try:
+        log.info("Embedding %d source(s): %s", len(args.source), ", ".join(args.source))
+        for source_id in args.source:
+            embed_source(
+                source_id, supabase, embed_model,
+                chunked_bucket, aws_region,
+                local_input=args.local_input,
+                batch_delay=args.batch_delay,
+                batch_size=args.batch_size,
+                max_chunks=args.max_chunks,
+                bulk_loader=bulk_loader,
+                manage_indexes=args.manage_indexes,
+            )
+    finally:
+        if bulk_loader is not None:
+            bulk_loader.close()
 
 
 if __name__ == "__main__":
