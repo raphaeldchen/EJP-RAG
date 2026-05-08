@@ -90,7 +90,8 @@ class CitationLabelingPostprocessor(BaseNodePostprocessor):
 
     Must run AFTER CrossEncoderReranker so it only labels the final kept nodes.
 
-    Label source: display_citation field set by each chunker at chunk time.
+    Label priority: display_citation (new collections) → section_citation (ILCS)
+    → Rule N [— title] (ISCR).
     """
 
     def _postprocess_nodes(
@@ -101,7 +102,21 @@ class CitationLabelingPostprocessor(BaseNodePostprocessor):
         for nws in nodes:
             node = nws.node
             meta = node.metadata or {}
-            citation = meta.get("display_citation", "").strip()
+
+            citation = (meta.get("display_citation") or "").strip()
+
+            if not citation:
+                citation = (meta.get("section_citation") or "").strip()
+
+            if not citation:
+                rule = meta.get("rule_number")
+                if rule:
+                    title = (meta.get("rule_title") or "").strip()
+                    prefix = f"Rule {rule}"
+                    if title.startswith(prefix):
+                        title = title[len(prefix):].lstrip(" .—-").strip()
+                    citation = prefix + (f" — {title}" if title else "")
+
             if citation:
                 node.text = f"[{citation}]:\n{node.get_content()}"
         return nodes
@@ -138,12 +153,6 @@ class CrossEncoderReranker(BaseNodePostprocessor):
         query = query_bundle.query_str
         pairs = [(query, n.node.get_content()) for n in nodes]
         scores = model.predict(pairs)
-
-        # DEBUG — remove after tuning
-        print(f"\n[Reranker] scores for '{query[:60]}':")
-        for n, s in sorted(zip(nodes, scores), key=lambda x: x[1], reverse=True):
-            preview = n.node.get_content()[:60].replace("\n", " ")
-            print(f"  {s:.3f} | {preview}")
 
         reranked = [
             NodeWithScore(node=n.node, score=float(s))

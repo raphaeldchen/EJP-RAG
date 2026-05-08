@@ -17,6 +17,7 @@ Usage:
 """
 
 import json
+import re
 import argparse
 import sys
 import time
@@ -37,10 +38,15 @@ from retrieval.config import (
 DATASET_PATH = Path(__file__).parent.parent / "data_files" / "eval_files" / "dataset.json"
 
 _MAX_ISCR_RULES = 40
+_MAX_OPINION_CITATIONS = 100
+_MAX_REGULATION_CITATIONS = 200
+_MAX_DOCUMENT_CITATIONS = 150
 _FALLBACK_PER_CHAPTER = 5   # citations from chapters NOT detected as relevant to the batch
 _QUERY_BATCH_SIZE = 30      # queries generated per API call
 _ANNOTATION_BATCH_SIZE = 20 # queries annotated per API call
 _INTER_CALL_DELAY = 65      # seconds between API calls — stays under 10K input tokens/min limit
+
+_ILCS_RE = re.compile(r'^\d+\s+ILCS\s+', re.IGNORECASE)
 
 # Maps ILCS chapter prefix → keywords that signal a query is about that chapter.
 # When any keyword matches in the batch's query text, that chapter's full citation
@@ -76,30 +82,44 @@ _CHAPTER_KEYWORDS: dict[str, list[str]] = {
 _QUERY_GENERATION_PROMPT = """\
 You are generating a retrieval evaluation dataset for an Illinois criminal law RAG system.
 
-The system's corpus contains:
-- ILCS chapters: 720 (criminal offenses), 725 (criminal procedure), 730 (corrections/sentencing),
+The system's corpus contains five collections:
+- ilcs: ILCS chapters 720 (criminal offenses), 725 (criminal procedure), 730 (corrections/sentencing),
   705 ILCS 405 (juvenile justice), 405 ILCS 5 (mental health), 20 ILCS 2630 (expungement/sealing)
-- Illinois Supreme Court Rules (appellate procedure, discovery, jury selection, filing deadlines)
+- iscr: Illinois Supreme Court Rules (appellate procedure, discovery, jury selection, filing deadlines)
+- opinions: Illinois Supreme Court and Appellate Court opinions (1973–2024) and 7th Circuit federal
+  opinions on Illinois criminal law
+- regulations: Illinois Administrative Code Title 20 (IDOC correctional regulations) and IDOC
+  Administrative Directives covering prison operations, discipline, programming, and reentry
+- documents: Sentencing Policy Advisory Council (SPAC) publications, ICCB correctional education
+  enrollment reports, federal documents (Federal Register rules, BOP policy, ED guidance), Restore
+  Justice IL advocacy resources, Cook County Public Defender resources
 
 Generate a JSON array of exactly {n} test cases. Each object must have:
   "id":         sequential string like "q001"
   "query":      a natural language question a criminal justice researcher or advocate might ask
-  "corpus":     "ilcs", "iscr", or "out_of_scope"
+  "corpus":     "ilcs", "iscr", "opinions", "regulations", "documents", or "out_of_scope"
   "difficulty": "easy" (1 citation, direct lookup), "medium" (2 citations, some synthesis),
                 or "hard" (3+ citations, multi-statute reasoning)
 
 Distribution requirements:
-- Exactly 5 out_of_scope cases (federal law, civil matters, other states)
+- Exactly 5 out_of_scope cases (other U.S. states' law, purely civil matters unrelated to criminal justice)
 - At least 8 iscr cases
+- At least 5 opinions cases (judicial interpretation, constitutional challenges, sentencing precedent)
+- At least 4 regulations cases (IDOC regulations, correctional operations, administrative directives)
+- At least 3 documents cases (sentencing policy data, correctional education statistics, reentry resources)
 - At least 12 hard multi-citation ilcs cases
-- Remaining cases: mix of easy and medium ilcs
-- Cover all ILCS chapter ranges: 720, 725, 730, 705, 405, 20 ILCS 2630
+- Remaining cases: mix of easy and medium ilcs; cover all ILCS chapter ranges: 720, 725, 730, 705, 405, 20
 
 Query type variety (spread across non-out_of_scope cases):
 - ~15% colloquial/layperson ("can you beat a DUI if...", "how long do you stay in jail for...")
 - ~15% exact-citation lookups ("what does 730 ILCS 5/3-6-3 say about...")
 - ~15% procedure/routing edge cases (queries that could plausibly route to either ilcs or iscr)
 - ~55% direct research queries in plain legal language
+- For opinions corpus cases: ask about legal doctrines, holdings on general legal questions, or
+  constitutional challenges — do NOT name a specific case in the query. Queries like "what did
+  People v. X hold about Y" are untestable because the system cannot reliably distinguish one
+  named case from hundreds of topically similar opinions. Ask instead: "how have Illinois courts
+  interpreted [doctrine]" or "what is the Illinois rule on [legal question]".
 
 Respond with ONLY a valid JSON array — no markdown fences, no explanation.
 """
@@ -109,15 +129,24 @@ Respond with ONLY a valid JSON array — no markdown fences, no explanation.
 _ANNOTATION_PROMPT = """\
 You are annotating a retrieval evaluation dataset for an Illinois criminal law RAG system.
 
-For each query below, list the ILCS section citations and/or Illinois Supreme Court Rule numbers
-that a correct retrieval system MUST return to fully answer the question. Only use citations
-from the exact lists provided — these are the only citations that exist in the database.
+For each query below, list the citations that a correct retrieval system MUST return to fully
+answer the question. Only use citations from the exact lists provided — these are the only
+citations that exist in the database.
 
 Available ILCS section citations (use ONLY these):
 {ilcs_citations}
 
 Available Illinois Supreme Court Rule numbers (format as "Rule <number>"):
 {iscr_rules}
+
+Available court opinion citations (use ONLY these, for corpus="opinions" queries):
+{opinion_citations}
+
+Available regulation citations (use ONLY these, for corpus="regulations" queries):
+{regulation_citations}
+
+Available document citations (use ONLY these, for corpus="documents" queries):
+{document_citations}
 
 Queries to annotate:
 {queries}
@@ -130,6 +159,7 @@ Return a JSON array with one object per query. Each object:
                           1–4 citations per query is typical.
                           ILCS format: exactly as listed (e.g. "730 ILCS 5/3-6-3")
                           ISCR format: "Rule <number>"
+                          All other citations: exactly as listed in the relevant section above.
   "notes":                one sentence on what retrieval failure this case would catch
 
 Respond with ONLY a valid JSON array — no markdown fences, no explanation.
@@ -209,6 +239,26 @@ def _fetch_iscr_rules(client) -> list[str]:
     return rules[:_MAX_ISCR_RULES]
 
 
+def _fetch_display_citations(client, table: str, max_n: int) -> list[str]:
+    """Fetch up to max_n distinct display_citation values from a table.
+
+    Returns [] if the table is empty or does not yet exist in Supabase.
+    """
+    try:
+        rows = (
+            client.table(table)
+            .select("display_citation")
+            .not_.is_("display_citation", "null")
+            .limit(max_n)
+            .execute()
+            .data
+        )
+        return sorted(set(r["display_citation"] for r in rows if r.get("display_citation")))
+    except Exception as e:
+        print(f"[Dataset] Warning: could not fetch from {table}: {e}")
+        return []
+
+
 def _call_claude(ai: anthropic.Anthropic, prompt: str, max_tokens: int = 8192, temperature: float = 0.4) -> list[dict]:
     """Single Claude call with retry on rate limit. Raises if response can't be parsed as JSON."""
     for attempt in range(5):
@@ -273,6 +323,9 @@ def _annotate_queries(
     queries: list[dict],
     citations_by_chapter: dict[str, list[str]],
     iscr_rules: list[str],
+    opinion_citations: list[str],
+    regulation_citations: list[str],
+    document_citations: list[str],
 ) -> dict[str, dict]:
     """
     Step 2: for each query, ask Claude which citations must appear in a correct answer.
@@ -282,18 +335,26 @@ def _annotate_queries(
     """
     annotations: dict[str, dict] = {}
 
+    opinion_block = "\n".join(opinion_citations) if opinion_citations else "(none currently in database)"
+    regulation_block = "\n".join(regulation_citations) if regulation_citations else "(none currently in database)"
+    document_block = "\n".join(document_citations) if document_citations else "(none currently in database)"
+
     for batch_start in range(0, len(queries), _ANNOTATION_BATCH_SIZE):
         batch = queries[batch_start: batch_start + _ANNOTATION_BATCH_SIZE]
         batch_end = batch_start + len(batch)
 
         ilcs_cits = _citations_for_batch(batch, citations_by_chapter)
         print(f"[Annotate] Queries {batch_start + 1}–{batch_end} of {len(queries)} "
-              f"({len(ilcs_cits)} ILCS citations in prompt)...")
+              f"({len(ilcs_cits)} ILCS, {len(opinion_citations)} opinions, "
+              f"{len(regulation_citations)} regulations, {len(document_citations)} documents)...")
 
         queries_block = "\n".join(f'{q["id"]}: {q["query"]}' for q in batch)
         prompt = _ANNOTATION_PROMPT.format(
             ilcs_citations="\n".join(ilcs_cits),
             iscr_rules="\n".join(iscr_rules),
+            opinion_citations=opinion_block,
+            regulation_citations=regulation_block,
+            document_citations=document_block,
             queries=queries_block,
         )
 
@@ -307,44 +368,88 @@ def _annotate_queries(
 def _validate_citations(dataset: list[dict], client) -> list[dict]:
     """
     Validates expected_citations against Supabase.
+
+    Routing: "Rule N" → court_rule_chunks; ILCS pattern → ilcs_chunks;
+    everything else → the table for that case's corpus (opinions/regulations/documents).
+
     Strips citations not found in DB; drops a case only if no valid citations remain
     (out_of_scope cases with empty lists are always kept).
     """
     ilcs_needed: set[str] = set()
     iscr_needed: set[str] = set()
+    opinion_needed: set[str] = set()
+    regulation_needed: set[str] = set()
+    document_needed: set[str] = set()
 
     for case in dataset:
         if case.get("corpus") == "out_of_scope":
             continue
+        corpus = case.get("corpus", "ilcs")
         for cit in case.get("expected_citations", []):
             if cit.upper().startswith("RULE "):
                 iscr_needed.add(cit[5:].strip())
-            else:
+            elif _ILCS_RE.match(cit):
                 ilcs_needed.add(cit)
+            elif corpus == "opinions":
+                opinion_needed.add(cit)
+            elif corpus == "regulations":
+                regulation_needed.add(cit)
+            elif corpus == "documents":
+                document_needed.add(cit)
+            else:
+                ilcs_needed.add(cit)  # fallback for unrecognized format in ilcs cases
 
-    valid_ilcs: set[str] = set()
-    if ilcs_needed:
+    def _batch_lookup_ilcs(needed: set[str]) -> set[str]:
+        if not needed:
+            return set()
         rows = (
             client.table("ilcs_chunks")
             .select("section_citation")
-            .in_("section_citation", list(ilcs_needed))
+            .in_("section_citation", list(needed))
             .execute()
             .data
         )
-        valid_ilcs = {r["section_citation"] for r in rows if r.get("section_citation")}
+        return {r["section_citation"] for r in rows if r.get("section_citation")}
 
-    valid_iscr: set[str] = set()
-    if iscr_needed:
+    def _batch_lookup_iscr(needed: set[str]) -> set[str]:
+        if not needed:
+            return set()
         rows = (
             client.table("court_rule_chunks")
             .select("rule_number")
-            .in_("rule_number", list(iscr_needed))
+            .in_("rule_number", list(needed))
             .execute()
             .data
         )
-        valid_iscr = {str(r["rule_number"]) for r in rows if r.get("rule_number") is not None}
+        return {str(r["rule_number"]) for r in rows if r.get("rule_number") is not None}
 
-    print(f"\n[Validate] Checked {len(ilcs_needed)} ILCS + {len(iscr_needed)} ISCR citations")
+    def _batch_lookup_display(table: str, needed: set[str]) -> set[str]:
+        if not needed:
+            return set()
+        try:
+            rows = (
+                client.table(table)
+                .select("display_citation")
+                .in_("display_citation", list(needed))
+                .execute()
+                .data
+            )
+            return {r["display_citation"] for r in rows if r.get("display_citation")}
+        except Exception as e:
+            print(f"[Validate] Warning: could not query {table}: {e}")
+            return set()
+
+    valid_ilcs = _batch_lookup_ilcs(ilcs_needed)
+    valid_iscr = _batch_lookup_iscr(iscr_needed)
+    valid_opinions = _batch_lookup_display("opinion_chunks", opinion_needed)
+    valid_regulations = _batch_lookup_display("regulation_chunks", regulation_needed)
+    valid_documents = _batch_lookup_display("document_chunks", document_needed)
+
+    print(
+        f"\n[Validate] Checked {len(ilcs_needed)} ILCS + {len(iscr_needed)} ISCR + "
+        f"{len(opinion_needed)} opinions + {len(regulation_needed)} regulations + "
+        f"{len(document_needed)} documents"
+    )
 
     valid_cases: list[dict] = []
     for case in dataset:
@@ -352,14 +457,23 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
             valid_cases.append(case)
             continue
 
+        corpus = case.get("corpus", "ilcs")
         missing = []
         for cit in case.get("expected_citations", []):
             if cit.upper().startswith("RULE "):
                 if cit[5:].strip() not in valid_iscr:
                     missing.append(cit)
-            else:
+            elif _ILCS_RE.match(cit):
                 if cit not in valid_ilcs:
                     missing.append(cit)
+            elif corpus == "opinions" and cit not in valid_opinions:
+                missing.append(cit)
+            elif corpus == "regulations" and cit not in valid_regulations:
+                missing.append(cit)
+            elif corpus == "documents" and cit not in valid_documents:
+                missing.append(cit)
+            elif corpus not in ("opinions", "regulations", "documents") and cit not in valid_ilcs:
+                missing.append(cit)
 
         if missing:
             case["expected_citations"] = [
@@ -414,14 +528,23 @@ def generate(n: int) -> list[dict]:
     all_ilcs_cits = _fetch_all_ilcs_citations(supabase)
     citations_by_chapter = _group_citations_by_chapter(all_ilcs_cits)
     iscr_rules = _fetch_iscr_rules(supabase)
-    print(f"[Dataset] {len(all_ilcs_cits)} ILCS citations across "
-          f"{len(citations_by_chapter)} chapters, {len(iscr_rules)} ISCR rules")
+    opinion_citations = _fetch_display_citations(supabase, "opinion_chunks", _MAX_OPINION_CITATIONS)
+    regulation_citations = _fetch_display_citations(supabase, "regulation_chunks", _MAX_REGULATION_CITATIONS)
+    document_citations = _fetch_display_citations(supabase, "document_chunks", _MAX_DOCUMENT_CITATIONS)
+    print(
+        f"[Dataset] {len(all_ilcs_cits)} ILCS citations across {len(citations_by_chapter)} chapters, "
+        f"{len(iscr_rules)} ISCR rules, {len(opinion_citations)} opinions, "
+        f"{len(regulation_citations)} regulations, {len(document_citations)} documents"
+    )
 
     if not all_ilcs_cits:
         raise RuntimeError("No ILCS citations found in Supabase — is the corpus ingested?")
 
     # Step 3: annotate queries with chapter-aware citation lists
-    annotations = _annotate_queries(ai, queries, citations_by_chapter, iscr_rules)
+    annotations = _annotate_queries(
+        ai, queries, citations_by_chapter, iscr_rules,
+        opinion_citations, regulation_citations, document_citations,
+    )
 
     # Merge annotations into query stubs
     dataset: list[dict] = []

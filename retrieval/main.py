@@ -24,7 +24,7 @@ def build_rag(use_local: bool = False) -> tuple:
 
     # Warm up reranker at startup so first query isn't slow
     from retrieval.postprocessor import CrossEncoderReranker
-    reranker = CrossEncoderReranker(top_n=10, score_threshold=-3.0)
+    reranker = CrossEncoderReranker(top_n=15, score_threshold=-3.0)
     reranker._get_model()  # force load now
 
     dual_retriever = build_multi_retriever(client, bm25)

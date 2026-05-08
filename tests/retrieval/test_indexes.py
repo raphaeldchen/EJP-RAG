@@ -18,10 +18,16 @@ def _make_mock_retriever(chunk_id: str, capture_list: list | None = None):
     return r
 
 
+def _make_mock_bm25():
+    bm25 = MagicMock()
+    bm25.retrieve.return_value = []
+    return bm25
+
+
 def test_multi_collection_retriever_merges_all_collections():
     from retrieval.indexes import MultiCollectionRetriever
     retrievers = [_make_mock_retriever(f"chunk_{i}") for i in range(5)]
-    multi = MultiCollectionRetriever(retrievers=retrievers)
+    multi = MultiCollectionRetriever(retrievers=retrievers, bm25=_make_mock_bm25(), client=MagicMock())
 
     results = multi._retrieve(QueryBundle(query_str="test query"))
     result_ids = {n.node.node_id for n in results}
@@ -33,7 +39,7 @@ def test_secondary_query_propagated_to_all_retrievers():
     from retrieval.indexes import MultiCollectionRetriever
     captured = []
     retrievers = [_make_mock_retriever(f"chunk_{i}", capture_list=captured) for i in range(3)]
-    multi = MultiCollectionRetriever(retrievers=retrievers)
+    multi = MultiCollectionRetriever(retrievers=retrievers, bm25=_make_mock_bm25(), client=MagicMock())
     multi._secondary_query = "rewritten query"
 
     multi._retrieve(QueryBundle(query_str="original"))
@@ -44,7 +50,7 @@ def test_secondary_query_propagated_to_all_retrievers():
 def test_secondary_query_cleared_after_retrieve():
     from retrieval.indexes import MultiCollectionRetriever
     r = _make_mock_retriever("chunk_0")
-    multi = MultiCollectionRetriever(retrievers=[r])
+    multi = MultiCollectionRetriever(retrievers=[r], bm25=_make_mock_bm25(), client=MagicMock())
     multi._secondary_query = "rewritten query"
     multi._retrieve(QueryBundle(query_str="original"))
 
@@ -57,7 +63,7 @@ def test_secondary_query_cleared_on_exception():
     r._secondary_query = None
     r._retrieve = MagicMock(side_effect=RuntimeError("simulated error"))
 
-    multi = MultiCollectionRetriever(retrievers=[r])
+    multi = MultiCollectionRetriever(retrievers=[r], bm25=_make_mock_bm25(), client=MagicMock())
     multi._secondary_query = "rewritten query"
 
     with pytest.raises(RuntimeError):
@@ -72,10 +78,10 @@ def test_build_all_retrievers_creates_one_per_collection():
 
     with patch("retrieval.indexes.build_fusion_retriever") as mock_build:
         mock_build.return_value = MagicMock(spec=FusionRetriever)
-        retrievers = build_all_retrievers(MagicMock(), MagicMock())
+        retrievers = build_all_retrievers(MagicMock())
 
     assert len(retrievers) == len(COLLECTIONS)
     assert mock_build.call_count == len(COLLECTIONS)
-    # Each call uses a different RPC from the registry
-    called_rpcs = [call.args[2] for call in mock_build.call_args_list]
+    # rpc_function is now args[1] (client, rpc_function, top_k)
+    called_rpcs = [call.args[1] for call in mock_build.call_args_list]
     assert called_rpcs == [c.rpc for c in COLLECTIONS]

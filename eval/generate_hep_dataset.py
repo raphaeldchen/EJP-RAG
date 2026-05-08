@@ -170,6 +170,9 @@ def _annotate_queries(ai: anthropic.Anthropic, ilcs_cits: list[str], iscr_rules:
 
 
 def _validate_citations(dataset: list[dict], client) -> list[dict]:
+    import re
+    _ILCS_RE = re.compile(r'^\d+\s+ILCS\s+', re.IGNORECASE)
+
     ilcs_needed: set[str] = set()
     iscr_needed: set[str] = set()
 
@@ -209,13 +212,12 @@ def _validate_citations(dataset: list[dict], client) -> list[dict]:
             if cit.upper().startswith("RULE "):
                 if cit[5:].strip() not in valid_iscr:
                     missing.append(cit)
-            else:
+            elif _ILCS_RE.match(cit) or case.get("corpus") not in ("opinions", "regulations", "documents"):
                 if cit not in valid_ilcs:
                     missing.append(cit)
 
         if missing:
             print(f"  [{case['id']}] dropping invalid citations: {missing}")
-            # Keep the case but strip the invalid citations rather than dropping the whole case
             case["expected_citations"] = [
                 c for c in case["expected_citations"] if c not in missing
             ]

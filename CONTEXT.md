@@ -71,6 +71,28 @@ Someone currently incarcerated seeking to understand their rights, eligibility, 
 The domain of questions the system answers: Illinois criminal justice, including correctional education, reentry, sentencing policy, and the federal law that intersects with Illinois prisoners. Queries outside this domain are rejected by Query Analysis.
 _Avoid_: "Illinois criminal law only" (too narrow — the system intentionally includes federal sources relevant to Illinois corrections)
 
+### Labeling and training
+
+**Audit Dashboard**:
+The Streamlit application lawyers use to label retrieved Chunks. Imports retrieval logic directly from the MCP server module — lawyers evaluate the exact code path the LangGraph agent will call.
+_Avoid_: Labeling tool, review interface
+
+**Label**:
+A lawyer's classification of a single Chunk's relevance to a query. One of: BINDING (direct answer — highest-value training positive), RELEVANT (useful context), IRRELEVANT (noise). A Label is an annotation decision, not user feedback on system quality.
+_Avoid_: Rating, feedback (for the classification act itself)
+
+**Feedback Record**:
+A row in `audit_feedback` storing one Label, along with the query, Chunk metadata, retrieval scores (RRF and CrossEncoder), retrieval mode, persona, and annotator identity.
+_Avoid_: Feedback row, audit row, rating
+
+**Training Triplet**:
+A (query, positive Chunk, negative Chunk) tuple derived from Feedback Records for embedding model fine-tuning. One triplet per query: the strongest positive (highest CrossEncoder score among BINDING/RELEVANT labels) paired with the hardest negative (highest CrossEncoder score among IRRELEVANT labels).
+_Avoid_: Training pair, training example
+
+**Hard Negative**:
+An IRRELEVANT Chunk with a high CrossEncoder score — the reranker was confident but wrong. The most valuable Feedback Records for fine-tuning: they teach the embedding model to distinguish near-misses the reranker cannot.
+_Avoid_: False positive (reserve for precision metrics), confuser
+
 ## Relationships
 
 - A **Section**, **Opinion**, or **Document** is a subtype of **Entry**
@@ -92,7 +114,7 @@ _Avoid_: "Illinois criminal law only" (too narrow — the system intentionally i
 
 ## Pending decisions
 
-- **Single app vs. per-persona apps**: The three user types (Researcher, Practitioner, Incarcerated Person) may have sufficiently different information needs to justify separate RAG applications. Not a priority — current focus is retrieval accuracy. Near-term user-type handling will be lightweight controls (e.g. "simplify" / "go deeper" buttons) rather than separate systems.
+- **Per-persona retrieval paths (Month 3)**: Persona is now tracked in every Feedback Record via the Audit Dashboard. Whether to build differentiated retrieval paths (separate prompts, collection weights, or reranker thresholds per persona) is deferred to Month 3. Current handling: lightweight persona dropdown in the Audit Dashboard for data collection only — no retrieval behavior changes yet.
 
 ## Flagged ambiguities
 

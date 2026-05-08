@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from retrieval.config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
 from retrieval.embeddings import get_embedding_model
-from retrieval.indexes import get_supabase_client, build_all_retrievers, build_dual_retriever
+from retrieval.indexes import get_supabase_client, build_all_retrievers, build_multi_retriever
 from retrieval.bm25_store import BM25Retriever
 from retrieval.postprocessor import CrossEncoderReranker
 from retrieval.reflection import reflect, QueryIntent
@@ -61,9 +61,15 @@ K_VALUES = [3, 6, 10]
 def _extract_citation(node) -> str | None:
     """Return a canonical citation string from a NodeWithScore or TextNode."""
     meta = node.node.metadata if isinstance(node, NodeWithScore) else node.metadata
+    # New collections use display_citation as the canonical field
+    display = meta.get("display_citation")
+    if display:
+        return display
+    # Legacy: ilcs_chunks
     sec = meta.get("section_citation")
     if sec:
         return sec
+    # Legacy: court_rule_chunks
     rule = meta.get("rule_number")
     if rule:
         return f"Rule {rule}"
@@ -146,13 +152,12 @@ def build_components() -> dict:
     reranker._get_model()
 
     print("[Eval] Building vector indexes...")
-    retrievers = build_all_retrievers(client, bm25)
-    dual_retriever = build_dual_retriever(client, bm25, retrievers=retrievers)
+    retrievers = build_all_retrievers(client)   # dict[collection_id, FusionRetriever]
+    dual_retriever = build_multi_retriever(client, bm25, retrievers=retrievers)
 
     return {
         "bm25": bm25,
-        "ilcs_retriever": retrievers["ilcs"],
-        "iscr_retriever": retrievers["iscr"],
+        "retrievers": retrievers,
         "dual_retriever": dual_retriever,
         "reranker": reranker,
     }
@@ -178,7 +183,6 @@ def retrieve_citations(
                   instead of the primary query (used in the reflected stage to align
                   the reranker with the rewritten statutory-language query).
     """
-    corpus_retriever = components.get(f"{corpus}_retriever")
     dual_retriever = components["dual_retriever"]
     bm25: BM25Retriever = components["bm25"]
     reranker: CrossEncoderReranker = components["reranker"]
@@ -190,6 +194,9 @@ def retrieve_citations(
 
     elif stage == "vector":
         # Corpus-specific: diagnostic only, not part of the production path
+        corpus_retriever = components["retrievers"].get(corpus)
+        if corpus_retriever is None:
+            return []
         nodes: list[NodeWithScore] = corpus_retriever._vector_retriever.retrieve(qb)
         raw = [_extract_citation(n) for n in nodes]
 
@@ -375,7 +382,7 @@ def main():
         help="Print per-query results for every stage",
     )
     parser.add_argument(
-        "--filter-corpus", choices=["ilcs", "iscr"],
+        "--filter-corpus", choices=["ilcs", "iscr", "opinions", "regulations", "documents"],
         help="Only evaluate cases for this corpus",
     )
     parser.add_argument(

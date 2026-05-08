@@ -57,11 +57,11 @@ All ingest scripts use `--local-only` to skip S3 upload. All use `python3`.
 # ILCS statutes
 python3 ingest/ilga_ingest.py --chapters 720 730 --delay 0.75 --local-only
 python3 chunk/ilga_chunk.py --local-input data_files/corpus/ilcs_corpus.jsonl
-python3 embed/ilga_embed.py --local-input data_files/chunked_output/ilcs_chunks.jsonl
+python3 embed/batch_embed.py --source ilcs --local-input data_files/chunked_output/ilcs_chunks.jsonl
 
 # IL Supreme Court Rules
 python3 chunk/iscr_chunk.py --local-only
-python3 embed/iscr_embed.py --local-only
+python3 embed/batch_embed.py --source iscr
 
 # Court opinions — see dedicated section below
 
@@ -206,9 +206,8 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 - `cap_chunk.py` — token-aware (tiktoken); section-heading detection; opinion-type segmentation (majority/dissent/concurrence); originally 1,211,329 chunks from 151,228 opinions; S3 file filtered to 337,505 criminal-relevant chunks (1973+); outputs `cap_opinion_chunks.jsonl`
 
 **3. Embed** (`embed/`)
-- `ilga_embed.py` / `iscr_embed.py` — reads chunks from S3, embeds via Ollama (`nomic-embed-text`, 768-dim), upserts to Supabase in batches of 200; checkpoint-based resumption
-- Enriched text prepends structural headers (chapter/act/section) before embedding
-- **TODO (after shared Chunk migration):** `ilga_embed.py` currently calls its own `build_chunk()` to construct `enriched_text` rather than reading it from the JSONL. After the shared Chunk migration (`feat/shared-chunk-interface`) is merged, update `ilga_embed.py` to consume `record["enriched_text"]` directly and remove `build_chunk()` so header formats stay in sync with the chunker.
+- `batch_embed.py` — single entry point for all sources; reads chunks from S3 (or `--local-input`), embeds via Ollama (`nomic-embed-text`, 768-dim), upserts to Supabase in batches of 200; `--batch-delay` throttles write pressure; source → table mapping in `SOURCE_REGISTRY`
+- Enriched text (with structural headers) is emitted by all chunkers and consumed directly; no per-embed-script header reconstruction
 
 **4. Retrieval** (`retrieval/`)
 - `config.py` — Supabase URL/key, RPC names, top-k defaults
@@ -293,9 +292,9 @@ Leverage ranking for this corpus (highest to lowest):
   - Skip `bge-large` (Ollama-native) — mxbai already tested the 1024-dim Ollama path; bge-large is unlikely to beat nomic given the pattern observed
   - Skip legal-specific BERT models (`pile-of-law`, `InLegalBERT`) — trained for classification not dense retrieval
 
-  **Embed infrastructure:** `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM`, `ILCS_TABLE`, `ILCS_RPC`, `ISCR_TABLE`, `ISCR_RPC` are all env-var configurable in `config.py`. Experiment tables use naming convention `ilcs_chunks_{model}` / `court_rule_chunks_{model}` with matching RPC functions. See `embed/ilga_embed.py --table` and `embed/iscr_embed.py --table` flags.
+  **Embed infrastructure:** `EMBED_BACKEND`, `EMBED_MODEL`, `EMBED_DIM`, `ILCS_TABLE`, `ILCS_RPC`, `ISCR_TABLE`, `ISCR_RPC` are all env-var configurable in `config.py`. Experiment tables use naming convention `ilcs_chunks_{model}` / `court_rule_chunks_{model}` with matching RPC functions. To embed into an experiment table, update the `table` field in the relevant `SOURCE_REGISTRY` entry in `embed/batch_embed.py`.
 
-  **Schema note:** 1024-dim models require `ALTER TABLE ... TYPE vector(1024)` on experiment tables. mxbai required `MAX_EMBED_CHARS=1500` in `iscr_embed.py` (BERT 512-token limit; legal text tokenizes at ~3 chars/token).
+  **Schema note:** 1024-dim models require `ALTER TABLE ... TYPE vector(1024)` on experiment tables. mxbai required `MAX_EMBED_CHARS=1500` (BERT 512-token limit; legal text tokenizes at ~3 chars/token); `batch_embed.py` uses 2000 chars, safe for nomic-embed-text's 2048-token limit.
 
   **Fine-tuning does not transfer between models** — weights are architecture-specific. Training data (query/chunk pairs) is reusable across any model.
 - [ ] **Fine-tune reranker on Illinois legal query pairs** — `cross-encoder/ms-marco-electra-base` tested and significantly worse (nDCG@6 0.484 vs 0.579); reverted. The right path is fine-tuning MiniLM (`ms-marco-MiniLM-L-6-v2`) on domain-specific triplets: (query, correct chunk, hard-negative near-miss chunk). Hard negatives already available from eval failures. Needs lawyer-verified positives as ground truth — 100–200 pairs sufficient. **Planned with lawyer collaboration.**
