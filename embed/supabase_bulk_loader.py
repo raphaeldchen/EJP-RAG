@@ -108,6 +108,14 @@ class BulkLoader:
         if not payloads:
             return 0
 
+        # Deduplicate by chunk_id — ON CONFLICT DO UPDATE cannot affect the
+        # same row twice within a single statement. Keep last occurrence so
+        # that re-runs with updated embeddings naturally win.
+        seen: dict[str, dict] = {}
+        for p in payloads:
+            seen[p["chunk_id"]] = p
+        payloads = list(seen.values())
+
         cols = list(payloads[0].keys())
         col_str = ", ".join(f'"{c}"' for c in cols)
         updates = ", ".join(
@@ -178,21 +186,46 @@ class BulkLoader:
 
         return dropped
 
-    def recreate_embedding_indexes(self, index_defs: list[tuple[str, str]]):
+    def recreate_embedding_indexes(
+        self,
+        index_defs: list[tuple[str, str]],
+        maintenance_work_mem: str = "",
+        max_parallel_workers: int = 4,
+    ):
         """Recreate indexes that were dropped before bulk load.
 
         Uses CREATE INDEX IF NOT EXISTS (non-concurrent) which works through
         the Supabase session pooler. Locks the table for writes during the build,
         but that is acceptable for bulk loads where no concurrent writers exist.
+
+        maintenance_work_mem: passed directly to SET — larger values reduce
+            disk-spill passes during HNSW graph construction (default: "1GB").
+        max_parallel_workers: parallel background workers for the index build;
+            pgvector 0.6+ supports this for HNSW (default: 4).
         """
         if not index_defs:
             return
 
         for name, indexdef in index_defs:
             create_sql = indexdef.replace("CREATE INDEX", "CREATE INDEX IF NOT EXISTS", 1)
-            log.info("Recreating index %s…", name)
+            log.info(
+                "Recreating index %s "
+                "(maintenance_work_mem=%s, max_parallel_maintenance_workers=%d, no timeout)…",
+                name, maintenance_work_mem or "default", max_parallel_workers,
+            )
             with self.conn.cursor() as cur:
+                cur.execute("SET statement_timeout = 0")
+                if maintenance_work_mem:
+                    cur.execute(f"SET maintenance_work_mem = '{maintenance_work_mem}'")
+                cur.execute(f"SET max_parallel_maintenance_workers = {max_parallel_workers}")
                 cur.execute(create_sql)
+            self.conn.commit()
+            # Restore session settings for subsequent statements.
+            with self.conn.cursor() as cur:
+                cur.execute(f"SET statement_timeout = {self.statement_timeout_ms}")
+                if maintenance_work_mem:
+                    cur.execute("RESET maintenance_work_mem")
+                cur.execute("RESET max_parallel_maintenance_workers")
             self.conn.commit()
             log.info("Index %s rebuilt.", name)
         _INDEX_BACKUP_PATH.unlink(missing_ok=True)

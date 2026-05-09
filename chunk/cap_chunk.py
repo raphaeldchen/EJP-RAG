@@ -159,7 +159,7 @@ def chunk_entry(entry: dict) -> list[Chunk]:
                 chunk_text,
             )
             result.append(Chunk(
-                chunk_id         = f"{entry_id}_{opinion_type}_c{chunk_index}",
+                chunk_id         = f"{entry_id}_{opinion_type}{type_idx}_c{chunk_index}",
                 parent_id        = entry_id,
                 chunk_index      = chunk_index,
                 chunk_total      = chunk_total,

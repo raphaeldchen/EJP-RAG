@@ -1,10 +1,16 @@
+# Usage: 
+# cap bulk court opinions:
+# python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000
+
 import argparse
+import io
 import json
 import logging
 import os
 import random
 import re
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Generator, Iterable, NamedTuple
@@ -396,11 +402,14 @@ def embed_source(
         log.info("[%s] Reading from local file: %s", source_id, local_input)
         lines: Iterable = open(local_input, encoding="utf-8")
     else:
-        log.info("[%s] Reading from s3://%s/%s", source_id, chunked_bucket, entry.s3_key)
+        log.info("[%s] Downloading s3://%s/%s to temp file…", source_id, chunked_bucket, entry.s3_key)
         import boto3
         kwargs = {"region_name": aws_region} if aws_region else {}
-        obj = boto3.client("s3", **kwargs).get_object(Bucket=chunked_bucket, Key=entry.s3_key)
-        lines = obj["Body"].iter_lines()
+        _tmp = tempfile.TemporaryFile()
+        boto3.client("s3", **kwargs).download_fileobj(chunked_bucket, entry.s3_key, _tmp)
+        _tmp.seek(0)
+        lines = io.TextIOWrapper(_tmp, encoding="utf-8")
+        log.info("[%s] Download complete, iterating records.", source_id)
 
     if bulk_loader is not None:
         processed = bulk_loader.load_checkpoint(table)
@@ -570,6 +579,17 @@ def main() -> None:
             "dropped indexes but before recreating them. Requires --direct-db."
         ),
     )
+    parser.add_argument(
+        "--maintenance-work-mem",
+        metavar="MEM",
+        default="",
+        help=(
+            "PostgreSQL maintenance_work_mem for index builds (default: instance default). "
+            "Larger values speed up HNSW construction but require shared memory headroom. "
+            "Omit this flag on Supabase Pro — the container shared memory cap is too low. "
+            "Examples: 256MB, 512MB, 1GB."
+        ),
+    )
     args = parser.parse_args()
 
     if args.local_input and len(args.source) > 1:
@@ -623,7 +643,7 @@ def main() -> None:
 
         log.info("Recreating %d index(es) on %s…", len(index_defs), args.recreate_indexes)
         try:
-            bulk_loader.recreate_embedding_indexes(index_defs)
+            bulk_loader.recreate_embedding_indexes(index_defs, maintenance_work_mem=args.maintenance_work_mem)
         finally:
             bulk_loader.close()
         return
@@ -646,7 +666,7 @@ def main() -> None:
                     "rebuilding before embedding begins.",
                     len(missing),
                 )
-                bulk_loader.recreate_embedding_indexes(missing)
+                bulk_loader.recreate_embedding_indexes(missing, maintenance_work_mem=args.maintenance_work_mem)
 
     try:
         log.info("Embedding %d source(s): %s", len(args.source), ", ".join(args.source))

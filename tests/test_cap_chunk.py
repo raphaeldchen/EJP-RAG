@@ -27,7 +27,7 @@ _VALID_OPINION_TYPES = {
     "remittitur",
 }
 
-_CHUNK_ID_RE = re.compile(r"^.+_(majority|dissent|concurrence|rehearing|preamble|addendum|remittitur)_c\d+$")
+_CHUNK_ID_RE = re.compile(r"^.+_(majority|dissent|concurrence|rehearing|preamble|addendum|remittitur)\d+_c\d+$")
 
 _REQUIRED_FIELDS = {
     "chunk_id", "parent_id", "chunk_index", "chunk_total",
@@ -159,3 +159,66 @@ def test_s3_majority_chunks_flagged_correctly(cap_chunks_s3):
         and c["metadata"].get("is_majority") is not True
     ]
     assert not failures, f"{len(failures)} majority chunks with is_majority != True: {failures[:5]}"
+
+
+def test_s3_chunk_ids_unique(cap_chunks_s3):
+    """All chunk_ids in the sampled S3 output must be unique."""
+    ids = [c["chunk_id"] for c in cap_chunks_s3]
+    duplicates = [cid for cid, count in __import__("collections").Counter(ids).items() if count > 1]
+    assert not duplicates, f"{len(duplicates)} duplicate chunk_ids: {duplicates[:5]}"
+
+
+# ---------------------------------------------------------------------------
+# In-memory unit tests (no S3 needed)
+# ---------------------------------------------------------------------------
+
+def test_chunk_entry_unique_ids_with_two_concurrences():
+    """Two [Concurrence] / [Concur] segments in the same case must not collide."""
+    from chunk.cap_chunk import chunk_entry
+
+    entry = {
+        "id": "cap_test_001",
+        "case_id": "001",
+        "case_name": "People v. Test",
+        "case_name_abbr": "People v. Test",
+        "date_decided": "2000-01-01",
+        "court": "ill-2d",
+        "citations": ["100 Ill. 2d 1"],
+        "text": (
+            "[Majority] The court holds that the statute is constitutional. "
+            "Defendant's argument fails because the plain text is unambiguous. "
+            "Affirmed.\n"
+            "[Concurrence] Justice A concurs in the judgment but writes separately "
+            "to address the due process argument raised by the dissent.\n"
+            "[Concur] Justice B concurs only in part and would remand for resentencing."
+        ),
+    }
+    chunks = chunk_entry(entry)
+    ids = [c.chunk_id for c in chunks]
+    assert len(ids) == len(set(ids)), f"Duplicate chunk_ids: {[x for x in ids if ids.count(x) > 1]}"
+
+
+def test_chunk_entry_unique_ids_with_two_dissents():
+    """Two [Dissent] segments (different justices) must not collide."""
+    from chunk.cap_chunk import chunk_entry
+
+    entry = {
+        "id": "cap_test_002",
+        "case_id": "002",
+        "case_name": "People v. Smith",
+        "case_name_abbr": "People v. Smith",
+        "date_decided": "2005-06-15",
+        "court": "ill-2d",
+        "citations": ["200 Ill. 2d 50"],
+        "text": (
+            "[Majority] The conviction is affirmed. The evidence was sufficient "
+            "to support the jury's verdict beyond a reasonable doubt.\n"
+            "[Dissent] Justice X dissents and would reverse the conviction outright "
+            "because the search was unconstitutional.\n"
+            "[Dissent] Justice Y also dissents but on narrower grounds, arguing only "
+            "that the sentence was excessive under the proportionality clause."
+        ),
+    }
+    chunks = chunk_entry(entry)
+    ids = [c.chunk_id for c in chunks]
+    assert len(ids) == len(set(ids)), f"Duplicate chunk_ids: {[x for x in ids if ids.count(x) > 1]}"

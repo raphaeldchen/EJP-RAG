@@ -164,6 +164,24 @@ def test_bulk_upsert_retries_on_operational_error():
     mock_reconnect.assert_called_once()
 
 
+def test_bulk_upsert_deduplicates_by_chunk_id():
+    """Duplicate chunk_ids in the same batch must be collapsed to the last occurrence."""
+    loader, _, _ = _loader_with_mock_conn()
+
+    payloads = _make_payloads(2)
+    # Add a duplicate of chunk c0 with different text (last wins)
+    duplicate = dict(payloads[0])
+    duplicate["text"] = "updated text"
+    payloads.append(duplicate)
+
+    with patch("embed.supabase_bulk_loader.execute_values") as mock_ev:
+        count = loader.bulk_upsert(payloads, "opinion_chunks")
+
+    rows = mock_ev.call_args.args[2]
+    assert len(rows) == 2  # 3 payloads collapsed to 2 unique chunk_ids
+    assert count == 2
+
+
 def test_bulk_upsert_raises_after_max_retries():
     """After exhausting retries, the final OperationalError is re-raised."""
     import psycopg2
