@@ -212,6 +212,7 @@ class MultiCollectionRetriever(BaseRetriever):
                     id_=row["chunk_id"],
                     text=row.get("enriched_text") or row.get("text", ""),
                     metadata={
+                        "source": "ilcs",
                         "section_citation": row.get("section_citation"),
                         "major_topic": row.get("major_topic"),
                         "pinned": True,
@@ -244,6 +245,7 @@ class MultiCollectionRetriever(BaseRetriever):
                     id_=row["chunk_id"],
                     text=row.get("enriched_text") or row.get("text", ""),
                     metadata={
+                        "source": "iscr",
                         "rule_number": row.get("rule_number"),
                         "rule_title": row.get("rule_title"),
                         "pinned": True,
