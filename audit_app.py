@@ -20,28 +20,39 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# -- Sidebar controls ----------------------------------------------------------
+# -- Header --------------------------------------------------------------------
 
-with st.sidebar:
-    st.title("⚖️ Retrieval Audit")
-    st.caption("Illinois Legal RAG — Expert Labeling")
-    st.divider()
+st.title("Retrieval Audit")
+st.caption("Illinois Legal RAG — Expert Labeling")
 
-    query_input = st.text_area("Legal Query", height=100, placeholder="e.g. What is good-time credit in Illinois?")
-    persona = st.selectbox("Persona", ["Researcher", "Practitioner", "Incarcerated Person"])
-    top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
-    mode = st.radio(
+# -- Query input ---------------------------------------------------------------
+
+query_input = st.text_area(
+    "Legal Query",
+    height=80,
+    placeholder="e.g. What is good-time credit in Illinois?",
+    label_visibility="collapsed",
+)
+
+# -- Settings row under search bar ---------------------------------------------
+
+s1, s2, s3, s4, s5 = st.columns([2, 2, 2, 2, 1])
+
+with s1:
+    mode = st.selectbox(
         "Retrieval Mode",
-        ["Hybrid (production)", "Vector only", "BM25 only", "Graph (coming soon)"],
+        ["Hybrid (production)", "Vector only", "BM25 only"],
+        help="Hybrid = production. Vector/BM25 = diagnostic modes.",
     )
+with s2:
+    persona = st.selectbox("Persona", ["Researcher", "Practitioner", "Incarcerated Person"])
+with s3:
+    top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
+with s4:
     expert_id = st.text_input("Your name / email", placeholder="Optional — for attribution")
+with s5:
+    st.write("")
     search_btn = st.button("Search", type="primary", use_container_width=True)
-
-    st.divider()
-    st.caption("**Mode guide**")
-    st.caption("**Hybrid** = production mode. Label here.")
-    st.caption("**Vector / BM25** = diagnostic. Use to find failure root cause.")
-    st.caption("**Graph** = Month 2, not yet available.")
 
 
 # -- Helpers -------------------------------------------------------------------
@@ -50,7 +61,7 @@ def _mode_key(mode_label: str) -> str:
     return {"Hybrid (production)": "hybrid", "Vector only": "vector", "BM25 only": "bm25"}.get(mode_label, "hybrid")
 
 
-def _score_class(ce_score: float | None) -> str:
+def _score_class(ce_score):
     if ce_score is None:
         return ""
     if ce_score >= 2.0:
@@ -60,14 +71,11 @@ def _score_class(ce_score: float | None) -> str:
     return "score-low"
 
 
-def _render_card(chunk: dict, position: int, stage: str, query: str,
-                 mode_key: str, persona: str, expert_id: str,
-                 post_rerank_position: int | None = None) -> None:
+def _render_card(chunk, position, stage, query, mode_key, persona, expert_id, post_rerank_position=None):
     ce = chunk.get("ce_score")
     css_class = _score_class(ce)
     ce_label = f"CE: {ce:.2f}" if ce is not None else "no CE score"
     rrf_label = f"RRF: {chunk['rrf_score']:.4f}"
-
     key = f"{chunk['chunk_id']}_{stage}_{position}"
 
     with st.expander(
@@ -80,7 +88,7 @@ def _render_card(chunk: dict, position: int, stage: str, query: str,
             f'<span class="{css_class}">{ce_label}</span>',
             unsafe_allow_html=True,
         )
-        st.text(chunk["text"][:600] + ("..." if len(chunk["text"]) > 600 else ""))
+        st.text(chunk["text"])
 
         col1, col2, col3, col_note = st.columns([1, 1, 1, 3])
         with col1:
@@ -91,7 +99,7 @@ def _render_card(chunk: dict, position: int, stage: str, query: str,
             irrelevant = st.button("IRREL.", key=f"i_{key}")
         with col_note:
             comment = st.text_input("Notes", key=f"c_{key}",
-                                    label_visibility="collapsed", placeholder="Optional notes…")
+                                    label_visibility="collapsed", placeholder="Optional notes...")
 
         label = "BINDING" if binding else ("RELEVANT" if relevant else ("IRRELEVANT" if irrelevant else None))
         if label:
@@ -118,18 +126,19 @@ def _render_card(chunk: dict, position: int, stage: str, query: str,
 
 # -- Search and display --------------------------------------------------------
 
-if search_btn and query_input and mode != "Graph (coming soon)":
-    mode_key = _mode_key(mode)
-    with st.spinner("Searching…"):
-        raw = _audit_retrieval(query_input, mode=mode_key, top_k=top_k)
+if search_btn and query_input:
+    mk = _mode_key(mode)
+    with st.spinner("Searching..."):
+        raw = _audit_retrieval(query_input, mode=mk, top_k=top_k)
     st.session_state["audit_result"] = json.loads(raw)
     st.session_state["audit_query"] = query_input
-    st.session_state["audit_mode"] = mode_key
+    st.session_state["audit_mode"] = mk
     st.session_state["audit_persona"] = persona
     st.session_state["audit_expert"] = expert_id
+    st.session_state["audit_top_k"] = top_k
 
-elif search_btn and mode == "Graph (coming soon)":
-    st.warning("Graph retrieval is not yet available. Select Hybrid, Vector, or BM25.")
+elif search_btn and not query_input:
+    st.warning("Enter a query first.")
 
 if "audit_result" in st.session_state:
     result = st.session_state["audit_result"]
@@ -137,39 +146,44 @@ if "audit_result" in st.session_state:
     mk = st.session_state["audit_mode"]
     p = st.session_state["audit_persona"]
     eid = st.session_state["audit_expert"]
+    saved_top_k = st.session_state.get("audit_top_k", top_k)
 
-    st.subheader(f"Results for: _{q}_")
+    st.divider()
+    st.subheader(f"Results for: {q}")
     col_meta1, col_meta2, col_meta3 = st.columns(3)
     col_meta1.metric("Candidates (pre-rerank)", len(result["candidates"]))
-    col_meta2.metric("Final context (post-rerank)", len(result["reranked"]))
+    col_meta2.metric("Survived reranking", len(result["reranked"]))
     col_meta3.metric("Dropped", len(result["dropped"]))
 
     if result.get("rewritten_query"):
-        st.caption(f"Query rewritten to: _{result['rewritten_query']}_")
+        st.caption(f"Query rewritten to: {result['rewritten_query']}")
 
     post_rerank_map = {c["chunk_id"]: i + 1 for i, c in enumerate(result["reranked"])}
 
-    tab1, tab2 = st.tabs([
-        f"Pre-Rerank — {len(result['candidates'])} candidates",
-        f"Post-Rerank — {len(result['reranked'])} final (top 6)",
+    tab_post, tab_pre = st.tabs([
+        f"Post-Rerank ({len(result['reranked'])} survived)",
+        f"Pre-Rerank ({len(result['candidates'])} candidates)",
     ])
 
-    with tab1:
-        st.caption("All chunks retrieved before reranking. Label here to flag retrieval failures.")
+    with tab_post:
+        st.caption("Chunks after CrossEncoder reranking — exactly what the LLM sees in production.")
+        for i, chunk in enumerate(result["reranked"]):
+            _render_card(chunk, i + 1, "post_rerank", q, mk, p, eid,
+                         post_rerank_position=i + 1)
+
+    with tab_pre:
+        st.caption("All chunks before reranking. Label here to flag retrieval failures.")
         show_all = st.toggle(
             f"Show all {len(result['candidates'])} candidates",
             value=False,
             key="show_all_candidates",
         )
-        visible_candidates = result["candidates"] if show_all else result["candidates"][:top_k]
-        if not show_all and len(result["candidates"]) > top_k:
-            st.caption(f"Showing top {top_k} of {len(result['candidates'])} candidates. Toggle above to show all.")
-        for i, chunk in enumerate(visible_candidates):
+        visible = result["candidates"] if show_all else result["candidates"][:saved_top_k]
+        if not show_all and len(result["candidates"]) > saved_top_k:
+            st.caption(f"Showing top {saved_top_k} of {len(result['candidates'])}. Toggle above to show all.")
+        for i, chunk in enumerate(visible):
             _render_card(chunk, i + 1, "pre_rerank", q, mk, p, eid,
                          post_rerank_position=post_rerank_map.get(chunk["chunk_id"]))
 
-    with tab2:
-        st.caption("Top 6 chunks after CrossEncoder reranking — exactly what the LLM sees in production.")
-        for i, chunk in enumerate(result["reranked"]):
-            _render_card(chunk, i + 1, "post_rerank", q, mk, p, eid,
-                         post_rerank_position=i + 1)
+else:
+    st.info("Enter a query above and click Search to begin.")

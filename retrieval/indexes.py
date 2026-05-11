@@ -1,22 +1,16 @@
-import re
 from supabase import Client, create_client
 from llama_index.core import VectorStoreIndex
 from llama_index.core.retrievers import BaseRetriever
-from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
+from llama_index.core.schema import NodeWithScore, QueryBundle
 
 from retrieval.config import (
     SUPABASE_URL,
     SUPABASE_SERVICE_KEY,
-    ILCS_TABLE,
-    ISCR_TABLE,
     DEFAULT_TOP_K,
 )
 from retrieval.embeddings import get_embedding_model
 from retrieval.vector_store import SupabaseRPCVectorStore
 from retrieval.bm25_store import BM25Retriever
-
-_ILCS_CITATION_RE = re.compile(r'\d+\s+ILCS\s+\d+/[\d\.\-]+')
-_RULE_RE = re.compile(r'\bRule\s+(\d+)\b', re.IGNORECASE)
 
 
 def get_supabase_client() -> Client:
@@ -95,20 +89,17 @@ class MultiCollectionRetriever(BaseRetriever):
     """
     Runs one FusionRetriever (pure vector) per collection plus a single shared BM25 arm.
     Merges all arms via RRF so BM25 counts as one vote regardless of collection count.
-    Citation pinning runs once here instead of redundantly in each sub-retriever.
     """
 
     def __init__(
         self,
         retrievers: list[FusionRetriever],
         bm25: BM25Retriever,
-        client: Client,
         collection_ids: list[str] | None = None,
         weights: dict[str, float] | None = None,
     ):
         self._retrievers = retrievers
         self._bm25 = bm25
-        self._client = client
         self._collection_ids = collection_ids or []
         self._weights = weights or {}
         super().__init__()
@@ -163,97 +154,10 @@ class MultiCollectionRetriever(BaseRetriever):
 
         fused = merge_ranked_lists(all_lists, top_n=60, weights=all_weights)
 
-        # Citation pinning — always on regardless of bm25_enabled
-        combined = query_str + (" " + secondary_query if secondary_query else "")
-        existing_ids = {n.node.node_id for n in fused}
-        pinned: list[NodeWithScore] = []
-
-        ilcs_citations = _ILCS_CITATION_RE.findall(combined)
-        if ilcs_citations:
-            ilcs_pinned = self._fetch_by_citation(ilcs_citations, exclude_ids=existing_ids)
-            if ilcs_pinned:
-                print(f"[Citation] Pinned {len(ilcs_pinned)} ILCS chunk(s) for: {ilcs_citations}")
-            pinned.extend(ilcs_pinned)
-
-        rule_numbers = _RULE_RE.findall(combined)
-        if rule_numbers:
-            rule_pinned = self._fetch_by_rule_number(rule_numbers, exclude_ids=existing_ids)
-            if rule_pinned:
-                print(f"[Citation] Pinned {len(rule_pinned)} ISCR chunk(s) for: Rule {rule_numbers}")
-            pinned.extend(rule_pinned)
-
-        if pinned:
-            fused = pinned + fused
+        from retrieval.postprocessor import dedup_near_duplicates
+        fused = dedup_near_duplicates(fused)
 
         return fused
-
-
-
-    def _fetch_by_citation(
-        self, citations: list[str], exclude_ids: set[str]
-    ) -> list[NodeWithScore]:
-        nodes = []
-        for citation in citations:
-            try:
-                rows = (
-                    self._client.table(ILCS_TABLE)
-                    .select("chunk_id, enriched_text, text, section_citation, major_topic")
-                    .eq("section_citation", citation.strip())
-                    .execute()
-                    .data
-                )
-            except Exception as e:
-                print(f"[Citation] Lookup failed for {citation!r}: {e}")
-                continue
-            for row in rows:
-                if row["chunk_id"] in exclude_ids:
-                    continue
-                node = TextNode(
-                    id_=row["chunk_id"],
-                    text=row.get("enriched_text") or row.get("text", ""),
-                    metadata={
-                        "source": "ilcs",
-                        "section_citation": row.get("section_citation"),
-                        "major_topic": row.get("major_topic"),
-                        "pinned": True,
-                    },
-                )
-                nodes.append(NodeWithScore(node=node, score=1.0))
-                exclude_ids.add(row["chunk_id"])
-        return nodes
-
-    def _fetch_by_rule_number(
-        self, rule_numbers: list[str], exclude_ids: set[str]
-    ) -> list[NodeWithScore]:
-        nodes = []
-        for rule_number in rule_numbers:
-            try:
-                rows = (
-                    self._client.table(ISCR_TABLE)
-                    .select("chunk_id, enriched_text, text, rule_number, rule_title")
-                    .eq("rule_number", rule_number.strip())
-                    .execute()
-                    .data
-                )
-            except Exception as e:
-                print(f"[Citation] Rule lookup failed for Rule {rule_number!r}: {e}")
-                continue
-            for row in rows:
-                if row["chunk_id"] in exclude_ids:
-                    continue
-                node = TextNode(
-                    id_=row["chunk_id"],
-                    text=row.get("enriched_text") or row.get("text", ""),
-                    metadata={
-                        "source": "iscr",
-                        "rule_number": row.get("rule_number"),
-                        "rule_title": row.get("rule_title"),
-                        "pinned": True,
-                    },
-                )
-                nodes.append(NodeWithScore(node=node, score=1.0))
-                exclude_ids.add(row["chunk_id"])
-        return nodes
 
 
 def build_multi_retriever(
@@ -267,7 +171,6 @@ def build_multi_retriever(
     return MultiCollectionRetriever(
         retrievers=list(retrievers.values()),
         bm25=bm25,
-        client=client,
         collection_ids=list(retrievers.keys()),
         weights=weights,
     )

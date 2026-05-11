@@ -1,7 +1,5 @@
 # Usage: 
 # cap bulk court opinions:
-# python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000
-# python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000 --maintenance-work-mem 256MB
 # python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000 --maintenance-work-mem 256MB --parallel-index-workers 6
 # WHEN RE-EMBEDDING USE THIS COMMAND TO RECREATE INDICES:
 # python3 -m embed.batch_embed --source cap_bulk --direct-db --recreate-indexes opinion_chunks --concurrent-index --maintenance-work-mem 2GB --parallel-index-workers 3

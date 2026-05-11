@@ -156,6 +156,17 @@ python3 embed/opinion_embed.py --local-input data_files/chunked_output/cap_opini
 python3 embed/opinion_embed.py --local-input chunked_output/api_opinion_chunks.jsonl
 ```
 
+## Virtual Environment
+
+The project uses a `venv/` at the repo root. **Always install packages into the venv, never into the system Python.**
+
+```bash
+source venv/bin/activate          # activate before running anything
+venv/bin/pip install <package>    # or just `pip install` after activating
+```
+
+All `python3` commands in this file assume the venv is active. If you see `ModuleNotFoundError` for a package that should be installed, the venv is likely not activated or the package was installed to the system Python instead.
+
 ## Dependencies
 
 No `requirements.txt` exists — infer from imports. Key packages:
@@ -167,6 +178,8 @@ No `requirements.txt` exists — infer from imports. Key packages:
 - `sentence-transformers` — CrossEncoder reranking
 - `llama-index` — query engine/retriever framework
 - `ollama` — local LLM/embedding client
+- `mcp[cli]` — MCP server (`mcp_server/`)
+- `streamlit` — Audit Dashboard (`audit_app.py`)
 
 ## Environment Variables (`.env`)
 
@@ -333,6 +346,7 @@ All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16
 - [ ] **Ingest chapter 705** — run `python3 ingest/ilga_ingest.py --chapters 705 --delay 0.75 --local-only` to add the Juvenile Court Act; then re-run `test_5_915_chunk_is_self_contained`.
 - [ ] **Write chunk spot-check script** — query Supabase by `section_citation` / `rule_number`, print chunks in order with text previews; use to diagnose known failures before deciding whether rechunking is required.
 - [ ] **Distinguish chunking vs. retrieval failures** — for each hard eval failure, determine whether the issue is (a) content not in any chunk, (b) content in a chunk but not surfacing in the top-40 candidate pool, or (c) content in the candidate pool but dropped by the reranker. These require different fixes.
+- [ ] **Fix duplicate chunk_ids in `courtlistener_api.py`** — embedding audit (2026-05-11) found 328 duplicate chunk_ids in `courtlistener/bulk/api_opinion_chunks.jsonl` (13,924 lines → 13,596 unique rows in Supabase after upsert deduplication). The chunker in `courtlistener_api.py` is generating non-unique IDs; fix the chunk_id generation logic (likely needs to incorporate opinion_id + chunk_index rather than whatever it uses now) and re-upload to S3. No re-embedding needed after the fix — just rechunk + re-run `batch_embed --source courtlistener` (checkpoint will skip the 13,596 already present if chunk_ids are stable, or use `--recreate` if IDs change).
 
 ### Architecture (planned evolution)
 
@@ -364,7 +378,7 @@ Every chunking script must have a test suite in `tests/` with two layers:
 1. **Unit + corpus tests** — run `chunk_section()` / `chunk_document()` in memory against the raw S3 corpus via a `*_chunks` fixture; cover orphaned subsection starts, contiguous indices, accurate chunk totals, no empty chunks, unique IDs, no oversized chunks, required metadata fields, and any source-specific invariants (normalization, enriched text hierarchy, etc.)
 2. **S3 output verification** — a separate `*_chunks_s3` fixture that reads the actual chunked JSONL from the chunked S3 bucket; must include: record count matches in-memory output, no corrupt/missing keys, no empty text, correct source field. This catches write-path bugs (wrong key, truncation, encoding) that in-memory tests cannot.
 
-Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justice, Cook County PD. Missing: `courtlistener_chunk.py` and `merge_opinion_chunks.py` — these need test suites before the shared Chunk interface migration reaches them.
+Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justice, Cook County PD. Missing: `courtlistener_chunk.py` and `merge_opinion_chunks.py` — these need test suites before the shared Chunk interface migration reaches them. **Known issue:** `courtlistener_api.py` produces 328 duplicate chunk_ids in the current S3 output (confirmed 2026-05-11); the test suite for this script must include a unique-ID assertion.
 
 ## Key Implementation Notes
 

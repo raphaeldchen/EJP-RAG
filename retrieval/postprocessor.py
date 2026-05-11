@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 from sentence_transformers import CrossEncoder
@@ -81,6 +82,37 @@ def reciprocal_rank_fusion(
         for chunk_id, rrf_score in ranked
         if chunk_id in node_map
     ]
+
+
+def dedup_near_duplicates(
+    nodes: list[NodeWithScore],
+    threshold: float = 0.95,
+    compare_chars: int = 500,
+) -> list[NodeWithScore]:
+    """
+    Drop near-duplicate chunks from the fused candidate list.
+
+    Two chunks are considered near-duplicates when the SequenceMatcher ratio
+    of their first `compare_chars` characters meets or exceeds `threshold`.
+    The first occurrence (higher RRF rank) is kept; later duplicates are
+    dropped.  This recovers candidate-pool slots wasted by source documents
+    that republish verbatim sections across editions (e.g. SPAC retrospectives
+    carrying forward the same page of TIS text year over year).
+    """
+    kept: list[NodeWithScore] = []
+    kept_texts: list[str] = []
+
+    for nws in nodes:
+        window = nws.node.get_content()[:compare_chars]
+        is_dup = any(
+            SequenceMatcher(None, window, prior).ratio() >= threshold
+            for prior in kept_texts
+        )
+        if not is_dup:
+            kept.append(nws)
+            kept_texts.append(window)
+
+    return kept
 
 
 class CitationLabelingPostprocessor(BaseNodePostprocessor):
