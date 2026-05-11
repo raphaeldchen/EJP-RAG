@@ -1,6 +1,10 @@
 # Usage: 
 # cap bulk court opinions:
 # python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000
+# python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000 --maintenance-work-mem 256MB
+# python3 -m embed.batch_embed --source cap_bulk --direct-db --manage-indexes --batch-size 1000 --maintenance-work-mem 256MB --parallel-index-workers 6
+# WHEN RE-EMBEDDING USE THIS COMMAND TO RECREATE INDICES:
+# python3 -m embed.batch_embed --source cap_bulk --direct-db --recreate-indexes opinion_chunks --concurrent-index --maintenance-work-mem 2GB --parallel-index-workers 3
 
 import argparse
 import io
@@ -394,6 +398,8 @@ def embed_source(
     max_chunks: int | None = None,
     bulk_loader: "BulkLoader | None" = None,
     manage_indexes: bool = False,
+    maintenance_work_mem: str = "",
+    parallel_index_workers: int = 4,
 ) -> None:
     entry = SOURCE_REGISTRY[source_id]
     table = entry.table
@@ -461,6 +467,7 @@ def embed_source(
                 count = bulk_loader.bulk_upsert(batch, table)
                 failed += len(batch) - count
                 processed.update(p["chunk_id"] for p in batch)
+
             else:
                 flushed = flush_batch(supabase, batch, table)
                 failed += len(batch) - len(flushed)
@@ -481,7 +488,11 @@ def embed_source(
             failed += len(batch) - len(flushed)
 
     if dropped_indexes and bulk_loader is not None:
-        bulk_loader.recreate_embedding_indexes(dropped_indexes)
+        bulk_loader.recreate_embedding_indexes(
+            dropped_indexes,
+            maintenance_work_mem=maintenance_work_mem,
+            max_parallel_workers=parallel_index_workers,
+        )
 
     log.info(
         "[%s] Done. embedded=%d  skipped=%d  filtered=%d  failed=%d  → %s",
@@ -590,6 +601,29 @@ def main() -> None:
             "Examples: 256MB, 512MB, 1GB."
         ),
     )
+    parser.add_argument(
+        "--parallel-index-workers",
+        type=int,
+        default=4,
+        metavar="N",
+        help=(
+            "max_parallel_maintenance_workers for HNSW index builds (default: 4). "
+            "Only valid with --direct-db. Higher values can reduce rebuild time on "
+            "compute tiers with spare CPUs; pgvector 0.6+ required."
+        ),
+    )
+    parser.add_argument(
+        "--concurrent-index",
+        action="store_true",
+        default=False,
+        help=(
+            "Use CREATE INDEX CONCURRENTLY instead of the default non-concurrent build. "
+            "Runs outside a transaction so long builds cannot be rolled back by Supabase's "
+            "connection timeout. Slower than non-concurrent but safe for fully-embedded tables. "
+            "If interrupted, leaves an INVALID index that is automatically detected and "
+            "dropped on the next run. Only valid with --direct-db."
+        ),
+    )
     args = parser.parse_args()
 
     if args.local_input and len(args.source) > 1:
@@ -608,42 +642,37 @@ def main() -> None:
 
     bulk_loader = None
     if args.direct_db:
-        from embed.supabase_bulk_loader import BulkLoader, _INDEX_BACKUP_PATH, _VECTOR_INDEX_QUERY
+        from embed.supabase_bulk_loader import BulkLoader, _INDEX_BACKUP_PATH
         db_url = _require_env("SUPABASE_DB_URL")
         bulk_loader = BulkLoader(db_url)
         bulk_loader.connect()
 
-    # Standalone index recovery mode — skip embedding
+    # Standalone index rebuild mode — skip embedding.
+    # Works on fully-embedded tables; falls back to a generated definition if
+    # the backup file is empty or missing.
     if args.recreate_indexes:
-        import json as _json
-
-        if _INDEX_BACKUP_PATH.exists():
-            index_defs = _json.loads(_INDEX_BACKUP_PATH.read_text())
-            log.info("Using index definitions from %s (%d indexes).", _INDEX_BACKUP_PATH, len(index_defs))
-        else:
-            log.warning("%s not found — querying pg_indexes for existing vector indexes on %s.",
-                        _INDEX_BACKUP_PATH, args.recreate_indexes)
-            with bulk_loader.conn.cursor() as cur:
-                cur.execute(_VECTOR_INDEX_QUERY, (args.recreate_indexes,))
-                existing = cur.fetchall()
-            if existing:
-                log.info("Vector indexes already present on %s — no action needed.", args.recreate_indexes)
-                bulk_loader.close()
-                return
-            log.error(
-                "Vector indexes are missing on %s and no backup file exists. "
-                "Re-create them manually via the Supabase SQL editor:\n"
-                "  CREATE INDEX CONCURRENTLY IF NOT EXISTS %s_embedding_idx\n"
-                "    ON %s USING hnsw (embedding vector_cosine_ops)\n"
-                "    WITH (m = 16, ef_construction = 64);",
-                args.recreate_indexes, args.recreate_indexes, args.recreate_indexes,
-            )
+        index_defs = bulk_loader.get_or_generate_index_defs(
+            args.recreate_indexes, _INDEX_BACKUP_PATH
+        )
+        if not index_defs:
+            log.info("All vector indexes already exist on %s — nothing to do.", args.recreate_indexes)
             bulk_loader.close()
-            raise SystemExit(1)
+            return
 
-        log.info("Recreating %d index(es) on %s…", len(index_defs), args.recreate_indexes)
+        log.info("Rebuilding %d index(es) on %s…", len(index_defs), args.recreate_indexes)
         try:
-            bulk_loader.recreate_embedding_indexes(index_defs, maintenance_work_mem=args.maintenance_work_mem)
+            if args.concurrent_index:
+                bulk_loader.recreate_embedding_indexes_concurrently(
+                    index_defs,
+                    maintenance_work_mem=args.maintenance_work_mem,
+                    max_parallel_workers=args.parallel_index_workers,
+                )
+            else:
+                bulk_loader.recreate_embedding_indexes(
+                    index_defs,
+                    maintenance_work_mem=args.maintenance_work_mem,
+                    max_parallel_workers=args.parallel_index_workers,
+                )
         finally:
             bulk_loader.close()
         return
@@ -666,7 +695,11 @@ def main() -> None:
                     "rebuilding before embedding begins.",
                     len(missing),
                 )
-                bulk_loader.recreate_embedding_indexes(missing, maintenance_work_mem=args.maintenance_work_mem)
+                bulk_loader.recreate_embedding_indexes(
+                    missing,
+                    maintenance_work_mem=args.maintenance_work_mem,
+                    max_parallel_workers=args.parallel_index_workers,
+                )
 
     try:
         log.info("Embedding %d source(s): %s", len(args.source), ", ".join(args.source))
@@ -680,6 +713,8 @@ def main() -> None:
                 max_chunks=args.max_chunks,
                 bulk_loader=bulk_loader,
                 manage_indexes=args.manage_indexes,
+                maintenance_work_mem=args.maintenance_work_mem,
+                parallel_index_workers=args.parallel_index_workers,
             )
     finally:
         if bulk_loader is not None:
