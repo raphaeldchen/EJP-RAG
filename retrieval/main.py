@@ -48,15 +48,13 @@ def query(engine, dual_retriever, question: str, use_local: bool = False) -> str
 
     # Multi-query: primary = original (better semantic embedding with nomic-embed-text),
     # secondary = rewritten (adds citation keyword signals for BM25 + citation pinning).
-    # DualFusionRetriever propagates _secondary_query to both ILCS and ISCR sub-retrievers.
+    secondary = None
     if result.rewritten_query:
         print(f"[Reflection] rewritten → '{result.rewritten_query}'")
-        dual_retriever._secondary_query = result.rewritten_query
+        secondary = result.rewritten_query
 
-    try:
-        response = engine.query(question)
-    finally:
-        dual_retriever._secondary_query = None
+    nodes = dual_retriever.retrieve(question, secondary_query=secondary)
+    response = engine.synthesize(question, nodes)
 
     answer = str(response)
     # Only surface citations the LLM actually used in the answer

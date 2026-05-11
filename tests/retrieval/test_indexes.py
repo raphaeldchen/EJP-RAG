@@ -1,17 +1,16 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 import pytest
 from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
 
 
 def _make_mock_retriever(chunk_id: str, capture_list: list | None = None):
-    """Mock FusionRetriever returning one node. Optionally captures _secondary_query at call time."""
+    """Mock FusionRetriever returning one node. Optionally captures secondary_query at call time."""
     r = MagicMock()
     node = TextNode(id_=chunk_id, text=f"content for {chunk_id}")
-    r._secondary_query = None
 
-    def _retrieve(bundle):
+    def _retrieve(bundle, secondary_query=None):
         if capture_list is not None:
-            capture_list.append(r._secondary_query)
+            capture_list.append(secondary_query)
         return [NodeWithScore(node=node, score=0.5)]
 
     r._retrieve = _retrieve
@@ -40,36 +39,50 @@ def test_secondary_query_propagated_to_all_retrievers():
     captured = []
     retrievers = [_make_mock_retriever(f"chunk_{i}", capture_list=captured) for i in range(3)]
     multi = MultiCollectionRetriever(retrievers=retrievers, bm25=_make_mock_bm25(), client=MagicMock())
-    multi._secondary_query = "rewritten query"
 
-    multi._retrieve(QueryBundle(query_str="original"))
+    multi._retrieve(QueryBundle(query_str="original"), secondary_query="rewritten query")
 
     assert all(q == "rewritten query" for q in captured)
 
 
-def test_secondary_query_cleared_after_retrieve():
+def test_retrieve_override_passes_secondary_query():
     from retrieval.indexes import MultiCollectionRetriever
-    r = _make_mock_retriever("chunk_0")
-    multi = MultiCollectionRetriever(retrievers=[r], bm25=_make_mock_bm25(), client=MagicMock())
-    multi._secondary_query = "rewritten query"
-    multi._retrieve(QueryBundle(query_str="original"))
+    captured = []
+    retrievers = [_make_mock_retriever("chunk_0", capture_list=captured)]
+    multi = MultiCollectionRetriever(retrievers=retrievers, bm25=_make_mock_bm25(), client=MagicMock())
 
-    assert r._secondary_query is None
+    multi.retrieve("original query", secondary_query="rewritten query")
+
+    assert captured == ["rewritten query"]
 
 
-def test_secondary_query_cleared_on_exception():
+def test_bm25_disabled_skips_bm25_arm():
+    from retrieval.indexes import MultiCollectionRetriever
+    bm25 = _make_mock_bm25()
+    multi = MultiCollectionRetriever(
+        retrievers=[_make_mock_retriever("chunk_0")],
+        bm25=bm25,
+        client=MagicMock(),
+    )
+
+    multi._retrieve(QueryBundle(query_str="test"), bm25_enabled=False)
+
+    bm25.retrieve.assert_not_called()
+
+
+def test_secondary_query_propagates_on_exception():
     from retrieval.indexes import MultiCollectionRetriever
     r = MagicMock()
-    r._secondary_query = None
     r._retrieve = MagicMock(side_effect=RuntimeError("simulated error"))
 
     multi = MultiCollectionRetriever(retrievers=[r], bm25=_make_mock_bm25(), client=MagicMock())
-    multi._secondary_query = "rewritten query"
 
     with pytest.raises(RuntimeError):
-        multi._retrieve(QueryBundle(query_str="original"))
+        multi._retrieve(QueryBundle(query_str="original"), secondary_query="rewritten query")
 
-    assert r._secondary_query is None
+    r._retrieve.assert_called_once_with(
+        QueryBundle(query_str="original"), secondary_query="rewritten query"
+    )
 
 
 def test_build_all_retrievers_creates_one_per_collection():

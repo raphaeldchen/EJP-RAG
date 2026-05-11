@@ -25,9 +25,8 @@ def get_supabase_client() -> Client:
 
 class FusionRetriever(BaseRetriever):
     """
-    Pure vector retriever for a single collection. Supports multi-query fusion
-    via _secondary_query (set by MultiCollectionRetriever before calling retrieve).
-    BM25 and citation pinning are handled at the MultiCollectionRetriever level.
+    Pure vector retriever for a single collection. BM25 and citation pinning are
+    handled at the MultiCollectionRetriever level.
     """
     def __init__(
         self,
@@ -36,15 +35,18 @@ class FusionRetriever(BaseRetriever):
     ):
         self._vector_retriever = vector_index.as_retriever(similarity_top_k=top_k)
         self._top_k = top_k
-        self._secondary_query: str | None = None
         super().__init__()
 
-    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
+    def _retrieve(
+        self,
+        query_bundle: QueryBundle,
+        secondary_query: str | None = None,
+    ) -> list[NodeWithScore]:
         primary = self._vector_retriever.retrieve(query_bundle)
 
-        if self._secondary_query:
+        if secondary_query:
             from retrieval.postprocessor import merge_ranked_lists
-            sec_bundle = QueryBundle(query_str=self._secondary_query)
+            sec_bundle = QueryBundle(query_str=secondary_query)
             secondary = self._vector_retriever.retrieve(sec_bundle)
             return merge_ranked_lists([primary, secondary], top_n=40, weights=[1.0, 0.5])
 
@@ -94,9 +96,6 @@ class MultiCollectionRetriever(BaseRetriever):
     Runs one FusionRetriever (pure vector) per collection plus a single shared BM25 arm.
     Merges all arms via RRF so BM25 counts as one vote regardless of collection count.
     Citation pinning runs once here instead of redundantly in each sub-retriever.
-
-    Set _secondary_query before calling retrieve() to enable multi-query mode;
-    it is propagated to sub-retrievers and a second BM25 arm is added at half weight.
     """
 
     def __init__(
@@ -112,21 +111,31 @@ class MultiCollectionRetriever(BaseRetriever):
         self._client = client
         self._collection_ids = collection_ids or []
         self._weights = weights or {}
-        self._secondary_query: str | None = None
         super().__init__()
 
-    def _retrieve(self, query_bundle: QueryBundle) -> list[NodeWithScore]:
+    def retrieve(
+        self,
+        str_or_query_bundle,
+        secondary_query: str | None = None,
+        bm25_enabled: bool = True,
+    ) -> list[NodeWithScore]:
+        from llama_index.core.schema import QueryBundle as QB
+        if isinstance(str_or_query_bundle, str):
+            query_bundle = QB(query_str=str_or_query_bundle)
+        else:
+            query_bundle = str_or_query_bundle
+        return self._retrieve(query_bundle, secondary_query=secondary_query, bm25_enabled=bm25_enabled)
+
+    def _retrieve(
+        self,
+        query_bundle: QueryBundle,
+        secondary_query: str | None = None,
+        bm25_enabled: bool = True,
+    ) -> list[NodeWithScore]:
         from retrieval.postprocessor import merge_ranked_lists
 
         query_str = query_bundle.query_str
-
-        for r in self._retrievers:
-            r._secondary_query = self._secondary_query
-        try:
-            results = [r._retrieve(query_bundle) for r in self._retrievers]
-        finally:
-            for r in self._retrievers:
-                r._secondary_query = None
+        results = [r._retrieve(query_bundle, secondary_query=secondary_query) for r in self._retrievers]
 
         per_list_weights = (
             [self._weights.get(cid, 1.0) for cid in self._collection_ids]
@@ -134,25 +143,28 @@ class MultiCollectionRetriever(BaseRetriever):
             else [1.0] * len(results)
         )
 
-        # Single BM25 arm — one vote regardless of how many collections are searched
-        bm25_weight = self._weights.get("bm25", 1.2)
-        bm25_nodes = self._bm25.retrieve(query_str, top_k=DEFAULT_TOP_K)
-        bm25_list = [NodeWithScore(node=n, score=0.0) for n in bm25_nodes]
+        all_lists = results
+        all_weights = per_list_weights
 
-        all_lists = results + [bm25_list]
-        all_weights = per_list_weights + [bm25_weight]
+        if bm25_enabled:
+            # Single BM25 arm — one vote regardless of how many collections are searched
+            bm25_weight = self._weights.get("bm25", 1.2)
+            bm25_nodes = self._bm25.retrieve(query_str, top_k=DEFAULT_TOP_K)
+            bm25_list = [NodeWithScore(node=n, score=0.0) for n in bm25_nodes]
+            all_lists = results + [bm25_list]
+            all_weights = per_list_weights + [bm25_weight]
 
-        # Secondary BM25 arm at half weight (matches secondary vector fusion weight)
-        if self._secondary_query:
-            sec_bm25_nodes = self._bm25.retrieve(self._secondary_query, top_k=DEFAULT_TOP_K)
-            sec_bm25_list = [NodeWithScore(node=n, score=0.0) for n in sec_bm25_nodes]
-            all_lists.append(sec_bm25_list)
-            all_weights.append(bm25_weight * 0.5)
+            # Secondary BM25 arm at half weight (matches secondary vector fusion weight)
+            if secondary_query:
+                sec_bm25_nodes = self._bm25.retrieve(secondary_query, top_k=DEFAULT_TOP_K)
+                sec_bm25_list = [NodeWithScore(node=n, score=0.0) for n in sec_bm25_nodes]
+                all_lists.append(sec_bm25_list)
+                all_weights.append(bm25_weight * 0.5)
 
         fused = merge_ranked_lists(all_lists, top_n=60, weights=all_weights)
 
-        # Citation pinning — runs once instead of once per sub-retriever
-        combined = query_str + (" " + self._secondary_query if self._secondary_query else "")
+        # Citation pinning — always on regardless of bm25_enabled
+        combined = query_str + (" " + secondary_query if secondary_query else "")
         existing_ids = {n.node.node_id for n in fused}
         pinned: list[NodeWithScore] = []
 
@@ -174,6 +186,8 @@ class MultiCollectionRetriever(BaseRetriever):
             fused = pinned + fused
 
         return fused
+
+
 
     def _fetch_by_citation(
         self, citations: list[str], exclude_ids: set[str]
