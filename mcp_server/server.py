@@ -27,6 +27,20 @@ mcp = FastMCP("Illinois Legal RAG")
 _ILCS_RE = _re.compile(r'\d+\s+ILCS\s+\d+/[\d\.\-]+')
 _RULE_RE = _re.compile(r'^Rule\s+(\d+)', _re.IGNORECASE)
 
+_SOURCE_TO_COLLECTION: dict[str, str] = {
+    "ilcs":                        "ilcs",
+    "illinois_supreme_court_rules": "iscr",
+    "cap_bulk":                    "opinions",
+    "courtlistener":               "opinions",
+    "idoc":                        "regulations",
+    "iac":                         "regulations",
+    "spac":                        "documents",
+    "iccb":                        "documents",
+    "federal":                     "documents",
+    "restorejustice":              "documents",
+    "cookcounty_pd":               "documents",
+}
+
 
 # -- Singleton state -----------------------------------------------------------
 
@@ -71,6 +85,16 @@ def _get_state() -> _State:
 
 # -- Shared helpers ------------------------------------------------------------
 
+def _infer_source(meta: dict) -> str:
+    s = (meta.get("source") or "").strip()
+    if s:
+        return s
+    # ISCR vector RPC omits source — infer from schema-unique fields
+    if "hierarchical_path" in meta or "rule_title" in meta:
+        return "illinois_supreme_court_rules"
+    return "unknown"
+
+
 def _extract_citation(meta: dict) -> str:
     dc = (meta.get("display_citation") or "").strip()
     if dc:
@@ -85,7 +109,7 @@ def _extract_citation(meta: dict) -> str:
         if title.startswith(prefix):
             title = title[len(prefix):].lstrip(" .--").strip()
         return prefix + (f" -- {title}" if title else "")
-    return meta.get("source", "unknown")
+    return _infer_source(meta)
 
 
 def _node_to_chunk(node_with_score) -> ChunkResult:
@@ -95,7 +119,7 @@ def _node_to_chunk(node_with_score) -> ChunkResult:
         chunk_id=node.node_id,
         text=node.get_content()[:2000],
         citation=_extract_citation(meta),
-        source=meta.get("source", "unknown"),
+        source=_infer_source(meta),
         rrf_score=float(node_with_score.score or 0.0),
         metadata={k: v for k, v in meta.items() if k != "embedding"},
     )
@@ -241,9 +265,10 @@ def lookup_citation(citation: str) -> str:
 
 
 def _audit_retrieval(query: str, mode: str = "hybrid", top_k: int = 20) -> str:
+    # Raw query only — no rewriting, no citation pinning.
+    # Audit labels must reflect retrieval quality on natural-language input.
     state = _get_state()
-    reflection = reflect(query)
-    candidates = _retrieve_by_mode(state, query, reflection.rewritten_query, mode=mode)
+    candidates = _retrieve_by_mode(state, query, secondary_query=None, mode=mode)
 
     ce_model = state.reranker._get_model()
     pairs = [(query, n.node.get_content()) for n in candidates]
@@ -265,7 +290,7 @@ def _audit_retrieval(query: str, mode: str = "hybrid", top_k: int = 20) -> str:
             chunk_id=node_with_score.node.node_id,
             text=node_with_score.node.get_content()[:1500],
             citation=_extract_citation(meta),
-            source=meta.get("source", "unknown"),
+            source=_infer_source(meta),
             rrf_score=float(node_with_score.score or 0.0),
             ce_score=float(ce_score),
             survived=node_with_score.node.node_id in survived_ids,
@@ -279,8 +304,8 @@ def _audit_retrieval(query: str, mode: str = "hybrid", top_k: int = 20) -> str:
 
     return AuditResponse(
         query=query,
-        rewritten_query=reflection.rewritten_query,
-        intent=reflection.intent.value,
+        rewritten_query=None,
+        intent="in_scope",
         retrieval_mode=mode,
         candidates=audit_candidates,
         reranked=reranked,
@@ -312,12 +337,15 @@ def submit_feedback(
     """Write one lawyer rating to audit_feedback. Called by audit_app.py."""
     state = _get_state()
     query_id = _hashlib.sha256(query.encode()).hexdigest()[:16]
-    state.client.table("audit_feedback").insert({
+    collection_id = _SOURCE_TO_COLLECTION.get(source, "unknown")
+    expert_id = expert_id or "anonymous"
+    state.client.table("audit_feedback").upsert({
         "query_text": query,
         "query_id": query_id,
         "chunk_id": chunk_id,
         "citation": citation,
         "source": source,
+        "collection_id": collection_id,
         "retrieval_mode": retrieval_mode,
         "persona": persona,
         "pre_rerank_rank": pre_rerank_rank,
@@ -326,8 +354,8 @@ def submit_feedback(
         "ce_score": ce_score,
         "label": label,
         "comment": comment or None,
-        "expert_id": expert_id or None,
-    }).execute()
+        "expert_id": expert_id,
+    }, on_conflict="query_id,chunk_id,expert_id").execute()
 
 
 if __name__ == "__main__":
