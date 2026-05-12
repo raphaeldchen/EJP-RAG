@@ -300,7 +300,6 @@ def submit_feedback(
     citation: str,
     source: str,
     retrieval_mode: str,
-    persona: str,
     pre_rerank_rank: int,
     post_rerank_rank: int | None,
     rrf_score: float,
@@ -308,6 +307,7 @@ def submit_feedback(
     label: str,
     comment: str = "",
     expert_id: str = "",
+    persona: str = "",
 ) -> None:
     """Write one lawyer rating to audit_feedback. Called by audit_app.py."""
     state = _get_state()

@@ -36,7 +36,7 @@ query_input = st.text_area(
 
 # -- Settings row under search bar ---------------------------------------------
 
-s1, s2, s3, s4, s5 = st.columns([2, 2, 2, 2, 1])
+s1, s2, s3, s4 = st.columns([2, 2, 2, 1])
 
 with s1:
     mode = st.selectbox(
@@ -45,12 +45,10 @@ with s1:
         help="Hybrid = production. Vector/BM25 = diagnostic modes.",
     )
 with s2:
-    persona = st.selectbox("Persona", ["Researcher", "Practitioner", "Incarcerated Person"])
-with s3:
     top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
-with s4:
+with s3:
     expert_id = st.text_input("Your name / email", placeholder="Optional — for attribution")
-with s5:
+with s4:
     st.write("")
     search_btn = st.button("Search", type="primary", use_container_width=True)
 
@@ -71,7 +69,7 @@ def _score_class(ce_score):
     return "score-low"
 
 
-def _render_card(chunk, position, stage, query, mode_key, persona, expert_id, post_rerank_position=None):
+def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank_position=None):
     ce = chunk.get("ce_score")
     css_class = _score_class(ce)
     ce_label = f"CE: {ce:.2f}" if ce is not None else "no CE score"
@@ -110,7 +108,6 @@ def _render_card(chunk, position, stage, query, mode_key, persona, expert_id, po
                     citation=chunk["citation"],
                     source=chunk["source"],
                     retrieval_mode=mode_key,
-                    persona=persona.lower().replace(" ", "_"),
                     pre_rerank_rank=position if stage == "pre_rerank" else 0,
                     post_rerank_rank=post_rerank_position,
                     rrf_score=chunk["rrf_score"],
@@ -133,7 +130,6 @@ if search_btn and query_input:
     st.session_state["audit_result"] = json.loads(raw)
     st.session_state["audit_query"] = query_input
     st.session_state["audit_mode"] = mk
-    st.session_state["audit_persona"] = persona
     st.session_state["audit_expert"] = expert_id
     st.session_state["audit_top_k"] = top_k
 
@@ -144,7 +140,6 @@ if "audit_result" in st.session_state:
     result = st.session_state["audit_result"]
     q = st.session_state["audit_query"]
     mk = st.session_state["audit_mode"]
-    p = st.session_state["audit_persona"]
     eid = st.session_state["audit_expert"]
     saved_top_k = st.session_state.get("audit_top_k", top_k)
 
@@ -168,7 +163,7 @@ if "audit_result" in st.session_state:
     with tab_post:
         st.caption("Chunks after CrossEncoder reranking — exactly what the LLM sees in production.")
         for i, chunk in enumerate(result["reranked"]):
-            _render_card(chunk, i + 1, "post_rerank", q, mk, p, eid,
+            _render_card(chunk, i + 1, "post_rerank", q, mk, eid,
                          post_rerank_position=i + 1)
 
     with tab_pre:
@@ -182,7 +177,7 @@ if "audit_result" in st.session_state:
         if not show_all and len(result["candidates"]) > saved_top_k:
             st.caption(f"Showing top {saved_top_k} of {len(result['candidates'])}. Toggle above to show all.")
         for i, chunk in enumerate(visible):
-            _render_card(chunk, i + 1, "pre_rerank", q, mk, p, eid,
+            _render_card(chunk, i + 1, "pre_rerank", q, mk, eid,
                          post_rerank_position=post_rerank_map.get(chunk["chunk_id"]))
 
 else:

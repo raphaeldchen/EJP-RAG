@@ -24,11 +24,13 @@ Illinois criminal justice RAG system focused on higher education in prison and r
 | Restore Justice | `restorejustice_ingest.py` | `data_files/corpus/restorejustice_corpus.jsonl` | Advocacy org resources (HTML + PDFs) |
 | Cook County PD | `cookcounty_pd_ingest.py` | `data_files/corpus/cookcounty_pd_corpus.jsonl` | Public Defender resources |
 
-## Week of 2026-05-02 — Current Focus
+## Summer 2026 Focus
 
-**Done:** All chunking scripts have run; S3 chunked bucket is up to date (including 1.2M CAP opinion chunks).
-1. **Embedding** — embed all chunked sources into Supabase (ILCS + ISCR already done; CAP, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD pending)
+**Lawyer collaboration begins summer 2026.** The primary focus is retrieval quality — lawyers will use the audit dashboard (`audit_app.py`) to label chunks as BINDING / RELEVANT / IRRELEVANT, generating ground-truth feedback that will drive embedding fine-tuning and reranker training. No persona-specific features until retrieval quality is validated.
+
+1. **Embedding** — all sources now embedded in Supabase (ILCS, ISCR, CAP, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD)
 2. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
+3. **Retrieval quality labeling** — lawyers label pre-rerank and post-rerank candidates in the audit dashboard; feedback stored in `audit_feedback` Supabase table for analysis
 
 ## Planned Architecture Evolution
 
@@ -297,7 +299,7 @@ Leverage ranking for this corpus (highest to lowest):
 ### High priority (largest accuracy impact)
 
 - [x] **Write CAP bulk chunker** — `cap_chunk.py` done; original output was 1,211,329 chunks from 151,228 opinions. S3 file has since been filtered to 337,505 criminal-relevant chunks (1973–2011, 1.82 GB) via two passes: date cutoff (`≥ 1973`) then `_is_cap_criminal` (People/In re case name or 705/720/725/730 ILCS citation). Location: `s3://illinois-legal-corpus-chunked/cap/cap_opinion_chunks.jsonl`.
-- [ ] **Embed court opinions** — currently only ILCS + ISCR are in the retrieval path. Adding case law (CAP + CourtListener 7th Circuit) is required for questions about judicial interpretation, constitutional challenges, and sentencing precedent. CAP will add ~3.6–4.6 GB to Supabase (embeddings ~1 GB, text columns ~1.5 GB, vector index ~1–2 GB).
+- [x] **Embed court opinions** — CAP + CourtListener 7th Circuit are in the retrieval path. All sources embedded as of 2026-05-11.
 - [ ] **Fine-tune embedding model** — `nomic-embed-text` is the best out-of-the-box model tested so far and remains the production baseline. Alternatives tested and ruled out: `BAAI/bge-base-en-v1.5` (nDCG@6 0.317, -0.28 vs nomic), `mxbai-embed-large` (nDCG@6 0.389, -0.21 vs nomic). Neither closed the gap without fine-tuning. Next step: fine-tune `nomic-embed-text` or `BAAI/bge-large-en-v1.5` on lawyer-verified (query, relevant chunk) pairs using contrastive/bi-encoder loss (MultipleNegativesRankingLoss in sentence-transformers). Hard negatives already available from eval failures. **Highest single-leverage change. Planned after lawyer refinement sessions.** Expect +5–8 nDCG points.
 
   **Remaining candidate to evaluate before committing to fine-tuning:**
@@ -312,6 +314,7 @@ Leverage ranking for this corpus (highest to lowest):
   **Fine-tuning does not transfer between models** — weights are architecture-specific. Training data (query/chunk pairs) is reusable across any model.
 - [ ] **Fine-tune reranker on Illinois legal query pairs** — `cross-encoder/ms-marco-electra-base` tested and significantly worse (nDCG@6 0.484 vs 0.579); reverted. The right path is fine-tuning MiniLM (`ms-marco-MiniLM-L-6-v2`) on domain-specific triplets: (query, correct chunk, hard-negative near-miss chunk). Hard negatives already available from eval failures. Needs lawyer-verified positives as ground truth — 100–200 pairs sufficient. **Planned with lawyer collaboration.**
 - [ ] **Expand reranker candidate window** — increase `top_n` from 6 to 10 in `CrossEncoderReranker`. Improves Recall@6 on hard multi-statute queries by giving more candidates a chance to survive reranking.
+- [ ] **Investigate contextual retrieval across all sources** — prepend a brief document-level summary to each chunk's `enriched_text` to give the embedding and reranker richer context. A mid-document paragraph currently has no signal about what the parent document concluded. Two implementation tiers: (1) **rule-based prefix** using existing structured metadata — free, zero hallucination risk, gets opinion type (majority/dissent/concurrence) and citation string from CAP JSON; (2) **LLM-generated summary per document** — one LLM call per case/report (not per chunk), stored in metadata and prepended at embed time. For court opinions the key question is: what was the charge and what did the court hold? For SPAC/policy docs: what policy question does this report address? **Caution:** LLM-generated holding summaries can hallucinate — validate accuracy on 20–30 samples before embedding at scale. **Timing:** best done before any re-embedding run so the improvement is baked in from the start. Start with rule-based (tier 1); assess whether lawyers flag missing holding info during audit sessions before committing to LLM summarization (tier 2).
 
 ### Chunking (needs evaluation)
 
@@ -347,12 +350,15 @@ All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16
 - [ ] **Write chunk spot-check script** — query Supabase by `section_citation` / `rule_number`, print chunks in order with text previews; use to diagnose known failures before deciding whether rechunking is required.
 - [ ] **Distinguish chunking vs. retrieval failures** — for each hard eval failure, determine whether the issue is (a) content not in any chunk, (b) content in a chunk but not surfacing in the top-40 candidate pool, or (c) content in the candidate pool but dropped by the reranker. These require different fixes.
 - [ ] **Fix duplicate chunk_ids in `courtlistener_api.py`** — embedding audit (2026-05-11) found 328 duplicate chunk_ids in `courtlistener/bulk/api_opinion_chunks.jsonl` (13,924 lines → 13,596 unique rows in Supabase after upsert deduplication). The chunker in `courtlistener_api.py` is generating non-unique IDs; fix the chunk_id generation logic (likely needs to incorporate opinion_id + chunk_index rather than whatever it uses now) and re-upload to S3. No re-embedding needed after the fix — just rechunk + re-run `batch_embed --source courtlistener` (checkpoint will skip the 13,596 already present if chunk_ids are stable, or use `--recreate` if IDs change).
+- [ ] **Fix SPAC enriched_text header when `category` is empty** (`chunk/spac_chunk.py:269`) — `_make_enriched` uses `rec.get('category', '')` verbatim, so records with no category produce headers like `SPAC  (2012): A Retrospective` (with a blank where the category goes). Fix: skip the category token when empty so the header becomes `SPAC (2012): A Retrospective`. Separately, PDF OCR artifacts like `M A R C H  2 0 1 2` can bleed into section headings — audit how often this occurs before rechunking. **Must fix before lawyer deployment** (lawyers see this text verbatim in the audit dashboard).
+- [ ] **Audit OCR noise in PDF-sourced chunks** (SPAC, ICCB, Federal, Restore Justice, IDOC) — spaced-out characters from PDF extraction (e.g. `M A R C H  2 0 1 2`) appear in chunk headers and body text. Determine frequency and severity before deciding whether to add a post-extraction normalization pass in the ingest scripts. **Must assess before lawyer deployment.**
 
 ### Architecture (planned evolution)
 
 - [ ] **Graph DB layer (Neo4j or similar)** — capture statute→case law→rule relationships to support multi-hop retrieval (e.g. "cases that interpreted 720 ILCS 5/7-1"). See Planned Architecture Evolution for source placement decisions and retrieval integration design.
 - [ ] **Query decomposition** — for hard multi-statute queries, decompose into sub-queries, retrieve separately, merge results. Would directly address low Recall@6 on hard cases.
 - [ ] **Differential collection weighting in RRF** — `MultiCollectionRetriever` currently merges all 5 collections with equal RRF weights. Future exploration: weight authoritative sources (statutes, rules, opinions, regulations) higher than advisory documents (SPAC, ICCB, Restore Justice, Cook County PD) to bias the candidate pool before reranking. Run eval with and without to measure impact — the CrossEncoder may already compensate sufficiently.
+- [ ] **Persona-specific retrieval strategies** — deferred until after summer 2026 lawyer collaboration. Future work: different retrieval weights, query rewriting styles, or reranker thresholds per audience (researcher / practitioner / incarcerated person). The `audit_feedback` table has a `persona` column reserved for this. Collect retrieval-quality signal first; don't add persona complexity until the baseline retrieval is validated.
 
 ### Architecture (code quality — deferred)
 
@@ -392,7 +398,7 @@ Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justi
 - `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
 - BM25 index is rebuilt in-memory on every `retrieval/main.py` startup (loads all chunks from Supabase)
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
-- Court opinions (CAP + CourtListener) are not yet embedded into Supabase — chunking is complete; `opinion_embed.py` is the next step
+- All sources (ILCS, ISCR, CAP, CourtListener, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD) are embedded in Supabase as of 2026-05-11
 
 ## Agent skills
 
