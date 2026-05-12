@@ -338,7 +338,7 @@ def submit_feedback(
     state = _get_state()
     query_id = _hashlib.sha256(query.encode()).hexdigest()[:16]
     collection_id = _SOURCE_TO_COLLECTION.get(source, "unknown")
-    expert_id = expert_id or "anonymous"
+    expert_id = (expert_id or "").strip() or "anonymous"
     state.client.table("audit_feedback").upsert({
         "query_text": query,
         "query_id": query_id,

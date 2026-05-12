@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS audit_feedback (
     chunk_id        text NOT NULL,
     citation        text,
     source          text,              -- "ilcs" | "iscr" | "opinions" | "regulations" | "documents"
+    collection_id   text,              -- "ilcs" | "iscr" | "opinions" | "regulations" | "documents"
     retrieval_mode  text NOT NULL,     -- "hybrid" | "vector" | "bm25"
     persona         text,              -- "researcher" | "practitioner" | "incarcerated"
     pre_rerank_rank integer,           -- position in raw candidates list (1-indexed)
@@ -15,9 +16,11 @@ CREATE TABLE IF NOT EXISTS audit_feedback (
     label           text NOT NULL      -- "BINDING" | "RELEVANT" | "IRRELEVANT"
                     CHECK (label IN ('BINDING', 'RELEVANT', 'IRRELEVANT')),
     comment         text,
-    expert_id       text               -- who submitted (email or name, optional)
+    expert_id       text,              -- who submitted (email or name, optional)
+    CONSTRAINT audit_feedback_unique UNIQUE (query_id, chunk_id, expert_id)
 );
 
 CREATE INDEX IF NOT EXISTS audit_feedback_query_id_idx ON audit_feedback (query_id);
 CREATE INDEX IF NOT EXISTS audit_feedback_label_idx ON audit_feedback (label);
 CREATE INDEX IF NOT EXISTS audit_feedback_chunk_id_idx ON audit_feedback (chunk_id);
+CREATE INDEX IF NOT EXISTS audit_feedback_expert_id_idx ON audit_feedback (expert_id);
