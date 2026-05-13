@@ -27,13 +27,14 @@ if not st.session_state.get("admin_authenticated"):
 
 # Admin authenticated
 
-with st.sidebar:
-    st.write("Admin panel")
-    if st.button("Logout"):
+_title_col, _logout_col = st.columns([5, 1])
+with _title_col:
+    st.title("Account Management")
+with _logout_col:
+    st.write("")
+    if st.button("Logout", use_container_width=True):
         st.session_state.pop("admin_authenticated", None)
         st.rerun()
-
-st.title("Account Management")
 
 accounts = list_accounts()
 

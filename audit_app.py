@@ -82,19 +82,23 @@ with st.sidebar:
     st.write(f"Logged in as **{st.session_state['user_email']}**")
     if st.button("⚙️ Admin Panel"):
         st.switch_page("pages/admin.py")
-    if st.button("Logout"):
-        for key in ["authenticated", "user_email", "audit_result", "audit_query",
-                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels"]:
-            st.session_state.pop(key, None)
-        st.rerun()
 
 expert_id = st.session_state["user_email"]
 
 
 # -- Header --------------------------------------------------------------------
 
-st.title("Retrieval Audit")
-st.caption("Illinois Legal RAG — Expert Labeling")
+_title_col, _logout_col = st.columns([5, 1])
+with _title_col:
+    st.title("Retrieval Audit")
+    st.caption("Illinois Legal RAG — Expert Labeling")
+with _logout_col:
+    st.write("")
+    if st.button("Logout", use_container_width=True):
+        for key in ["authenticated", "user_email", "audit_result", "audit_query",
+                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels"]:
+            st.session_state.pop(key, None)
+        st.rerun()
 
 # -- Query input ---------------------------------------------------------------
 
