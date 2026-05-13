@@ -1,6 +1,7 @@
 import json
 import streamlit as st
 from mcp_server.server import _audit_retrieval, submit_feedback
+from auth.accounts import signup, login
 
 st.set_page_config(page_title="Retrieval Audit", page_icon="⚖️", layout="wide")
 
@@ -20,6 +21,64 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def _show_login():
+    with st.form("login_form"):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login", use_container_width=True)
+    if submitted:
+        success, msg = login(email, password)
+        if success:
+            st.session_state["authenticated"] = True
+            st.session_state["user_email"] = email.lower().strip()
+            st.rerun()
+        else:
+            st.error(msg)
+
+
+def _show_signup():
+    with st.form("signup_form"):
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
+        confirm = st.text_input("Confirm Password", type="password")
+        submitted = st.form_submit_button("Create Account", use_container_width=True)
+    if submitted:
+        if not email:
+            st.error("Email is required.")
+        elif password != confirm:
+            st.error("Passwords do not match.")
+        else:
+            success, msg = signup(email, password)
+            if success:
+                st.success("Account created — you'll receive an email when it's approved.")
+            else:
+                st.error(msg)
+
+
+# -- Auth gate -----------------------------------------------------------------
+
+if not st.session_state.get("authenticated"):
+    st.title("Retrieval Audit")
+    st.caption("Illinois Legal RAG — Expert Labeling")
+    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
+    with tab_login:
+        _show_login()
+    with tab_signup:
+        _show_signup()
+    st.stop()
+
+# -- Sidebar (authenticated) ---------------------------------------------------
+
+with st.sidebar:
+    st.write(f"Logged in as **{st.session_state['user_email']}**")
+    if st.button("Logout"):
+        st.session_state.pop("authenticated", None)
+        st.session_state.pop("user_email", None)
+        st.rerun()
+
+expert_id = st.session_state["user_email"]
+
+
 # -- Header --------------------------------------------------------------------
 
 st.title("Retrieval Audit")
@@ -36,7 +95,7 @@ query_input = st.text_area(
 
 # -- Settings row under search bar ---------------------------------------------
 
-s1, s2, s3, s4 = st.columns([2, 2, 2, 1])
+s1, s2, s3 = st.columns([2, 2, 1])
 
 with s1:
     mode = st.selectbox(
@@ -47,8 +106,6 @@ with s1:
 with s2:
     top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
 with s3:
-    expert_id = st.text_input("Your name / email", placeholder="Optional — for attribution")
-with s4:
     st.write("")
     search_btn = st.button("Search", type="primary", use_container_width=True)
 
