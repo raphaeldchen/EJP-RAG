@@ -11,6 +11,9 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 if not st.session_state.get("admin_authenticated"):
     st.title("Admin Login")
+    if not ADMIN_PASSWORD:
+        st.error("ADMIN_PASSWORD is not configured. Add it to your .env file.")
+        st.stop()
     with st.form("admin_login"):
         pwd = st.text_input("Admin password", type="password")
         submitted = st.form_submit_button("Login", use_container_width=True)
@@ -46,7 +49,8 @@ if pending:
     for acct in pending:
         col_email, col_btn = st.columns([5, 1])
         with col_email:
-            st.write(f"**{acct['email']}** — registered {acct['created_at'][:10]}")
+            registered = acct["created_at"][:10] if acct["created_at"] else "unknown"
+            st.write(f"**{acct['email']}** — registered {registered}")
         with col_btn:
             if st.button("Approve", key=f"approve_{acct['id']}"):
                 approve_account(acct["id"])
