@@ -76,7 +76,8 @@ if not st.session_state.get("authenticated"):
 
 with st.sidebar:
     st.write(f"Logged in as **{st.session_state['user_email']}**")
-    st.page_link("pages/admin.py", label="Admin Panel", icon="⚙️")
+    if st.button("⚙️ Admin Panel"):
+        st.switch_page("pages/admin.py")
     if st.button("Logout"):
         for key in ["authenticated", "user_email", "audit_result", "audit_query",
                     "audit_mode", "audit_expert", "audit_top_k", "saved_labels"]:
