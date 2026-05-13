@@ -11,8 +11,8 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
 if not st.session_state.get("admin_authenticated"):
     st.title("Admin Login")
-    if not ADMIN_PASSWORD:
-        st.error("ADMIN_PASSWORD is not configured. Add it to your .env file.")
+    if ADMIN_PASSWORD in ("", "CHANGE_ME_BEFORE_DEPLOY"):
+        st.error("ADMIN_PASSWORD is not configured. Replace the placeholder in your .env file.")
         st.stop()
     with st.form("admin_login"):
         pwd = st.text_input("Admin password", type="password")

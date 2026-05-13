@@ -48,6 +48,8 @@ def _show_signup():
     if submitted:
         if not email:
             st.error("Email is required.")
+        elif len(password) < 8:
+            st.error("Password must be at least 8 characters.")
         elif password != confirm:
             st.error("Passwords do not match.")
         else:

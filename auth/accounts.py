@@ -34,6 +34,7 @@ def login(email: str, password: str) -> tuple[bool, str]:
     password_ok = bcrypt.checkpw(password.encode(), stored_hash)
     if not row or not password_ok:
         return False, "Invalid email or password."
+    # Intentional: reveals to the user that their email+password are correct but account is pending.
     if not row["approved"]:
         return False, "Your account is pending approval. You'll receive an email when it's ready."
     return True, "ok"
