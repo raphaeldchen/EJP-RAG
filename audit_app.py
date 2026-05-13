@@ -65,11 +65,15 @@ def _show_signup():
 if not st.session_state.get("authenticated"):
     st.title("Retrieval Audit")
     st.caption("Illinois Legal RAG — Expert Labeling")
-    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
+    tab_login, tab_signup, tab_admin = st.tabs(["Login", "Sign Up", "Admin"])
     with tab_login:
         _show_login()
     with tab_signup:
         _show_signup()
+    with tab_admin:
+        st.write("Admin access only.")
+        if st.button("Go to Admin Panel", type="primary"):
+            st.switch_page("pages/admin.py")
     st.stop()
 
 # -- Sidebar (authenticated) ---------------------------------------------------
