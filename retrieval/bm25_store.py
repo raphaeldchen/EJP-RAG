@@ -80,16 +80,16 @@ class BM25Retriever:
         self.bm25 = bm25s.BM25.load(str(_BM25_INDEX_DIR), mmap=True)
         corpus = json.loads(_BM25_CORPUS_PATH.read_text(encoding="utf-8"))
         self.chunk_ids = corpus["chunk_ids"]
-        self.texts = corpus["texts"]
+        self.texts = []  # not needed after index is built; omit to save RAM
         self.enriched_texts = corpus["enriched_texts"]
         self._metadata = corpus["metadata"]
 
     def _build_from_supabase(self, client: Client):
         _LEGACY_COLS = {
-            "ilcs": "chunk_id, text, enriched_text, section_citation",
-            "iscr":  "chunk_id, text, enriched_text, rule_number, rule_title",
+            "ilcs": "chunk_id, text, enriched_text, source, section_citation",
+            "iscr":  "chunk_id, text, enriched_text, source, rule_number, rule_title",
         }
-        _DEFAULT_COLS = "chunk_id, text, enriched_text, display_citation"
+        _DEFAULT_COLS = "chunk_id, text, enriched_text, source, display_citation"
 
         def fetch_all(table: str, select_cols: str) -> list[dict]:
             rows = []
@@ -145,7 +145,6 @@ class BM25Retriever:
         _BM25_CORPUS_PATH.write_text(
             json.dumps({
                 "chunk_ids": self.chunk_ids,
-                "texts": self.texts,
                 "enriched_texts": self.enriched_texts,
                 "metadata": self._metadata,
             }, ensure_ascii=False),

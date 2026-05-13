@@ -76,6 +76,9 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
     rrf_label = f"RRF: {chunk['rrf_score']:.4f}"
     key = f"{chunk['chunk_id']}_{stage}_{position}"
 
+    if "saved_labels" not in st.session_state:
+        st.session_state["saved_labels"] = {}
+
     with st.expander(
         f"#{position}  {chunk['citation']}  ·  {chunk['source']}  ·  {rrf_label}  ·  {ce_label}",
         expanded=False,
@@ -88,7 +91,7 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
         )
         st.text(chunk["text"])
 
-        col1, col2, col3, col_note = st.columns([1, 1, 1, 3])
+        col1, col2, col3, col_note, col_save = st.columns([1, 1, 1, 3, 1])
         with col1:
             binding = st.button("BINDING", key=f"b_{key}", type="primary")
         with col2:
@@ -98,27 +101,43 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
         with col_note:
             comment = st.text_input("Notes", key=f"c_{key}",
                                     label_visibility="collapsed", placeholder="Optional notes...")
+        with col_save:
+            save_note = st.button("Save Note", key=f"n_{key}", use_container_width=True)
+
+        def _do_submit(lbl, cmt):
+            submit_feedback(
+                query=query,
+                chunk_id=chunk["chunk_id"],
+                citation=chunk["citation"],
+                source=chunk["source"],
+                retrieval_mode=mode_key,
+                pre_rerank_rank=position if stage == "pre_rerank" else 0,
+                post_rerank_rank=post_rerank_position,
+                rrf_score=chunk["rrf_score"],
+                ce_score=chunk.get("ce_score"),
+                label=lbl,
+                comment=cmt,
+                expert_id=expert_id,
+            )
 
         label = "BINDING" if binding else ("RELEVANT" if relevant else ("IRRELEVANT" if irrelevant else None))
         if label:
             try:
-                submit_feedback(
-                    query=query,
-                    chunk_id=chunk["chunk_id"],
-                    citation=chunk["citation"],
-                    source=chunk["source"],
-                    retrieval_mode=mode_key,
-                    pre_rerank_rank=position if stage == "pre_rerank" else 0,
-                    post_rerank_rank=post_rerank_position,
-                    rrf_score=chunk["rrf_score"],
-                    ce_score=chunk.get("ce_score"),
-                    label=label,
-                    comment=comment,
-                    expert_id=expert_id,
-                )
+                _do_submit(label, comment)
+                st.session_state["saved_labels"][key] = label
                 st.success(f"Saved: {label}")
             except Exception as e:
                 st.error(f"Save failed: {e}")
+        elif save_note:
+            prior_label = st.session_state["saved_labels"].get(key)
+            if not prior_label:
+                st.warning("Assign a label (BINDING / RELEVANT / IRREL.) before saving a note.")
+            else:
+                try:
+                    _do_submit(prior_label, comment)
+                    st.success("Note saved.")
+                except Exception as e:
+                    st.error(f"Save failed: {e}")
 
 
 # -- Search and display --------------------------------------------------------
@@ -150,14 +169,15 @@ if "audit_result" in st.session_state:
     col_meta2.metric("Survived reranking", len(result["reranked"]))
     col_meta3.metric("Dropped", len(result["dropped"]))
 
-    if result.get("rewritten_query"):
-        st.caption(f"Query rewritten to: {result['rewritten_query']}")
-
     post_rerank_map = {c["chunk_id"]: i + 1 for i, c in enumerate(result["reranked"])}
+
+    # Dropped = candidates that did not survive reranking, with their original pre-rerank rank preserved.
+    dropped = [(i + 1, chunk) for i, chunk in enumerate(result["candidates"])
+               if chunk["chunk_id"] not in post_rerank_map]
 
     tab_post, tab_pre = st.tabs([
         f"Post-Rerank ({len(result['reranked'])} survived)",
-        f"Pre-Rerank ({len(result['candidates'])} candidates)",
+        f"Pre-Rerank ({len(dropped)} dropped)",
     ])
 
     with tab_post:
@@ -167,18 +187,21 @@ if "audit_result" in st.session_state:
                          post_rerank_position=i + 1)
 
     with tab_pre:
-        st.caption("All chunks before reranking. Label here to flag retrieval failures.")
+        st.caption(
+            f"Candidates dropped by the reranker. "
+            f"The {len(result['reranked'])} post-rerank survivors are excluded — label them in the Post-Rerank tab."
+        )
         show_all = st.toggle(
-            f"Show all {len(result['candidates'])} candidates",
+            f"Show all {len(dropped)} dropped candidates",
             value=False,
             key="show_all_candidates",
         )
-        visible = result["candidates"] if show_all else result["candidates"][:saved_top_k]
-        if not show_all and len(result["candidates"]) > saved_top_k:
-            st.caption(f"Showing top {saved_top_k} of {len(result['candidates'])}. Toggle above to show all.")
-        for i, chunk in enumerate(visible):
-            _render_card(chunk, i + 1, "pre_rerank", q, mk, eid,
-                         post_rerank_position=post_rerank_map.get(chunk["chunk_id"]))
+        visible = dropped if show_all else dropped[:saved_top_k]
+        if not show_all and len(dropped) > saved_top_k:
+            st.caption(f"Showing top {saved_top_k} of {len(dropped)}. Toggle above to show all.")
+        for orig_rank, chunk in visible:
+            _render_card(chunk, orig_rank, "pre_rerank", q, mk, eid,
+                         post_rerank_position=None)
 
 else:
     st.info("Enter a query above and click Search to begin.")
