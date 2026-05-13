@@ -110,6 +110,7 @@ class TestListAccounts:
             result = list_accounts()
 
         assert result == rows
+        mock_client.table.return_value.select.return_value.order.assert_called_with("created_at")
 
 
 class TestApproveAccount:
@@ -125,3 +126,5 @@ class TestApproveAccount:
         mock_client.table.return_value.update.return_value.eq.assert_called_with(
             "id", "some-uuid"
         )
+        from datetime import datetime
+        datetime.fromisoformat(updated["approved_at"])  # raises ValueError if not valid ISO format
