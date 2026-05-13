@@ -27,13 +27,16 @@ def _show_login():
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Login", use_container_width=True)
     if submitted:
-        success, msg = login(email, password)
-        if success:
-            st.session_state["authenticated"] = True
-            st.session_state["user_email"] = email.lower().strip()
-            st.rerun()
+        if not email:
+            st.error("Email is required.")
         else:
-            st.error(msg)
+            success, msg = login(email, password)
+            if success:
+                st.session_state["authenticated"] = True
+                st.session_state["user_email"] = email.lower().strip()
+                st.rerun()
+            else:
+                st.error(msg)
 
 
 def _show_signup():
@@ -72,8 +75,9 @@ if not st.session_state.get("authenticated"):
 with st.sidebar:
     st.write(f"Logged in as **{st.session_state['user_email']}**")
     if st.button("Logout"):
-        st.session_state.pop("authenticated", None)
-        st.session_state.pop("user_email", None)
+        for key in ["authenticated", "user_email", "audit_result", "audit_query",
+                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels"]:
+            st.session_state.pop(key, None)
         st.rerun()
 
 expert_id = st.session_state["user_email"]
@@ -216,7 +220,7 @@ if "audit_result" in st.session_state:
     result = st.session_state["audit_result"]
     q = st.session_state["audit_query"]
     mk = st.session_state["audit_mode"]
-    eid = st.session_state["audit_expert"]
+    eid = st.session_state["user_email"]
     saved_top_k = st.session_state.get("audit_top_k", top_k)
 
     st.divider()
