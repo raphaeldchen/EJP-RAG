@@ -4,6 +4,9 @@ from supabase import create_client, Client
 from retrieval.config import SUPABASE_URL, SUPABASE_SERVICE_KEY
 
 
+_DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt()).decode()
+
+
 def _client() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -25,12 +28,12 @@ def signup(email: str, password: str) -> tuple[bool, str]:
 
 def login(email: str, password: str) -> tuple[bool, str]:
     email = email.lower().strip()
-    rows = _client().table("lawyer_accounts").select("*").eq("email", email).execute()
-    if not rows.data:
-        return False, "No account found with that email."
-    row = rows.data[0]
-    if not bcrypt.checkpw(password.encode(), row["password_hash"].encode()):
-        return False, "Incorrect password."
+    rows = _client().table("lawyer_accounts").select("email,password_hash,approved").eq("email", email).execute()
+    row = rows.data[0] if rows.data else None
+    stored_hash = row["password_hash"].encode() if row else _DUMMY_HASH.encode()
+    password_ok = bcrypt.checkpw(password.encode(), stored_hash)
+    if not row or not password_ok:
+        return False, "Invalid email or password."
     if not row["approved"]:
         return False, "Your account is pending approval. You'll receive an email when it's ready."
     return True, "ok"

@@ -57,7 +57,7 @@ class TestLogin:
             success, msg = login("a@b.com", "wrong")
 
         assert success is False
-        assert "Incorrect password" in msg
+        assert "Invalid email or password" in msg
 
     def test_pending_approval(self):
         hashed = _hashed("pw")
@@ -80,7 +80,7 @@ class TestLogin:
             success, msg = login("nobody@example.com", "pw")
 
         assert success is False
-        assert "No account" in msg
+        assert "Invalid email or password" in msg
 
     def test_normalizes_email_before_lookup(self):
         hashed = _hashed("pw")
