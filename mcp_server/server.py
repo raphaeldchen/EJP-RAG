@@ -414,7 +414,10 @@ def get_feedback_history(expert_id: str) -> list[dict]:
         .order("created_at", desc=True)
         .execute()
     )
-    return result.data
+    rows = result.data
+    for r in rows:
+        r["comment"] = r.get("comment") or ""
+    return rows
 
 
 def _eager_init():
