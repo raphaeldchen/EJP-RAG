@@ -215,8 +215,15 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
 
 # -- Search and display --------------------------------------------------------
 
-if not is_bm25_ready():
-    st.info("BM25 index is loading in the background — searches work now (vector-only) and will automatically include BM25 once ready.")
+@st.fragment(run_every=5)
+def _bm25_status_banner():
+    if not is_bm25_ready():
+        st.info("BM25 index is loading in the background — searches work now (vector-only) and will automatically include BM25 once ready.")
+    elif not st.session_state.get("_bm25_banner_dismissed"):
+        st.session_state["_bm25_banner_dismissed"] = True
+        st.success("BM25 index ready — hybrid retrieval active.")
+
+_bm25_status_banner()
 
 if search_btn and query_input:
     mk = _mode_key(mode)
