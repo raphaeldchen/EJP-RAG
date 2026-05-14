@@ -110,30 +110,34 @@ class BM25Retriever:
                 offset += page_size
             return rows
 
-        all_rows: list[dict] = []
+        # Process one collection at a time so raw rows are freed before the next
+        # collection loads. self.texts is never stored — tokenize inline and drop
+        # corpus_tokens after indexing. Peak RAM: one collection's rows + corpus_tokens
+        # + the bm25 index being built, instead of all_rows + texts + corpus_tokens + index.
+        corpus_tokens: list[list[str]] = []
         for col in COLLECTIONS:
             print(f"[BM25] Fetching {col.table}...")
             cols = _LEGACY_COLS.get(col.id, _DEFAULT_COLS)
-            all_rows.extend(fetch_all(col.table, cols))
-
-        self.chunk_ids = [r["chunk_id"] for r in all_rows]
-        self.texts = [r["text"] for r in all_rows]
-        self.enriched_texts = [r.get("enriched_text") or r["text"] for r in all_rows]
-        self._metadata = [
-            {k: v for k, v in r.items()
-             if k not in ("chunk_id", "text", "enriched_text") and v is not None}
-            for r in all_rows
-        ]
+            rows = fetch_all(col.table, cols)
+            for r in rows:
+                corpus_tokens.append(_tokenize(r["text"]))
+                self.chunk_ids.append(r["chunk_id"])
+                self.enriched_texts.append(r.get("enriched_text") or r["text"])
+                self._metadata.append(
+                    {k: v for k, v in r.items()
+                     if k not in ("chunk_id", "text", "enriched_text") and v is not None}
+                )
+            del rows
 
         if not self.chunk_ids:
             print("[BM25] No chunks found — index will be empty.")
             self.bm25 = None
             return
 
-        print(f"[BM25] Tokenizing {len(self.texts)} chunks...")
-        corpus_tokens = [_tokenize(t) for t in self.texts]
+        print(f"[BM25] Indexing {len(self.chunk_ids)} chunks...")
         self.bm25 = bm25s.BM25()
         self.bm25.index(corpus_tokens, show_progress=False)
+        del corpus_tokens
 
     def _save_cache(self, counts: dict[str, int]):
         print("[BM25] Saving cache to disk...")
