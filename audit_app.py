@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 import streamlit as st
 from mcp_server.server import _audit_retrieval, submit_feedback, is_bm25_ready, get_feedback_history
 from auth.accounts import signup, login
@@ -57,7 +58,6 @@ def _render_history_list(rows: list[dict], expert_id: str) -> None:
         relevant = g["labels"].count("RELEVANT")
         irrelevant = g["labels"].count("IRRELEVANT")
         try:
-            from datetime import datetime, timezone
             dt = datetime.fromisoformat(g["latest"].replace("Z", "+00:00"))
             date_str = dt.strftime("%b %-d")
         except Exception:
