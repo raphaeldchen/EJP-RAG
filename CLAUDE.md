@@ -45,6 +45,12 @@ cd legal_rag && git pull
 sudo systemctl restart audit-app
 ```
 
+**BM25 cache on the server** — lives at `~/legal_rag/data_files/bm25_cache/` (~1.2 GB). Survives `systemctl restart`. Only needs to be re-uploaded if the server is reprovisioned:
+```bash
+ssh ubuntu@163.192.97.229 "mkdir -p ~/legal_rag/data_files/bm25_cache"
+scp -r /Users/raphaelchen/Desktop/legal_rag/data_files/bm25_cache ubuntu@163.192.97.229:~/legal_rag/data_files/
+```
+
 ## Planned Architecture Evolution
 
 The system is being developed toward:
@@ -243,8 +249,8 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 **4. Retrieval** (`retrieval/`)
 - `config.py` — Supabase URL/key, RPC names, top-k defaults
 - `vector_store.py` — custom `SupabaseRPCVectorStore` calling `match_ilcs_chunks` / `match_court_rule_chunks` RPC functions
-- `bm25_store.py` — loads all chunks from Supabase on startup, builds in-memory BM25Okapi index; custom tokenizer preserves statute citation patterns
-- `indexes.py` — `FusionRetriever` combining vector + BM25 with Reciprocal Rank Fusion (k=60 dampening); `DualFusionRetriever` runs both ILCS and ISCR sub-retrievers in parallel and merges via RRF (replaces `RouterQueryEngine`)
+- `bm25_store.py` — disk-cached BM25 index (`data_files/bm25_cache/`, ~1.2 GB: 730 MB `corpus.json` + 490 MB numpy index); staleness detected by comparing live Supabase row counts against `meta.json`; loads from cache on startup (~15–45s on server), rebuilds from Supabase only when counts change; in the audit app, loads in a background thread so the first search is not blocked (vector-only fallback until ready); custom tokenizer preserves statute citation patterns
+- `indexes.py` — `FusionRetriever` (pure vector, per-collection); `MultiCollectionRetriever` runs all collections in parallel plus a single shared BM25 arm, merges all arms via RRF with per-collection weights; `bm25=None` is safe — BM25 arm is silently skipped until the background thread swaps it in
 - `postprocessor.py` — CrossEncoder reranking (`ms-marco-MiniLM-L-6-v2`); drops results below score threshold -3.0; returns top-6
 - `query_engine.py` — `RetrieverQueryEngine` wrapping `DualFusionRetriever`; no routing — both corpora always searched
 - `reflection.py` — query classification (in_scope / out_of_scope / ambiguous) + rewriting; LLM-based only (hardcoded citation mappings removed)
@@ -253,14 +259,15 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 ### Retrieval Flow
 
 ```
-Query → reflection.py (classify + rewrite) → indexes.py (DualFusionRetriever)
-     → [ILCS: vector + BM25 → RRF] + [ISCR: vector + BM25 → RRF] → merge via RRF
+Query → reflection.py (classify + rewrite) → indexes.py (MultiCollectionRetriever)
+     → [ilcs: vector] + [iscr: vector] + [opinions: vector] + [regulations: vector]
+       + [documents: vector] + [shared BM25 arm] → merge via weighted RRF
      → postprocessor.py (CrossEncoder rerank, threshold filter)
      → Claude LLM (synthesize answer)
      → Extract citations from source node metadata
 ```
 
-**Why `DualFusionRetriever` instead of a router:** The old `LLMSingleSelector` router would pick either ILCS or ISCR per query. Cross-domain queries (answer spans both corpora) scored empty results. Running both in parallel and merging via RRF fixes this by construction — hard cross-domain R@6 improved from 0.409 → 0.515. BM25 is intentionally kept corpus-agnostic: relevant chunks that appear in both sub-retrievers' BM25 results receive double RRF votes, amplifying the signal for cross-domain queries.
+**Why `MultiCollectionRetriever` instead of a router:** The old `LLMSingleSelector` router would pick one corpus per query. Cross-domain queries (answer spans multiple corpora) scored empty results. Running all collections in parallel and merging via RRF fixes this — hard cross-domain R@6 improved from 0.409 → 0.515. BM25 is a single shared arm (one RRF vote regardless of collection count) to avoid inflating its weight as collections are added.
 
 ### Supabase Schema
 
@@ -412,7 +419,7 @@ Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justi
 - The scraper rate-limits at 0.75s/request by default (`--delay` flag on `ilga_ingest.py`)
 - `data_files/corpus/ilcs_corpus.jsonl.done_acts` is the checkpoint file for resuming ILCS scraping
 - `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
-- BM25 index is rebuilt in-memory on every `retrieval/main.py` startup (loads all chunks from Supabase)
+- BM25 index is disk-cached at `data_files/bm25_cache/` (~1.2 GB). Loads from cache on startup if row counts match `meta.json`; rebuilds from Supabase automatically when counts change. In the audit app it loads in a background thread — the app is immediately usable (vector-only) while BM25 warms up (~15–45s from cache on the server). The cache persists across `systemctl restart`; only re-upload to the server if it is reprovisioned.
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
 - All sources (ILCS, ISCR, CAP, CourtListener, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD) are embedded in Supabase as of 2026-05-11
 
