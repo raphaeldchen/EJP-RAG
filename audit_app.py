@@ -24,6 +24,16 @@ st.markdown("""
         border-radius: 8px;
         padding: 0.5rem;
     }
+    /* Dark ✕ close button */
+    div:has(#hist-close-btn) button {
+        background: #1f2937;
+        color: #ffffff;
+        border-color: #1f2937;
+    }
+    div:has(#hist-close-btn) button:hover {
+        background: #111827;
+        border-color: #111827;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -157,14 +167,15 @@ def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str)
 
 def _render_history_panel(expert_id: str) -> None:
     st.markdown('<div id="hist-panel-root"></div>', unsafe_allow_html=True)
-    col_close, col_title = st.columns([1, 4])
+    col_title, col_close = st.columns([4, 1])
+    with col_title:
+        st.markdown("**📋 Feedback History**")
     with col_close:
-        if st.button("◀", key="hist_close", use_container_width=True, help="Collapse panel"):
+        st.markdown('<div id="hist-close-btn"></div>', unsafe_allow_html=True)
+        if st.button("✕", key="hist_close", use_container_width=True, help="Close panel"):
             for k in ["history_open", "history_view", "history_selected_qid", "history_data"]:
                 st.session_state.pop(k, None)
             st.rerun()
-    with col_title:
-        st.markdown("**📋 Feedback History**")
 
     rows = st.session_state.get("history_data") or []
     view = st.session_state.get("history_view", "list")
