@@ -83,7 +83,69 @@ def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str)
         st.session_state["history_view"] = "list"
         st.session_state["history_selected_qid"] = None
         st.rerun()
-    st.caption("(detail view coming in next task)")
+
+    if not rows:
+        st.caption("No data for this query.")
+        return
+
+    query_text = rows[0]["query_text"]
+    retrieval_mode = rows[0]["retrieval_mode"] or "hybrid"
+    n_labels = len(rows)
+    try:
+        dt = datetime.fromisoformat(rows[0]["created_at"].replace("Z", "+00:00"))
+        date_str = dt.strftime("%b %-d")
+    except Exception:
+        date_str = rows[0]["created_at"][:10]
+
+    st.markdown(f"**{query_text}**")
+    st.caption(f"{n_labels} labels · {date_str} · {retrieval_mode}")
+
+    if st.button("↻ Refresh", key="hist_detail_refresh", use_container_width=True):
+        st.session_state["history_data"] = get_feedback_history(expert_id)
+        st.rerun()
+
+    post_rows = sorted(
+        [r for r in rows if r.get("post_rerank_rank") is not None],
+        key=lambda r: r["post_rerank_rank"],
+    )
+    dropped_rows = sorted(
+        [r for r in rows if r.get("post_rerank_rank") is None],
+        key=lambda r: r.get("pre_rerank_rank") or 0,
+    )
+
+    _LABEL_ICON = {"BINDING": "🟢", "RELEVANT": "🟡", "IRRELEVANT": "🔴"}
+
+    def _chunk_card(row: dict, stage: str) -> None:
+        rank = row["post_rerank_rank"] if stage == "post" else row["pre_rerank_rank"]
+        rank_str = f"post #{rank}" if stage == "post" else f"pre #{rank}"
+        rrf_str = f"RRF {row['rrf_score']:.4f}" if row.get("rrf_score") is not None else ""
+        ce_str = f"CE {row['ce_score']:.2f}" if row.get("ce_score") is not None else ""
+        scores = "  ·  ".join(s for s in [rank_str, rrf_str, ce_str] if s)
+        icon = _LABEL_ICON.get(row["label"], "⚪")
+        with st.container(border=True):
+            st.markdown(f"**{row['citation']}**  {icon} {row['label']}")
+            st.caption(scores)
+            if row.get("comment"):
+                st.caption(f"_{row['comment']}_")
+
+    tab_post, tab_dropped = st.tabs([
+        f"Post-rerank ({len(post_rows)})",
+        f"Dropped ({len(dropped_rows)})",
+    ])
+
+    with tab_post:
+        if post_rows:
+            for row in post_rows:
+                _chunk_card(row, "post")
+        else:
+            st.caption("No post-rerank labels for this query.")
+
+    with tab_dropped:
+        if dropped_rows:
+            for row in dropped_rows:
+                _chunk_card(row, "pre")
+        else:
+            st.caption("No dropped-candidate labels for this query.")
 
 
 def _render_history_panel(expert_id: str) -> None:
