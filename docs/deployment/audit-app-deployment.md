@@ -81,6 +81,8 @@ WantedBy=multi-user.target
 
 ## Cloudflare tunnel config (`/etc/cloudflared/config.yml`)
 
+**Current config (WebSocket keepalive fix applied 2026-05-14):**
+
 ```yaml
 tunnel: af2decc7-ae74-4d88-b916-0c7cca7a8a58
 credentials-file: /etc/cloudflared/af2decc7-ae74-4d88-b916-0c7cca7a8a58.json
@@ -88,10 +90,24 @@ credentials-file: /etc/cloudflared/af2decc7-ae74-4d88-b916-0c7cca7a8a58.json
 ingress:
   - hostname: ejp-rag-audit.com
     service: http://localhost:8501
+    originRequest:
+      tcpKeepAlive: 15s   # prevents NAT expiry on long-idle WebSocket sessions
   - hostname: www.ejp-rag-audit.com
     service: http://localhost:8501
+    originRequest:
+      tcpKeepAlive: 15s
   - service: http_status:404
 ```
+
+After editing: `sudo systemctl restart cloudflared`
+
+### Why `tcpKeepAlive` is needed
+
+Cloudflare silently drops WebSocket connections after ~100 s of no network activity. Streamlit's `@st.fragment(run_every=5)` sends application-level deltas every 5 s to prevent this, but if those deltas stop being generated (e.g. the fragment renders nothing) the TCP path through any intermediate NAT goes idle. `tcpKeepAlive: 15s` makes cloudflared send OS-level TCP keepalive probes every 15 s independently of application traffic, which both prevents NAT expiry and ensures dead connections are detected quickly (rather than silently leaving the browser with a half-open WebSocket where buttons appear clickable but clicks go nowhere).
+
+**Also applied in code (2026-05-14):**
+- `audit_app.py`: `_bm25_status_banner` always renders `"● Hybrid retrieval active"` after BM25 is ready — guarantees a non-empty Streamlit delta every 5 s
+- `.streamlit/config.toml`: `enableWebsocketCompression = false` — prevents Cloudflare proxy from desynchronizing the permessage-deflate context on long-lived connections
 
 ## Cloudflare DNS records
 

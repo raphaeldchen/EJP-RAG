@@ -219,9 +219,12 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
 def _bm25_status_banner():
     if not is_bm25_ready():
         st.info("BM25 index is loading in the background — searches work now (vector-only) and will automatically include BM25 once ready.")
-    elif not st.session_state.get("_bm25_banner_dismissed"):
-        st.session_state["_bm25_banner_dismissed"] = True
-        st.success("BM25 index ready — hybrid retrieval active.")
+    else:
+        # Always render something once BM25 is ready.  The fragment firing every 5 s
+        # keeps the WebSocket alive through Cloudflare's idle-timeout window; an empty
+        # render may not generate a delta large enough to reset that timer.
+        st.session_state.setdefault("_bm25_banner_dismissed", True)
+        st.caption("● Hybrid retrieval active")
 
 _bm25_status_banner()
 

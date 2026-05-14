@@ -7,3 +7,6 @@ font = "sans serif"
 
 [server]
 headless = true
+# Disable WS compression — some Cloudflare proxy paths mis-handle compressed frames,
+# causing the browser to receive partial/corrupt deltas and silently drop the connection.
+enableWebsocketCompression = false

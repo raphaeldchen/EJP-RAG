@@ -45,6 +45,11 @@ cd legal_rag && git pull
 sudo systemctl restart audit-app
 ```
 
+**WebSocket keepalive (Cloudflare Tunnel)** — Cloudflare drops idle WebSocket connections after ~100 s. Fixed via two layers (2026-05-14):
+1. `audit_app.py`: `_bm25_status_banner` always renders `"● Hybrid retrieval active"` once BM25 is ready, guaranteeing a real Streamlit delta every 5 s.
+2. `.streamlit/config.toml`: `enableWebsocketCompression = false` — prevents Cloudflare proxy from desynchronizing the deflate context on long-lived connections.
+3. `/etc/cloudflared/config.yml` on the server: `originRequest: tcpKeepAlive: 15s` added to each ingress rule. See `docs/deployment/audit-app-deployment.md` for the exact config block.
+
 **BM25 cache on the server** — lives at `~/legal_rag/data_files/bm25_cache/` (~1.2 GB). Survives `systemctl restart`. Only needs to be re-uploaded if the server is reprovisioned:
 ```bash
 ssh ubuntu@163.192.97.229 "mkdir -p ~/legal_rag/data_files/bm25_cache"
@@ -249,7 +254,7 @@ OLLAMA_BASE_URL=http://localhost:11434  # default
 **4. Retrieval** (`retrieval/`)
 - `config.py` — Supabase URL/key, RPC names, top-k defaults
 - `vector_store.py` — custom `SupabaseRPCVectorStore` calling `match_ilcs_chunks` / `match_court_rule_chunks` RPC functions
-- `bm25_store.py` — disk-cached BM25 index (`data_files/bm25_cache/`, ~1.2 GB: 730 MB `corpus.json` + 490 MB numpy index); staleness detected by comparing live Supabase row counts against `meta.json`; loads from cache on startup (~15–45s on server), rebuilds from Supabase only when counts change; in the audit app, loads in a background thread so the first search is not blocked (vector-only fallback until ready); custom tokenizer preserves statute citation patterns
+- `bm25_store.py` — disk-cached BM25 index (`data_files/bm25_cache/`, ~1.2 GB: 730 MB `corpus.json` + 490 MB numpy index); staleness detected by comparing live Supabase row counts against `meta.json`; loads from cache on startup (~15–45s on server), rebuilds from Supabase only when counts change; loads in a background thread (swapped into `MultiCollectionRetriever` when ready; vector-only fallback until then); custom tokenizer preserves statute citation patterns
 - `indexes.py` — `FusionRetriever` (pure vector, per-collection); `MultiCollectionRetriever` runs all collections in parallel plus a single shared BM25 arm, merges all arms via RRF with per-collection weights; `bm25=None` is safe — BM25 arm is silently skipped until the background thread swaps it in
 - `postprocessor.py` — CrossEncoder reranking (`ms-marco-MiniLM-L-6-v2`); drops results below score threshold -3.0; returns top-6
 - `query_engine.py` — `RetrieverQueryEngine` wrapping `DualFusionRetriever`; no routing — both corpora always searched
@@ -419,7 +424,8 @@ Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justi
 - The scraper rate-limits at 0.75s/request by default (`--delay` flag on `ilga_ingest.py`)
 - `data_files/corpus/ilcs_corpus.jsonl.done_acts` is the checkpoint file for resuming ILCS scraping
 - `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
-- BM25 index is disk-cached at `data_files/bm25_cache/` (~1.2 GB). Loads from cache on startup if row counts match `meta.json`; rebuilds from Supabase automatically when counts change. In the audit app it loads in a background thread — the app is immediately usable (vector-only) while BM25 warms up (~15–45s from cache on the server). The cache persists across `systemctl restart`; only re-upload to the server if it is reprovisioned.
+- BM25 index is disk-cached at `data_files/bm25_cache/` (~1.2 GB). Loads from cache on startup if row counts match `meta.json`; rebuilds from Supabase automatically when counts change. Loads in a background thread — the app is immediately usable (vector-only) while BM25 warms up (~15–45s from cache on the server). The cache persists across `systemctl restart`; only re-upload to the server if it is reprovisioned.
+- **Retrieval state is eagerly pre-warmed** (`mcp_server/server.py`): a daemon thread starts `_get_state()` at module import time (i.e. when Streamlit starts) so the CrossEncoder model, Supabase collection probes, and BM25 background load are all in flight before the first user search. The 5 collection probes run in parallel via `ThreadPoolExecutor`. Without this, the first search would block for several seconds on cold init.
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
 - All sources (ILCS, ISCR, CAP, CourtListener, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD) are embedded in Supabase as of 2026-05-11
 

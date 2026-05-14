@@ -1,6 +1,7 @@
 import hashlib as _hashlib
 import re as _re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from mcp.server.fastmcp import FastMCP
@@ -58,17 +59,26 @@ _state_lock = threading.Lock()
 
 
 def _probe_collections(client) -> dict[str, object]:
-    """Build only collections whose RPC functions are registered in Supabase."""
+    """Build only collections whose RPC functions are registered in Supabase.
+
+    Probes all collections in parallel so 5 × ~300 ms round-trips collapse to ~300 ms.
+    """
     from retrieval.config import COLLECTIONS
-    available = {}
-    for col in COLLECTIONS:
+
+    def _probe_one(col):
         try:
             client.rpc(col.rpc, {"query_embedding": [0.0] * 768, "match_count": 1}).execute()
-            available[col.id] = build_fusion_retriever(client, col.rpc)
+            retriever = build_fusion_retriever(client, col.rpc)
             print(f"[State] Collection '{col.id}' available")
+            return col.id, retriever
         except Exception as e:
             print(f"[State] Collection '{col.id}' skipped — RPC not available: {e}")
-    return available
+            return col.id, None
+
+    with ThreadPoolExecutor(max_workers=len(COLLECTIONS)) as ex:
+        results = list(ex.map(_probe_one, COLLECTIONS))
+
+    return {col_id: r for col_id, r in results if r is not None}
 
 
 def _load_bm25_background(client, state: _State) -> None:
@@ -387,6 +397,20 @@ def submit_feedback(
         "comment": comment or None,
         "expert_id": expert_id,
     }, on_conflict="query_id,chunk_id,expert_id").execute()
+
+
+def _eager_init():
+    """Pre-warm retrieval state at import time so the first search is instant."""
+    try:
+        _get_state()
+    except Exception as e:
+        print(f"[EagerInit] Failed — state will initialize on first search instead: {e}")
+
+
+# Start in background immediately when the module is imported (i.e. when Streamlit
+# starts).  By the time a user types a query and clicks Search, the CrossEncoder,
+# Supabase probe, and BM25 load are already in flight.
+threading.Thread(target=_eager_init, daemon=True, name="eager-init").start()
 
 
 if __name__ == "__main__":
