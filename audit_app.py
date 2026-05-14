@@ -107,7 +107,7 @@ with _logout_col:
             st.session_state["history_view"] = "list"
             st.session_state["history_selected_qid"] = None
         else:
-            for k in ["history_data", "history_view", "history_selected_qid"]:
+            for k in ["history_open", "history_data", "history_view", "history_selected_qid"]:
                 st.session_state.pop(k, None)
         st.rerun()
     if st.button("Logout", use_container_width=True):
