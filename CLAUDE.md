@@ -32,7 +32,18 @@ Illinois criminal justice RAG system focused on higher education in prison and r
 2. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
 3. **Retrieval quality labeling** — lawyers label pre-rerank and post-rerank candidates in the audit dashboard; feedback stored in `audit_feedback` Supabase table for analysis
 
-**Audit app is live at `https://ejp-rag-audit.com` as of 2026-05-13.** See `docs/deployment/audit-app-deployment.md` for full infrastructure details, SSH access, update workflow, and known OCI gotchas.
+**Audit app is live at `https://ejp-rag-audit.com` as of 2026-05-13.** See `docs/deployment/audit-app-deployment.md` for full infrastructure details, SSH access, and known OCI gotchas.
+
+**To deploy updates to the audit app:**
+```bash
+# 1. Local — commit and push as normal
+git add <files> && git commit -m "..." && git push
+
+# 2. Server — pull and restart
+ssh ubuntu@163.192.97.229
+cd legal_rag && git pull
+sudo systemctl restart audit-app
+```
 
 ## Planned Architecture Evolution
 
