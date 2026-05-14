@@ -94,7 +94,7 @@ class MultiCollectionRetriever(BaseRetriever):
     def __init__(
         self,
         retrievers: list[FusionRetriever],
-        bm25: BM25Retriever,
+        bm25: BM25Retriever | None,
         collection_ids: list[str] | None = None,
         weights: dict[str, float] | None = None,
     ):
@@ -137,7 +137,7 @@ class MultiCollectionRetriever(BaseRetriever):
         all_lists = results
         all_weights = per_list_weights
 
-        if bm25_enabled:
+        if bm25_enabled and self._bm25 is not None:
             # Single BM25 arm — one vote regardless of how many collections are searched
             bm25_weight = self._weights.get("bm25", 1.2)
             bm25_nodes = self._bm25.retrieve(query_str, top_k=DEFAULT_TOP_K)
@@ -162,7 +162,7 @@ class MultiCollectionRetriever(BaseRetriever):
 
 def build_multi_retriever(
     client: Client,
-    bm25: BM25Retriever,
+    bm25: BM25Retriever | None,
     retrievers: dict[str, FusionRetriever] | None = None,
     weights: dict[str, float] | None = _DEFAULT_COLLECTION_WEIGHTS,
 ) -> MultiCollectionRetriever:

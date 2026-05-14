@@ -1,5 +1,6 @@
 import hashlib as _hashlib
 import re as _re
+import threading
 from dataclasses import dataclass
 
 from mcp.server.fastmcp import FastMCP
@@ -49,9 +50,11 @@ class _State:
     retriever: MultiCollectionRetriever
     reranker: CrossEncoderReranker
     client: object  # supabase.Client
+    bm25_loading: bool = True
 
 
 _state: _State | None = None
+_state_lock = threading.Lock()
 
 
 def _probe_collections(client) -> dict[str, object]:
@@ -68,19 +71,45 @@ def _probe_collections(client) -> dict[str, object]:
     return available
 
 
+def _load_bm25_background(client, state: _State) -> None:
+    try:
+        print("[BM25] Loading index in background thread...")
+        bm25 = BM25Retriever(client)
+        state.retriever._bm25 = bm25
+        state.bm25_loading = False
+        print(f"[BM25] Ready — {len(bm25.chunk_ids)} chunks.")
+    except Exception as exc:
+        state.bm25_loading = False
+        print(f"[BM25] Background load failed: {exc}")
+
+
 def _get_state() -> _State:
     global _state
     if _state is None:
-        embed_model = get_embedding_model()
-        Settings.embed_model = embed_model
-        client = get_supabase_client()
-        bm25 = BM25Retriever(client)
-        available_retrievers = _probe_collections(client)
-        retriever = build_multi_retriever(client, bm25, retrievers=available_retrievers)
-        reranker = CrossEncoderReranker(top_n=6, score_threshold=-3.0)
-        reranker._get_model()
-        _state = _State(retriever=retriever, reranker=reranker, client=client)
+        with _state_lock:
+            if _state is None:
+                embed_model = get_embedding_model()
+                Settings.embed_model = embed_model
+                client = get_supabase_client()
+                available_retrievers = _probe_collections(client)
+                # Start without BM25 so the first request is not blocked.
+                # BM25 loads in a background thread and is swapped in once ready.
+                retriever = build_multi_retriever(client, bm25=None, retrievers=available_retrievers)
+                reranker = CrossEncoderReranker(top_n=6, score_threshold=-3.0)
+                reranker._get_model()
+                _state = _State(retriever=retriever, reranker=reranker, client=client, bm25_loading=True)
+                threading.Thread(
+                    target=_load_bm25_background,
+                    args=(client, _state),
+                    daemon=True,
+                    name="bm25-loader",
+                ).start()
     return _state
+
+
+def is_bm25_ready() -> bool:
+    """True once the background BM25 loader has finished."""
+    return _state is not None and not _state.bm25_loading
 
 
 # -- Shared helpers ------------------------------------------------------------
@@ -132,6 +161,8 @@ def _retrieve_by_mode(
     mode: str,
 ) -> list[NodeWithScore]:
     if mode == "bm25":
+        if state.retriever._bm25 is None:
+            return []  # BM25 still loading; caller sees empty results
         bm25_nodes = state.retriever._bm25.retrieve(query_str, top_k=DEFAULT_TOP_K)
         if secondary_query:
             sec_nodes = state.retriever._bm25.retrieve(secondary_query, top_k=DEFAULT_TOP_K)

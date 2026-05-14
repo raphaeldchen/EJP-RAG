@@ -1,6 +1,6 @@
 import json
 import streamlit as st
-from mcp_server.server import _audit_retrieval, submit_feedback
+from mcp_server.server import _audit_retrieval, submit_feedback, is_bm25_ready
 from auth.accounts import signup, login
 
 st.set_page_config(page_title="Retrieval Audit", page_icon="⚖️", layout="wide")
@@ -214,6 +214,9 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
 
 
 # -- Search and display --------------------------------------------------------
+
+if not is_bm25_ready():
+    st.info("BM25 index is loading in the background — searches work now (vector-only) and will automatically include BM25 once ready.")
 
 if search_btn and query_input:
     mk = _mode_key(mode)
