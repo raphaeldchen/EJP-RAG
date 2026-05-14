@@ -18,6 +18,12 @@ st.markdown("""
         font-size: 0.75rem; padding: 2px 10px; border-radius: 12px;
         font-family: monospace; margin-bottom: 4px;
     }
+    /* Gray background for the history panel column */
+    div[data-testid="stColumn"]:has(#hist-panel-root) {
+        background: #f3f4f6;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -66,8 +72,8 @@ def _render_history_list(rows: list[dict], expert_id: str) -> None:
         except Exception:
             date_str = g["latest"][:10]
 
-        truncated = g["query_text"][:58] + ("…" if len(g["query_text"]) > 58 else "")
-        btn_label = f"{truncated}  \n🟢 {binding}  🟡 {relevant}  🔴 {irrelevant}  ·  {date_str}"
+        truncated = g["query_text"][:55] + ("…" if len(g["query_text"]) > 55 else "")
+        btn_label = f"▶ {truncated}  \n🟢 {binding}  🟡 {relevant}  🔴 {irrelevant}  ·  {date_str}"
 
         if st.button(btn_label, key=f"hist_q_{g['query_id']}", use_container_width=True):
             st.session_state["history_view"] = "detail"
@@ -150,14 +156,15 @@ def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str)
 
 
 def _render_history_panel(expert_id: str) -> None:
-    col_title, col_close = st.columns([4, 1])
-    with col_title:
-        st.markdown("**📋 Feedback History**")
+    st.markdown('<div id="hist-panel-root"></div>', unsafe_allow_html=True)
+    col_close, col_title = st.columns([1, 4])
     with col_close:
-        if st.button("✕", key="hist_close", use_container_width=True):
+        if st.button("◀", key="hist_close", use_container_width=True, help="Collapse panel"):
             for k in ["history_open", "history_view", "history_selected_qid", "history_data"]:
                 st.session_state.pop(k, None)
             st.rerun()
+    with col_title:
+        st.markdown("**📋 Feedback History**")
 
     rows = st.session_state.get("history_data") or []
     view = st.session_state.get("history_view", "list")
@@ -245,23 +252,19 @@ with _title_col:
 with _logout_col:
     st.write("")
     _hist_open = st.session_state.get("history_open", False)
-    if st.button("📋 History" if not _hist_open else "✕ History", use_container_width=True):
-        _now_open = not _hist_open
-        st.session_state["history_open"] = _now_open
-        if _now_open:
+    if not _hist_open:
+        if st.button("📋 History", use_container_width=True):
+            st.session_state["history_open"] = True
             st.session_state["history_data"] = get_feedback_history(expert_id)
             st.session_state["history_view"] = "list"
             st.session_state["history_selected_qid"] = None
-        else:
-            for k in ["history_open", "history_data", "history_view", "history_selected_qid"]:
-                st.session_state.pop(k, None)
-        st.rerun()
-    if st.button("Logout", use_container_width=True):
-        for key in ["authenticated", "user_email", "audit_result", "audit_query",
-                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels",
-                    "history_open", "history_view", "history_selected_qid", "history_data"]:
-            st.session_state.pop(key, None)
-        st.rerun()
+            st.rerun()
+        if st.button("Logout", use_container_width=True):
+            for key in ["authenticated", "user_email", "audit_result", "audit_query",
+                        "audit_mode", "audit_expert", "audit_top_k", "saved_labels",
+                        "history_open", "history_view", "history_selected_qid", "history_data"]:
+                st.session_state.pop(key, None)
+            st.rerun()
 
 # -- Layout: conditional right-panel split -----------------------------------
 
