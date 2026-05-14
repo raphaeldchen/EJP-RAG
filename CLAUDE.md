@@ -32,6 +32,8 @@ Illinois criminal justice RAG system focused on higher education in prison and r
 2. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
 3. **Retrieval quality labeling** — lawyers label pre-rerank and post-rerank candidates in the audit dashboard; feedback stored in `audit_feedback` Supabase table for analysis
 
+**Audit app is live at `https://ejp-rag-audit.com` as of 2026-05-13.** See `docs/deployment/audit-app-deployment.md` for full infrastructure details, SSH access, update workflow, and known OCI gotchas.
+
 ## Planned Architecture Evolution
 
 The system is being developed toward:
@@ -171,17 +173,18 @@ All `python3` commands in this file assume the venv is active. If you see `Modul
 
 ## Dependencies
 
-No `requirements.txt` exists — infer from imports. Key packages:
+`requirements.txt` exists at the repo root (generated from the Mac venv on 2026-05-13, **Python 3.11 required** — `networkx==3.6.1` is incompatible with 3.10). Key packages:
 - `boto3`, `requests`, `beautifulsoup4` — scraping/S3
 - `pypdf` — PDF text extraction (IDOC, SPAC, ICCB, federal, Restore Justice)
 - `tiktoken` (cl100k_base) — token counting
 - `supabase` — vector DB client
-- `rank_bm25` — lexical search
+- `rank_bm25`, `bm25s` — lexical search
 - `sentence-transformers` — CrossEncoder reranking
 - `llama-index` — query engine/retriever framework
 - `ollama` — local LLM/embedding client
 - `mcp[cli]` — MCP server (`mcp_server/`)
 - `streamlit` — Audit Dashboard (`audit_app.py`)
+- `bcrypt` — password hashing for lawyer accounts (`auth/accounts.py`)
 
 ## Environment Variables (`.env`)
 
@@ -194,6 +197,8 @@ SUPREME_COURT_RULES_S3_PREFIX=illinois-supreme-court-rules/
 COURTLISTENER_API_TOKEN=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_KEY=...
+ANTHROPIC_API_KEY=...
+ADMIN_PASSWORD=...          # audit app admin gate
 OLLAMA_BASE_URL=http://localhost:11434  # default
 ```
 
