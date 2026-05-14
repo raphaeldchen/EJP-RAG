@@ -22,6 +22,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+_LABEL_ICON = {"BINDING": "🟢", "RELEVANT": "🟡", "IRRELEVANT": "🔴"}
+
+
 def _group_history(rows: list[dict]) -> list[dict]:
     """Group audit_feedback rows by query_id, sorted by most recent created_at."""
     groups: dict[str, dict] = {}
@@ -98,7 +101,7 @@ def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str)
         date_str = rows[0]["created_at"][:10]
 
     st.markdown(f"**{query_text}**")
-    st.caption(f"{n_labels} labels · {date_str} · {retrieval_mode}")
+    st.caption(f"{n_labels} label{'s' if n_labels != 1 else ''} · {date_str} · {retrieval_mode}")
 
     if st.button("↻ Refresh", key="hist_detail_refresh", use_container_width=True):
         st.session_state["history_data"] = get_feedback_history(expert_id)
@@ -113,11 +116,9 @@ def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str)
         key=lambda r: r.get("pre_rerank_rank") or 0,
     )
 
-    _LABEL_ICON = {"BINDING": "🟢", "RELEVANT": "🟡", "IRRELEVANT": "🔴"}
-
     def _chunk_card(row: dict, stage: str) -> None:
         rank = row["post_rerank_rank"] if stage == "post" else row["pre_rerank_rank"]
-        rank_str = f"post #{rank}" if stage == "post" else f"pre #{rank}"
+        rank_str = f"post #{rank}" if stage == "post" else (f"pre #{rank}" if rank is not None else "pre (unranked)")
         rrf_str = f"RRF {row['rrf_score']:.4f}" if row.get("rrf_score") is not None else ""
         ce_str = f"CE {row['ce_score']:.2f}" if row.get("ce_score") is not None else ""
         scores = "  ·  ".join(s for s in [rank_str, rrf_str, ce_str] if s)
