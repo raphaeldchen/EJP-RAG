@@ -1,6 +1,6 @@
 import json
 import streamlit as st
-from mcp_server.server import _audit_retrieval, submit_feedback, is_bm25_ready
+from mcp_server.server import _audit_retrieval, submit_feedback, is_bm25_ready, get_feedback_history
 from auth.accounts import signup, login
 
 st.set_page_config(page_title="Retrieval Audit", page_icon="⚖️", layout="wide")
@@ -19,6 +19,10 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+
+def _render_history_panel(expert_id: str) -> None:
+    st.markdown("**📋 Feedback History**  (coming soon)")
 
 
 def _show_login():
@@ -94,39 +98,60 @@ with _title_col:
     st.caption("Illinois Legal RAG — Expert Labeling")
 with _logout_col:
     st.write("")
+    _hist_open = st.session_state.get("history_open", False)
+    if st.button("📋 History" if not _hist_open else "✕ History", use_container_width=True):
+        _now_open = not _hist_open
+        st.session_state["history_open"] = _now_open
+        if _now_open:
+            st.session_state["history_data"] = get_feedback_history(expert_id)
+            st.session_state["history_view"] = "list"
+            st.session_state["history_selected_qid"] = None
+        else:
+            for k in ["history_data", "history_view", "history_selected_qid"]:
+                st.session_state.pop(k, None)
+        st.rerun()
     if st.button("Logout", use_container_width=True):
         for key in ["authenticated", "user_email", "audit_result", "audit_query",
-                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels"]:
+                    "audit_mode", "audit_expert", "audit_top_k", "saved_labels",
+                    "history_open", "history_view", "history_selected_qid", "history_data"]:
             st.session_state.pop(key, None)
         st.rerun()
 
-# -- Query input ---------------------------------------------------------------
+# -- Layout: conditional right-panel split -----------------------------------
 
-query_input = st.text_area(
-    "Legal Query",
-    height=80,
-    placeholder="e.g. What is good-time credit in Illinois?",
-    label_visibility="collapsed",
-)
+if st.session_state.get("history_open"):
+    _main_col, _hist_col = st.columns([3, 1])
+else:
+    _main_col = st.container()
 
-# -- Settings row under search bar ---------------------------------------------
+with _main_col:
+    # -- Query input ---------------------------------------------------------------
 
-s1, s2, s3 = st.columns([2, 2, 1])
-
-with s1:
-    mode = st.selectbox(
-        "Retrieval Mode",
-        ["Hybrid (production)", "Vector only", "BM25 only"],
-        help="Hybrid = production. Vector/BM25 = diagnostic modes.",
+    query_input = st.text_area(
+        "Legal Query",
+        height=80,
+        placeholder="e.g. What is good-time credit in Illinois?",
+        label_visibility="collapsed",
     )
-with s2:
-    top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
-with s3:
-    st.write("")
-    search_btn = st.button("Search", type="primary", use_container_width=True)
+
+    # -- Settings row under search bar ---------------------------------------------
+
+    s1, s2, s3 = st.columns([2, 2, 1])
+
+    with s1:
+        mode = st.selectbox(
+            "Retrieval Mode",
+            ["Hybrid (production)", "Vector only", "BM25 only"],
+            help="Hybrid = production. Vector/BM25 = diagnostic modes.",
+        )
+    with s2:
+        top_k = st.slider("Candidates to show", min_value=5, max_value=60, value=20, step=5)
+    with s3:
+        st.write("")
+        search_btn = st.button("Search", type="primary", use_container_width=True)
 
 
-# -- Helpers -------------------------------------------------------------------
+# -- Helpers (module-level, not inside any column context) --------------------
 
 def _mode_key(mode_label: str) -> str:
     return {"Hybrid (production)": "hybrid", "Vector only": "vector", "BM25 only": "bm25"}.get(mode_label, "hybrid")
@@ -226,68 +251,75 @@ def _bm25_status_banner():
         st.session_state.setdefault("_bm25_banner_dismissed", True)
         st.caption("● Hybrid retrieval active")
 
-_bm25_status_banner()
 
-if search_btn and query_input:
-    mk = _mode_key(mode)
-    with st.spinner("Searching..."):
-        raw = _audit_retrieval(query_input, mode=mk, top_k=top_k)
-    st.session_state["audit_result"] = json.loads(raw)
-    st.session_state["audit_query"] = query_input
-    st.session_state["audit_mode"] = mk
-    st.session_state["audit_expert"] = expert_id
-    st.session_state["audit_top_k"] = top_k
+with _main_col:
+    _bm25_status_banner()
 
-elif search_btn and not query_input:
-    st.warning("Enter a query first.")
+    if search_btn and query_input:
+        mk = _mode_key(mode)
+        with st.spinner("Searching..."):
+            raw = _audit_retrieval(query_input, mode=mk, top_k=top_k)
+        st.session_state["audit_result"] = json.loads(raw)
+        st.session_state["audit_query"] = query_input
+        st.session_state["audit_mode"] = mk
+        st.session_state["audit_expert"] = expert_id
+        st.session_state["audit_top_k"] = top_k
 
-if "audit_result" in st.session_state:
-    result = st.session_state["audit_result"]
-    q = st.session_state["audit_query"]
-    mk = st.session_state["audit_mode"]
-    eid = st.session_state["user_email"]
-    saved_top_k = st.session_state.get("audit_top_k", top_k)
+    elif search_btn and not query_input:
+        st.warning("Enter a query first.")
 
-    st.divider()
-    st.subheader(f"Results for: {q}")
-    col_meta1, col_meta2, col_meta3 = st.columns(3)
-    col_meta1.metric("Candidates (pre-rerank)", len(result["candidates"]))
-    col_meta2.metric("Survived reranking", len(result["reranked"]))
-    col_meta3.metric("Dropped", len(result["dropped"]))
+    if "audit_result" in st.session_state:
+        result = st.session_state["audit_result"]
+        q = st.session_state["audit_query"]
+        mk = st.session_state["audit_mode"]
+        eid = st.session_state["user_email"]
+        saved_top_k = st.session_state.get("audit_top_k", top_k)
 
-    post_rerank_map = {c["chunk_id"]: i + 1 for i, c in enumerate(result["reranked"])}
+        st.divider()
+        st.subheader(f"Results for: {q}")
+        col_meta1, col_meta2, col_meta3 = st.columns(3)
+        col_meta1.metric("Candidates (pre-rerank)", len(result["candidates"]))
+        col_meta2.metric("Survived reranking", len(result["reranked"]))
+        col_meta3.metric("Dropped", len(result["dropped"]))
 
-    # Dropped = candidates that did not survive reranking, with their original pre-rerank rank preserved.
-    dropped = [(i + 1, chunk) for i, chunk in enumerate(result["candidates"])
-               if chunk["chunk_id"] not in post_rerank_map]
+        post_rerank_map = {c["chunk_id"]: i + 1 for i, c in enumerate(result["reranked"])}
 
-    tab_post, tab_pre = st.tabs([
-        f"Post-Rerank ({len(result['reranked'])} survived)",
-        f"Pre-Rerank ({len(dropped)} dropped)",
-    ])
+        # Dropped = candidates that did not survive reranking, with their original pre-rerank rank preserved.
+        dropped = [(i + 1, chunk) for i, chunk in enumerate(result["candidates"])
+                   if chunk["chunk_id"] not in post_rerank_map]
 
-    with tab_post:
-        st.caption("Chunks after CrossEncoder reranking — exactly what the LLM sees in production.")
-        for i, chunk in enumerate(result["reranked"]):
-            _render_card(chunk, i + 1, "post_rerank", q, mk, eid,
-                         post_rerank_position=i + 1)
+        tab_post, tab_pre = st.tabs([
+            f"Post-Rerank ({len(result['reranked'])} survived)",
+            f"Pre-Rerank ({len(dropped)} dropped)",
+        ])
 
-    with tab_pre:
-        st.caption(
-            f"Candidates dropped by the reranker. "
-            f"The {len(result['reranked'])} post-rerank survivors are excluded — label them in the Post-Rerank tab."
-        )
-        show_all = st.toggle(
-            f"Show all {len(dropped)} dropped candidates",
-            value=False,
-            key="show_all_candidates",
-        )
-        visible = dropped if show_all else dropped[:saved_top_k]
-        if not show_all and len(dropped) > saved_top_k:
-            st.caption(f"Showing top {saved_top_k} of {len(dropped)}. Toggle above to show all.")
-        for orig_rank, chunk in visible:
-            _render_card(chunk, orig_rank, "pre_rerank", q, mk, eid,
-                         post_rerank_position=None)
+        with tab_post:
+            st.caption("Chunks after CrossEncoder reranking — exactly what the LLM sees in production.")
+            for i, chunk in enumerate(result["reranked"]):
+                _render_card(chunk, i + 1, "post_rerank", q, mk, eid,
+                             post_rerank_position=i + 1)
 
-else:
-    st.info("Enter a query above and click Search to begin.")
+        with tab_pre:
+            st.caption(
+                f"Candidates dropped by the reranker. "
+                f"The {len(result['reranked'])} post-rerank survivors are excluded — label them in the Post-Rerank tab."
+            )
+            num_dropped = len(dropped)
+            show_all = st.toggle(
+                f"Show all {num_dropped} dropped candidates",
+                value=False,
+                key="show_all_candidates",
+            )
+            visible = dropped if show_all else dropped[:saved_top_k]
+            if not show_all and num_dropped > saved_top_k:
+                st.caption(f"Showing top {saved_top_k} of {num_dropped}. Toggle above to show all.")
+            for orig_rank, chunk in visible:
+                _render_card(chunk, orig_rank, "pre_rerank", q, mk, eid,
+                             post_rerank_position=None)
+
+    else:
+        st.info("Enter a query above and click Search to begin.")
+
+if st.session_state.get("history_open"):
+    with _hist_col:
+        _render_history_panel(expert_id)
