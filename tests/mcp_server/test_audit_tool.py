@@ -126,3 +126,46 @@ def test_submit_feedback_anonymous_normalizes_expert_id():
         assert len(rows) == 1, f"Expected 1 row, got {len(rows)} — dedup not working for anonymous"
     finally:
         state.client.table("audit_feedback").delete().eq("chunk_id", "test-chunk-anon").execute()
+
+
+def test_get_feedback_history_returns_expert_rows():
+    """get_feedback_history returns only rows for the given expert_id."""
+    from mcp_server.server import submit_feedback, get_feedback_history, _get_state
+
+    state = _get_state()
+    try:
+        submit_feedback(
+            query="test history query",
+            chunk_id="test-chunk-history",
+            citation="730 ILCS 5/3-6-3",
+            source="ilcs",
+            retrieval_mode="hybrid",
+            persona="",
+            pre_rerank_rank=1,
+            post_rerank_rank=1,
+            rrf_score=0.05,
+            ce_score=2.1,
+            label="BINDING",
+            comment="test note",
+            expert_id="test-history-expert",
+        )
+
+        rows = get_feedback_history("test-history-expert")
+        our_row = next((r for r in rows if r["chunk_id"] == "test-chunk-history"), None)
+        assert our_row is not None, "Row not returned for correct expert_id"
+        assert our_row["label"] == "BINDING"
+        assert our_row["query_text"] == "test history query"
+        assert our_row["citation"] == "730 ILCS 5/3-6-3"
+        assert our_row["comment"] == "test note"
+        assert our_row["post_rerank_rank"] == 1
+        assert "query_id" in our_row
+        assert "created_at" in our_row
+
+        other_rows = get_feedback_history("different-expert")
+        assert not any(r["chunk_id"] == "test-chunk-history" for r in other_rows), \
+            "Row leaked to a different expert_id"
+    finally:
+        state.client.table("audit_feedback").delete() \
+            .eq("chunk_id", "test-chunk-history") \
+            .eq("expert_id", "test-history-expert") \
+            .execute()

@@ -399,6 +399,24 @@ def submit_feedback(
     }, on_conflict="query_id,chunk_id,expert_id").execute()
 
 
+def get_feedback_history(expert_id: str) -> list[dict]:
+    """Return all audit_feedback rows for expert_id, ordered by created_at desc."""
+    state = _get_state()
+    expert_id = (expert_id or "").strip() or "anonymous"
+    result = (
+        state.client.table("audit_feedback")
+        .select(
+            "query_id,query_text,chunk_id,citation,label,comment,"
+            "pre_rerank_rank,post_rerank_rank,rrf_score,ce_score,"
+            "retrieval_mode,created_at"
+        )
+        .eq("expert_id", expert_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data
+
+
 def _eager_init():
     """Pre-warm retrieval state at import time so the first search is instant."""
     try:
