@@ -21,8 +21,91 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def _group_history(rows: list[dict]) -> list[dict]:
+    """Group audit_feedback rows by query_id, sorted by most recent created_at."""
+    groups: dict[str, dict] = {}
+    for row in rows:
+        qid = row["query_id"]
+        if qid not in groups:
+            groups[qid] = {
+                "query_id": qid,
+                "query_text": row["query_text"],
+                "labels": [],
+                "latest": row["created_at"],
+                "retrieval_mode": row["retrieval_mode"],
+            }
+        groups[qid]["labels"].append(row["label"])
+        if row["created_at"] > groups[qid]["latest"]:
+            groups[qid]["latest"] = row["created_at"]
+    return sorted(groups.values(), key=lambda g: g["latest"], reverse=True)
+
+
+def _render_history_list(rows: list[dict], expert_id: str) -> None:
+    groups = _group_history(rows)
+
+    if not groups:
+        st.caption("No feedback submitted yet.")
+        return
+
+    n_labels = len(rows)
+    n_queries = len(groups)
+    st.caption(f"{n_labels} label{'s' if n_labels != 1 else ''} across "
+               f"{n_queries} quer{'ies' if n_queries != 1 else 'y'} — all time")
+
+    for g in groups:
+        binding = g["labels"].count("BINDING")
+        relevant = g["labels"].count("RELEVANT")
+        irrelevant = g["labels"].count("IRRELEVANT")
+        try:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(g["latest"].replace("Z", "+00:00"))
+            date_str = dt.strftime("%b %-d")
+        except Exception:
+            date_str = g["latest"][:10]
+
+        truncated = g["query_text"][:58] + ("…" if len(g["query_text"]) > 58 else "")
+        btn_label = f"{truncated}  \n🟢 {binding}  🟡 {relevant}  🔴 {irrelevant}  ·  {date_str}"
+
+        if st.button(btn_label, key=f"hist_q_{g['query_id']}", use_container_width=True):
+            st.session_state["history_view"] = "detail"
+            st.session_state["history_selected_qid"] = g["query_id"]
+            st.rerun()
+
+    st.divider()
+    st.caption("Labels as of when the panel opened.")
+    if st.button("↻ Refresh", key="hist_refresh", use_container_width=True):
+        st.session_state["history_data"] = get_feedback_history(expert_id)
+        st.rerun()
+
+
+def _render_history_detail(rows: list[dict], total_queries: int, expert_id: str) -> None:
+    if st.button(f"← All queries ({total_queries})", key="hist_back"):
+        st.session_state["history_view"] = "list"
+        st.session_state["history_selected_qid"] = None
+        st.rerun()
+    st.caption("(detail view coming in next task)")
+
+
 def _render_history_panel(expert_id: str) -> None:
-    st.markdown("**📋 Feedback History**  (coming soon)")
+    col_title, col_close = st.columns([4, 1])
+    with col_title:
+        st.markdown("**📋 Feedback History**")
+    with col_close:
+        if st.button("✕", key="hist_close", use_container_width=True):
+            for k in ["history_open", "history_view", "history_selected_qid", "history_data"]:
+                st.session_state.pop(k, None)
+            st.rerun()
+
+    rows = st.session_state.get("history_data") or []
+    view = st.session_state.get("history_view", "list")
+
+    if view == "list":
+        _render_history_list(rows, expert_id)
+    else:
+        qid = st.session_state.get("history_selected_qid")
+        detail_rows = [r for r in rows if r["query_id"] == qid]
+        groups = _group_history(rows)
+        _render_history_detail(detail_rows, len(groups), expert_id)
 
 
 def _show_login():
