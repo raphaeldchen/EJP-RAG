@@ -1,0 +1,108 @@
+<h2>When you click a query in the history list…</h2>
+<p class="subtitle">How should the candidate detail appear? Both options show rank, RRF score, CE score, and label for each chunk.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="accordion" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:9px;font-family:sans-serif;">
+        <div style="font-weight:700;font-size:10px;color:#6366f1;margin-bottom:6px;">📋 History ✕</div>
+
+        <!-- query 1 collapsed -->
+        <div style="background:#f1f5f9;border-radius:5px;padding:5px 7px;margin-bottom:3px;cursor:pointer;border:1px solid #e2e8f0;">
+          <span style="color:#374151;font-weight:600;">Can a judge modify a sentence...</span>
+          <span style="float:right;color:#64748b;">4 labels · May 13 ▸</span>
+        </div>
+
+        <!-- query 2 expanded -->
+        <div style="background:#eef2ff;border-radius:5px;padding:5px 7px;margin-bottom:2px;border:1.5px solid #6366f1;">
+          <span style="color:#4338ca;font-weight:700;">What is good-time credit in Illinois?</span>
+          <span style="float:right;color:#6366f1;">6 labels · May 14 ▾</span>
+        </div>
+        <!-- candidates inline under it -->
+        <div style="border-left:2px solid #6366f1;margin-left:6px;padding-left:7px;margin-bottom:3px;">
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:4px 6px;margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:600;color:#374151;">#1 · 730 ILCS 5/3-6-3</span>
+              <span style="background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 6px;font-size:8px;font-weight:700;">BINDING</span>
+            </div>
+            <div style="color:#94a3b8;margin-top:2px;">RRF 0.0621 · CE 3.14 · post-rerank</div>
+            <div style="color:#64748b;font-style:italic;margin-top:1px;">"Strong match for credit calculation"</div>
+          </div>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:4px 6px;margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:600;color:#374151;">#2 · 730 ILCS 5/3-6-4</span>
+              <span style="background:#fef3c7;color:#92400e;border-radius:10px;padding:1px 6px;font-size:8px;font-weight:700;">RELEVANT</span>
+            </div>
+            <div style="color:#94a3b8;margin-top:2px;">RRF 0.0580 · CE 1.22 · post-rerank</div>
+          </div>
+          <div style="color:#94a3b8;font-style:italic;text-align:center;padding:2px;">+ 4 more…</div>
+        </div>
+
+        <!-- query 3 collapsed -->
+        <div style="background:#f1f5f9;border-radius:5px;padding:5px 7px;border:1px solid #e2e8f0;">
+          <span style="color:#374151;font-weight:600;">IDOC education eligibility...</span>
+          <span style="float:right;color:#64748b;">2 labels · May 12 ▸</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Accordion (expand in-place)</h3>
+      <p>Clicking a query expands it inline below the list item. Other queries stay visible. Click again to collapse. Multiple queries can be open simultaneously.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Context preserved — see which query you're in</li><li>Can compare two queries at once</li><li>Familiar pattern</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Panel gets tall fast with many labels</li><li>Lots of scrolling in a narrow column</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="drilldown" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;font-size:9px;font-family:sans-serif;">
+        <!-- drill-down: panel replaced by detail view -->
+        <div style="font-weight:700;font-size:10px;color:#6366f1;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          <span style="cursor:pointer;color:#6366f1;">← Back</span>
+          <span style="color:#374151;">What is good-time credit...</span>
+          <span style="margin-left:auto;color:#94a3b8;cursor:pointer;">✕</span>
+        </div>
+        <div style="color:#64748b;font-size:8px;margin-bottom:6px;">6 labels · May 14 · hybrid</div>
+
+        <!-- candidate list fills the whole panel -->
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px 7px;margin-bottom:3px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;">#1 · 730 ILCS 5/3-6-3</span>
+            <span style="background:#d1fae5;color:#065f46;border-radius:10px;padding:1px 6px;font-size:8px;font-weight:700;">BINDING</span>
+          </div>
+          <div style="color:#94a3b8;margin-top:2px;">RRF 0.0621 · CE 3.14 · post-rerank</div>
+          <div style="color:#64748b;font-style:italic;margin-top:1px;">"Strong match for credit calculation"</div>
+        </div>
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px 7px;margin-bottom:3px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;">#2 · 730 ILCS 5/3-6-4</span>
+            <span style="background:#fef3c7;color:#92400e;border-radius:10px;padding:1px 6px;font-size:8px;font-weight:700;">RELEVANT</span>
+          </div>
+          <div style="color:#94a3b8;margin-top:2px;">RRF 0.0580 · CE 1.22 · post-rerank</div>
+        </div>
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:5px 7px;margin-bottom:3px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:600;">#4 · People v. Whitfield</span>
+            <span style="background:#fee2e2;color:#991b1b;border-radius:10px;padding:1px 6px;font-size:8px;font-weight:700;">IRRELEVANT</span>
+          </div>
+          <div style="color:#94a3b8;margin-top:2px;">RRF 0.0312 · CE −1.80 · dropped</div>
+        </div>
+        <div style="color:#94a3b8;font-style:italic;text-align:center;padding:2px;">+ 3 more…</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Drill-down (replace panel view)</h3>
+      <p>Clicking a query replaces the query list with a full candidate detail view. A "← Back" button returns to the list. The panel is always showing one thing at a time.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Candidates get full panel width</li><li>Cleaner — no nested scrolling</li><li>Easier to read scores &amp; notes</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Can't see list &amp; detail simultaneously</li><li>One extra click to switch queries</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Click to select, or tell me in the terminal.</p>

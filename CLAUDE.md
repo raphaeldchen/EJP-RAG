@@ -28,7 +28,7 @@ Illinois criminal justice RAG system focused on higher education in prison and r
 
 **Lawyer collaboration begins summer 2026.** The primary focus is retrieval quality — lawyers will use the audit dashboard (`audit_app.py`) to label chunks as BINDING / RELEVANT / IRRELEVANT, generating ground-truth feedback that will drive embedding fine-tuning and reranker training. No persona-specific features until retrieval quality is validated.
 
-1. **Embedding** — all sources now embedded in Supabase (ILCS, ISCR, CAP, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD)
+1. **Embedding** — all sources embedded in Supabase as of 2026-05-11 (ILCS, ISCR, CAP, CourtListener, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD)
 2. **Embedding model decision** — evaluate `intfloat/e5-large-v2`; decide whether to fine-tune `nomic-embed-text` or switch models
 3. **Retrieval quality labeling** — lawyers label pre-rerank and post-rerank candidates in the audit dashboard; feedback stored in `audit_feedback` Supabase table for analysis
 
@@ -326,8 +326,6 @@ Leverage ranking for this corpus (highest to lowest):
 
 ### High priority (largest accuracy impact)
 
-- [x] **Write CAP bulk chunker** — `cap_chunk.py` done; original output was 1,211,329 chunks from 151,228 opinions. S3 file has since been filtered to 337,505 criminal-relevant chunks (1973–2011, 1.82 GB) via two passes: date cutoff (`≥ 1973`) then `_is_cap_criminal` (People/In re case name or 705/720/725/730 ILCS citation). Location: `s3://illinois-legal-corpus-chunked/cap/cap_opinion_chunks.jsonl`.
-- [x] **Embed court opinions** — CAP + CourtListener 7th Circuit are in the retrieval path. All sources embedded as of 2026-05-11.
 - [ ] **Fine-tune embedding model** — `nomic-embed-text` is the best out-of-the-box model tested so far and remains the production baseline. Alternatives tested and ruled out: `BAAI/bge-base-en-v1.5` (nDCG@6 0.317, -0.28 vs nomic), `mxbai-embed-large` (nDCG@6 0.389, -0.21 vs nomic). Neither closed the gap without fine-tuning. Next step: fine-tune `nomic-embed-text` or `BAAI/bge-large-en-v1.5` on lawyer-verified (query, relevant chunk) pairs using contrastive/bi-encoder loss (MultipleNegativesRankingLoss in sentence-transformers). Hard negatives already available from eval failures. **Highest single-leverage change. Planned after lawyer refinement sessions.** Expect +5–8 nDCG points.
 
   **Remaining candidate to evaluate before committing to fine-tuning:**
@@ -348,32 +346,11 @@ Leverage ranking for this corpus (highest to lowest):
 
 **Before investing further in embedding or reranker tuning, audit whether the right content is present and intact in the chunks** — malformed chunks upstream invalidate retrieval improvements downstream.
 
-**~~Fixed~~ — ISCR semantic unit severing (2026-04-20)**
-Rule 401(a) and 1,168 other ISCR rule_subsection chunks were starting with bare numeric markers `(1)`, `(2)`, `(3)` with no parent clause context. Fixed in `iscr_chunk.py` by splitting only at letter-subsection boundaries `(a)(b)(c)` — numeric items now stay within their parent letter subsection. Also fixed: 403 chunks had `[PAGE N]` markers bleeding into chunk text from `merge_pages_to_text`; stripped in `chunk_document` with a single regex. Test suite in `tests/test_iscr_chunk.py` covers both fixes.
-
-**~~Diagnosis complete~~ — 705 ILCS 405/5-915 not a chunking issue**
-Chapter 705 (Juvenile Court Act) was never ingested — `ilga_ingest.py` was only run with `--chapters 720 730`. The section does not exist in `ilcs_corpus.jsonl`. Fix: run `python3 ingest/ilga_ingest.py --chapters 705 --delay 0.75 --local-only`. The retrieval instability (q028 vs. q064) cannot be diagnosed until the corpus is populated. Test `test_5_915_chunk_is_self_contained` in `tests/test_ilga_chunk.py` skips automatically until then.
-
-**~~Fixed~~ — ILCS chunking bugs (2026-04-27)**
-
-All four bugs fixed; `python3 -m pytest tests/test_ilga_chunk.py` now passes (16 passed, 1 skipped for uningested ch705):
-
-1. **~~Orphaned subsection starts~~** — Fixed: `_CANDIDATE_SUBSECTION_RE` now splits only on single lowercase letters `([a-z])`, eliminating 1,262 numeric orphans. Added `_pack_subsections` greedy bin-packing to combine adjacent letter subsections that fit within CHUNK_SIZE. Remaining unavoidable orphans (large adjacent subsections) get a section context prefix (full "citation heading" → short `[citation]` → hard-trim).
-
-2. **~~Oversized chunks~~** — Fixed: `split_by_sentences` now hard-splits individual sentences > CHUNK_SIZE inline with overlap, rather than post-hoc. Overlap carry capped to `CHUNK_SIZE - next_sentence_len` to prevent accumulation overflow on large sentences.
-
-3. **~~Undersized chunk~~** — Fixed: added `MIN_CHUNK_SIZE` guard to the single-chunk fast path in `chunk_section`.
-
-4. **~~Overlap not preserved~~** — Fixed: overlap buffer always carries at least the last complete sentence; capped to ensure next sentence fits within CHUNK_SIZE. For hard-split chunks (no terminal punctuation), test uses tail-suffix check instead of full last-sentence match.
-
 **Diagnostic approach (before rechunking)**
 1. Pull all chunks for a known-failing section directly from Supabase (filter by `section_citation`) and inspect split points
 2. Check whether the right chunk appears in the pre-reranking candidate pool (40 candidates) for failing queries — absent = embedding/BM25 problem; present but dropped = reranker problem; incomplete text = chunking problem
 3. Run eval before and after any chunker change to confirm retrieval improvement
 
-- [x] **Fix ILCS orphaned subsection starts** — letter-only split + greedy packing + context prefix. Done 2026-04-27.
-- [x] **Fix ILCS oversized chunks** — inline hard-split for oversized sentences + overlap cap. Done 2026-04-27.
-- [x] **Fix ILCS overlap logic** — overlap always carries last sentence; capped at CHUNK_SIZE - next_sentence. Done 2026-04-27.
 - [ ] **Ingest chapter 705** — run `python3 ingest/ilga_ingest.py --chapters 705 --delay 0.75 --local-only` to add the Juvenile Court Act; then re-run `test_5_915_chunk_is_self_contained`.
 - [ ] **Write chunk spot-check script** — query Supabase by `section_citation` / `rule_number`, print chunks in order with text previews; use to diagnose known failures before deciding whether rechunking is required.
 - [ ] **Distinguish chunking vs. retrieval failures** — for each hard eval failure, determine whether the issue is (a) content not in any chunk, (b) content in a chunk but not surfacing in the top-40 candidate pool, or (c) content in the candidate pool but dropped by the reranker. These require different fixes.
@@ -396,13 +373,11 @@ Identified 2026-04-30. In priority order:
 - [ ] **`_secondary_query` private-state seam** (`retrieval/indexes.py` + `retrieval/main.py`) — caller sets `dual_retriever._secondary_query` before `engine.query()` and clears it in `finally`. Should be a parameter to `retrieve()` instead. Eliminates the fragile mutation + cleanup pattern.
 - [ ] **Extract system prompts from source files** (`retrieval/reflection.py`, `retrieval/query_engine.py`) — Query Analysis system prompt (65 lines) and QA answer prompt (26 lines) are embedded in code. Hard to version, compare, or test. Move to `config/prompts/` as plain text or YAML.
 - [ ] **Split `postprocessor.py` responsibilities** — currently owns RRF fusion (imported at runtime by `indexes.py`), a second RRF variant, Citation labeling, and cross-encoder reranking. RRF belongs with ranking logic, Citation labeling belongs with answer assembly, reranking is a separate concern. Runtime import is a circular-dependency risk.
-- [x] **`BM25Retriever` hardcodes ILCS + ISCR tables** (`retrieval/bm25_store.py`) — resolved by `CollectionConfig` registry in multi-collection retrieval design (2026-05-03).
 - [ ] **BM25 nodes reach the LLM without `enriched_text`** (`retrieval/bm25_store.py`, `retrieval/indexes.py`) — BM25 correctly scores on plain `text` (to avoid header inflation), but returns nodes with plain `text` as their body. After RRF fusion, the LLM sees a mix: vector-retrieved Chunks have `enriched_text` (with citation headers), BM25-retrieved Chunks have plain `text` (no headers). Fix: after RRF merge, replace each BM25 node's text with its `enriched_text` before passing to the reranker and LLM. BM25 scoring stays on plain `text`; LLM generation always sees `enriched_text`.
 
 ### Eval / measurement
 
 - [ ] **`--no-pinning` flag in `eval/run_eval.py`** — disable citation pinning during eval to isolate true retrieval quality from hardcoded heuristics. The gap between pinned and unpinned scores reveals dependence on the lookup table.
-- [x] **Removed hardcoded citation mappings from `reflection.py`** — reflection now relies on the LLM's own knowledge of Illinois law for citation rewriting. Citation pinning in `indexes.py` remains as a safety net. Mappings were brittle, didn't generalize, and inflated eval scores.
 - [ ] **Human-verified eval subset** — manually validate ~20 hard cases in `eval/dataset.json` against the actual statute text, since LLM-generated expected citations may have errors on obscure sections.
 - [ ] **Baseline comparison script** — run the same eval queries through Claude/ChatGPT without RAG and measure citation accuracy, to quantify the RAG system's improvement over the general-purpose baseline.
 
@@ -419,15 +394,12 @@ Test suites exist for: ILCS, ISCR, IAC, ICCB, IDOC, SPAC, Federal, Restore Justi
 - **Prefer cloud storage over local files** — the canonical home for all data is AWS S3 (raw corpus) and Supabase (chunked/embedded). Local `data_files/` copies are temporary working files only. When writing new ingest or chunk scripts, default to reading from and writing to S3/Supabase, not local disk. Use `--local-only` flags only for development/testing.
 - **Check S3 and Supabase first when looking for data** — always check S3 (`aws s3 ls s3://illinois-legal-corpus-raw/` and `aws s3 ls s3://illinois-legal-corpus-chunked/`) and Supabase before concluding a file or dataset doesn't exist. Local `data_files/` may be absent even when cloud copies are present.
 - **All local data files must go inside `data_files/`** — corpus files → `data_files/corpus/`, chunked output → `data_files/chunked_output/`, CourtListener downloads/filtered → `data_files/cl_downloads/` and `data_files/cl_filtered/`. Never write data files to the project root or any directory outside `data_files/`.
-- All ingest scripts use `--local-only` flag (consistent across all scripts); omit it to also upload to S3
 - Use `python3` (not `python`) on this system
 - The scraper rate-limits at 0.75s/request by default (`--delay` flag on `ilga_ingest.py`)
 - `data_files/corpus/ilcs_corpus.jsonl.done_acts` is the checkpoint file for resuming ILCS scraping
 - `data_files/corpus/cap_bulk_corpus.jsonl.done` is the checkpoint file for resuming CAP bulk download (case-ID granularity)
-- BM25 index is disk-cached at `data_files/bm25_cache/` (~1.2 GB). Loads from cache on startup if row counts match `meta.json`; rebuilds from Supabase automatically when counts change. Loads in a background thread — the app is immediately usable (vector-only) while BM25 warms up (~15–45s from cache on the server). The cache persists across `systemctl restart`; only re-upload to the server if it is reprovisioned.
 - **Retrieval state is eagerly pre-warmed** (`mcp_server/server.py`): a daemon thread starts `_get_state()` at module import time (i.e. when Streamlit starts) so the CrossEncoder model, Supabase collection probes, and BM25 background load are all in flight before the first user search. The 5 collection probes run in parallel via `ThreadPoolExecutor`. Without this, the first search would block for several seconds on cold init.
 - Ollama must be running locally with `nomic-embed-text` pulled for embedding, and `llama3.2` for inference
-- All sources (ILCS, ISCR, CAP, CourtListener, IAC, IDOC, SPAC, ICCB, Federal, Restore Justice, Cook County PD) are embedded in Supabase as of 2026-05-11
 
 ## Agent skills
 

@@ -1,0 +1,89 @@
+<h2>How should the history panel open?</h2>
+<p class="subtitle">Streamlit doesn't have a native right-side panel — these are the two realistic options. Both load all-time feedback for the logged-in lawyer from Supabase.</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="modal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:11px;font-family:monospace;position:relative;">
+        <!-- main app dimmed -->
+        <div style="opacity:0.25;filter:blur(1px);">
+          <div style="background:#e2e8f0;height:12px;border-radius:4px;width:60%;margin-bottom:6px;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;width:80%;margin-bottom:4px;"></div>
+          <div style="background:#e2e8f0;height:8px;border-radius:4px;width:70%;"></div>
+        </div>
+        <!-- modal overlay -->
+        <div style="position:absolute;top:8px;left:8px;right:8px;background:white;border:1.5px solid #cbd5e1;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-weight:700;font-size:12px;">📋 Feedback History</span>
+            <span style="color:#94a3b8;font-size:10px;cursor:pointer;">✕ close</span>
+          </div>
+          <div style="background:#f1f5f9;border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:9px;">
+            <span style="font-weight:600;">What is good-time credit in Illinois?</span>
+            <span style="float:right;color:#64748b;">6 labels · May 14</span>
+          </div>
+          <div style="background:#f1f5f9;border-radius:6px;padding:6px 8px;margin-bottom:4px;font-size:9px;">
+            <span style="font-weight:600;">Can a judge modify a sentence after...</span>
+            <span style="float:right;color:#64748b;">4 labels · May 13</span>
+          </div>
+          <div style="background:#f1f5f9;border-radius:6px;padding:6px 8px;font-size:9px;">
+            <span style="font-weight:600;">IDOC education eligibility rules</span>
+            <span style="float:right;color:#64748b;">2 labels · May 12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Modal dialog (<code>@st.dialog</code>)</h3>
+      <p>Clicking "Feedback History" opens a centered overlay. Main content is dimmed behind it. User closes it to return to searching. Clean, no layout changes needed.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero layout impact on main search</li><li>Native Streamlit primitive</li><li>Simple to implement</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Centered, not right-sided (Streamlit limitation)</li><li>Can't see search results &amp; history at same time</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:11px;font-family:monospace;">
+        <!-- two-column layout -->
+        <div style="display:flex;gap:8px;">
+          <!-- main content (narrower) -->
+          <div style="flex:2;min-width:0;">
+            <div style="background:#e2e8f0;height:10px;border-radius:4px;width:70%;margin-bottom:5px;"></div>
+            <div style="background:#e8edf5;height:28px;border-radius:4px;margin-bottom:5px;display:flex;align-items:center;padding:0 6px;font-size:9px;color:#64748b;">Legal query...</div>
+            <div style="display:flex;gap:4px;">
+              <div style="background:#e2e8f0;height:18px;border-radius:4px;flex:1;"></div>
+              <div style="background:#6366f1;height:18px;border-radius:4px;width:40px;"></div>
+            </div>
+          </div>
+          <!-- history panel (right) -->
+          <div style="flex:1;min-width:0;border-left:2px solid #6366f1;padding-left:8px;">
+            <div style="font-weight:700;font-size:9px;color:#6366f1;margin-bottom:6px;">📋 History ✕</div>
+            <div style="background:#f1f5f9;border-radius:4px;padding:4px 6px;margin-bottom:3px;font-size:8px;border-left:2px solid #6366f1;">
+              Good-time credit...<br><span style="color:#64748b;">6 labels · May 14</span>
+            </div>
+            <div style="background:#f1f5f9;border-radius:4px;padding:4px 6px;margin-bottom:3px;font-size:8px;">
+              Sentence modification...<br><span style="color:#64748b;">4 labels · May 13</span>
+            </div>
+            <div style="background:#f1f5f9;border-radius:4px;padding:4px 6px;font-size:8px;">
+              IDOC education rules...<br><span style="color:#64748b;">2 labels · May 12</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Inline right panel (columns)</h3>
+      <p>Clicking toggles a right-side panel. The main content area shrinks to share the page. History is visible alongside the search area. Closes with an ✕ button.</p>
+      <div class="pros-cons" style="margin-top:8px;">
+        <div class="pros"><h4>Pros</h4><ul><li>Closest to "panel from the right" feel</li><li>Can reference history while searching</li></ul></div>
+        <div class="cons"><h4>Cons</h4>
+        <ul><li>Main content area gets squeezed</li><li>More layout wiring needed</li><li>Search results harder to scan when narrow</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Click an option in the browser, or just tell me your preference in the terminal.</p>

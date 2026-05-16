@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feedback History — Query List View</title>
+<script src="/helper.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
+
+  .page-label { background: #6366f1; color: white; text-align: center; padding: 8px; font-size: 12px; font-weight: 600; }
+
+  .app { display: flex; height: calc(100vh - 56px); overflow: hidden; }
+
+  /* main */
+  .main { flex: 3; display: flex; flex-direction: column; padding: 18px 20px; overflow-y: auto; min-width: 0; border-right: 2px solid #e2e8f0; }
+  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .header-title h1 { font-size: 22px; font-weight: 800; }
+  .header-title p { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .header-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .btn { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; border: 1.5px solid; cursor: pointer; white-space: nowrap; }
+  .btn-history { background: #eef2ff; color: #4338ca; border-color: #6366f1; }
+  .btn-logout  { background: #f8fafc; color: #374151; border-color: #cbd5e1; }
+  .query-area { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #94a3b8; margin-bottom: 10px; min-height: 48px; }
+  .settings { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .pill { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 10px; font-size: 11px; color: #475569; flex: 1; }
+  .search-btn { background: #6366f1; color: white; border: none; border-radius: 6px; padding: 6px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .empty-state { color: #94a3b8; font-size: 13px; text-align: center; margin-top: 40px; }
+
+  /* panel */
+  .panel { flex: 1; display: flex; flex-direction: column; min-width: 240px; max-width: 320px; background: white; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 10px; border-bottom: 1.5px solid #e2e8f0; background: #fafafa; }
+  .panel-title { font-size: 13px; font-weight: 700; color: #4338ca; }
+  .panel-close { color: #94a3b8; font-size: 14px; cursor: pointer; }
+  .panel-body { flex: 1; overflow-y: auto; padding: 10px 12px; }
+
+  /* summary line */
+  .panel-summary { font-size: 10px; color: #94a3b8; margin-bottom: 8px; }
+
+  /* query list items */
+  .query-item {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 7px;
+    padding: 8px 10px; margin-bottom: 6px; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .query-item:hover { background: #eef2ff; border-color: #a5b4fc; }
+  .query-item-text { font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .query-item-footer { display: flex; justify-content: space-between; align-items: center; }
+  .query-item-meta { font-size: 10px; color: #94a3b8; }
+
+  /* mini label dots */
+  .dots { display: flex; gap: 3px; align-items: center; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot-b { background: #10b981; }
+  .dot-r { background: #f59e0b; }
+  .dot-i { background: #ef4444; }
+  .dot-label { font-size: 9px; color: #64748b; margin-left: 1px; }
+
+  /* arrow */
+  .arrow { font-size: 11px; color: #cbd5e1; }
+
+  /* status bar */
+  .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #1e293b; color: white; padding: 10px 20px; font-size: 12px; display: flex; justify-content: space-between; z-index: 999; }
+  .status-bar .hint { color: #94a3b8; }
+</style>
+</head>
+<body>
+<div class="page-label">Query List View — Panel open, before clicking into a query</div>
+
+<div class="app">
+
+  <!-- main (panel open but no results yet — user hasn't searched this session) -->
+  <div class="main">
+    <div class="header">
+      <div class="header-title">
+        <h1>Retrieval Audit</h1>
+        <p>Illinois Legal RAG — Expert Labeling</p>
+      </div>
+      <div class="header-btns">
+        <button class="btn btn-history">&#128203; Feedback History</button>
+        <button class="btn btn-logout">Logout</button>
+      </div>
+    </div>
+
+    <div class="query-area">e.g. What is good-time credit in Illinois?</div>
+
+    <div class="settings">
+      <div class="pill">Hybrid (production)</div>
+      <div class="pill" style="flex:0.6;">top-k: 20</div>
+      <button class="search-btn">Search</button>
+    </div>
+
+    <div class="empty-state">Enter a query above and click Search to begin.</div>
+  </div>
+
+  <!-- history panel — query list view -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">&#128203; Feedback History</span>
+      <span class="panel-close">&#10005;</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="panel-summary">12 labels across 3 queries &mdash; all time</div>
+
+      <!-- query item 1 — most recent -->
+      <div class="query-item">
+        <div class="query-item-text">What is good-time credit in Illinois?</div>
+        <div class="query-item-footer">
+          <div class="dots">
+            <span class="dot dot-b"></span><span class="dot-label">2</span>
+            <span class="dot dot-r" style="margin-left:4px;"></span><span class="dot-label">3</span>
+            <span class="dot dot-i" style="margin-left:4px;"></span><span class="dot-label">1</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="query-item-meta">May 14</span>
+            <span class="arrow">&#8250;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- query item 2 -->
+      <div class="query-item">
+        <div class="query-item-text">Can a judge modify a sentence after sentencing?</div>
+        <div class="query-item-footer">
+          <div class="dots">
+            <span class="dot dot-b"></span><span class="dot-label">1</span>
+            <span class="dot dot-r" style="margin-left:4px;"></span><span class="dot-label">2</span>
+            <span class="dot dot-i" style="margin-left:4px;"></span><span class="dot-label">1</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="query-item-meta">May 13</span>
+            <span class="arrow">&#8250;</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- query item 3 -->
+      <div class="query-item">
+        <div class="query-item-text">IDOC education eligibility for incarcerated persons</div>
+        <div class="query-item-footer">
+          <div class="dots">
+            <span class="dot dot-b"></span><span class="dot-label">0</span>
+            <span class="dot dot-r" style="margin-left:4px;"></span><span class="dot-label">2</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="query-item-meta">May 12</span>
+            <span class="arrow">&#8250;</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="status-bar">
+  <span>Query list view: each row shows binding/relevant/irrelevant dot counts + date. Click to drill in. Does this look right?</span>
+  <span class="hint">Respond in terminal to approve or request changes</span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,18 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 163.192.97.229 >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key ubuntu@163.192.97.229 \
+            "cd legal_rag && git pull && sudo systemctl restart audit-app"
