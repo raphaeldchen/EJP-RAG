@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/eshan/OneDrive/Desktop/ObsidianNotes/claudebrain\" 2>/dev/**)",
+      "Read(//c/Users/eshan/OneDrive/Desktop/ObsidianNotes/claudebrain/entities\" 2>/dev/**)",
+      "PowerShell(Copy-Item *)",
+      "Bash(python -c \"from ui.styles import SHARED_CSS; print\\(len\\(SHARED_CSS\\)\\)\")"
+    ]
+  }
+}

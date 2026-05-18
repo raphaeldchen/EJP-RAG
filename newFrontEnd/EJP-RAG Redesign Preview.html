@@ -1,0 +1,1441 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>EJP-RAG Redesign Preview</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg:            #fafaf8;
+    --surface:       #ffffff;
+    --surface-alt:   #f4f2ee;
+    --border:        #e2e0db;
+    --border-strong: #c9c6bf;
+    --text-primary:  #1a1a18;
+    --text-muted:    #6b6860;
+    --accent:        #1e3a5f;
+    --accent-hover:  #15293f;
+    --accent-light:  #eef2f7;
+    --binding:       #166534;
+    --binding-bg:    #dcfce7;
+    --relevant:      #92400e;
+    --relevant-bg:   #fef3c7;
+    --irrelevant:    #991b1b;
+    --irrelevant-bg: #fee2e2;
+    --score-high:    #dcfce7;
+    --score-mid:     #fef9c3;
+    --score-low:     #fee2e2;
+
+    --font-serif:  "Georgia", "Times New Roman", serif;
+    --font-sans:   -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono:   "Courier New", "Consolas", "Menlo", monospace;
+
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ---------- App nav (preview chrome only) ---------- */
+  .preview-bar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 0;
+    background: var(--accent);
+    color: #fff;
+    padding: 0 18px;
+    height: 44px;
+    border-bottom: 1px solid var(--accent-hover);
+    font-family: var(--font-sans);
+  }
+  .preview-bar .pb-brand {
+    font-family: var(--font-serif);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    margin-right: 24px;
+    color: #fff;
+    opacity: 0.85;
+  }
+  .preview-bar .pb-brand b { color: #fff; opacity: 1; font-weight: 400; }
+  .preview-bar nav { display: flex; gap: 0; flex: 1; }
+  .preview-bar nav button {
+    background: none; border: 0;
+    color: rgba(255,255,255,0.6);
+    padding: 0 16px;
+    height: 44px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .preview-bar nav button:hover { color: #fff; }
+  .preview-bar nav button.active {
+    color: #fff;
+    border-bottom-color: #fff;
+  }
+  .preview-bar .pb-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* ---------- Screens ---------- */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ---------- Brand header (login) ---------- */
+  .ejp-brand {
+    text-align: center;
+    font-family: var(--font-serif);
+    margin: 0 0 1.75rem 0;
+  }
+  .ejp-brand .ejp-mark {
+    font-size: 2.4rem;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .ejp-brand .ejp-title {
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--accent);
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+  .ejp-brand .ejp-rule {
+    width: 56px; height: 1px;
+    background: var(--border-strong);
+    margin: 0.85rem auto;
+  }
+  .ejp-brand .ejp-subtitle {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  /* ---------- Card ---------- */
+  .ejp-card {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow-card);
+  }
+  .login-wrap {
+    min-height: calc(100vh - 44px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 64px 20px;
+  }
+  .login-wrap-inner { width: 100%; max-width: 480px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.25rem;
+  }
+  .tabs button {
+    flex: 1;
+    background: none; border: 0;
+    padding: 0.6rem 0.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+  .tabs button:hover { color: var(--text-primary); }
+
+  /* Forms */
+  .field { margin-bottom: 0.9rem; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+    font-family: var(--font-sans);
+  }
+  .field input {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    outline: none;
+  }
+  .field input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface-alt); border-color: var(--text-muted); }
+  .btn.btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.btn-block { width: 100%; }
+  .btn.btn-dark {
+    background: var(--text-primary);
+    border-color: var(--text-primary);
+    color: #fff;
+  }
+  .btn.btn-dark:hover { background: #000; border-color: #000; }
+  .btn.btn-small { font-size: 0.78rem; padding: 0.35rem 0.65rem; }
+
+  /* ---------- Pills, badges, score badges ---------- */
+  .pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    padding: 1px 8px;
+    margin: 2px 3px 2px 0;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .pill.pill-muted { color: var(--text-muted); border-color: var(--border-strong); }
+  .badge-binding, .badge-relevant, .badge-irrelevant {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+  }
+  .badge-binding    { background: var(--binding-bg);    color: var(--binding); }
+  .badge-relevant   { background: var(--relevant-bg);   color: var(--relevant); }
+  .badge-irrelevant { background: var(--irrelevant-bg); color: var(--irrelevant); }
+  .score-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 1px 8px;
+    border-radius: var(--radius-sm);
+    margin: 2px 3px 2px 0;
+    color: var(--text-primary);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+  }
+  .score-badge.score-high { background: var(--score-high); border-color: #b6e6c8; }
+  .score-badge.score-mid  { background: var(--score-mid);  border-color: #efe49a; }
+  .score-badge.score-low  { background: var(--score-low);  border-color: #f3c3c3; }
+
+  /* ---------- Audit page ---------- */
+  .page-wrap { max-width: 1240px; margin: 0 auto; padding: 28px 28px 60px 28px; }
+  .audit-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+  .audit-header .ah-title { flex: 1; }
+  .audit-header h1 {
+    font-family: var(--font-serif);
+    font-size: 1.85rem;
+    color: var(--accent);
+    margin: 0 0 0.15rem 0;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  .audit-header .ah-sub {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .audit-header .ah-actions { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+
+  .audit-banner {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    padding: 6px 0;
+    margin-bottom: 12px;
+  }
+  .audit-banner .dot { color: var(--binding); margin-right: 6px; font-size: 0.7rem; }
+
+  .audit-search {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    margin-bottom: 22px;
+  }
+  .audit-search textarea {
+    width: 100%;
+    min-height: 70px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    resize: vertical;
+    outline: none;
+  }
+  .audit-search textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+  }
+  .audit-controls {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: end;
+  }
+  .control-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 4px;
+    display: block;
+    font-family: var(--font-sans);
+  }
+  .select, .slider-shell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .select::after { content: "▾"; color: var(--text-muted); font-size: 0.7rem; }
+  .slider-shell { gap: 10px; cursor: default; }
+  .slider-shell input[type=range] { flex: 1; accent-color: var(--accent); }
+  .slider-shell .val {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--accent);
+    min-width: 28px; text-align: right;
+  }
+
+  /* Audit layout */
+  .audit-layout { display: grid; gap: 22px; }
+  .audit-layout.with-hist { grid-template-columns: 2.5fr 1fr; }
+  .audit-layout.no-hist { grid-template-columns: 1fr; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 14px 0 18px 0; }
+  .metric {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  .metric .m-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .metric .m-value {
+    font-family: var(--font-serif);
+    font-size: 1.55rem;
+    color: var(--accent);
+    line-height: 1.1;
+  }
+
+  /* Query echo */
+  .query-echo {
+    border-left: 3px solid var(--accent);
+    padding: 0.65rem 0.95rem;
+    margin: 0 0 14px 0;
+    background: var(--surface);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .query-echo .query-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.2rem;
+  }
+  .query-echo .query-text {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text-primary);
+    line-height: 1.45;
+  }
+
+  /* Inner tabs */
+  .inner-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin: 8px 0 16px 0;
+    gap: 0;
+  }
+  .inner-tabs button {
+    background: none; border: 0;
+    padding: 9px 14px;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .inner-tabs button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+  .tab-caption {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0 0 10px 0;
+  }
+
+  /* Chunk card */
+  .chunk {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .chunk-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px;
+    cursor: pointer;
+    user-select: none;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+  }
+  .chunk-head:hover { background: var(--accent-light); }
+  .chunk-head .ch-pos {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    min-width: 28px;
+  }
+  .chunk-head .ch-cite {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .chunk-head .ch-icon {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    margin-left: auto;
+  }
+  .chunk-head .ch-flag { font-size: 0.85rem; }
+  .chunk-body { display: none; padding: 0 14px 14px 14px; border-top: 1px solid var(--border); }
+  .chunk.open .chunk-body { display: block; }
+  .chunk.open .chunk-head .ch-icon { transform: rotate(180deg); }
+  .chunk-meta-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+    padding-top: 12px; margin-bottom: 8px;
+  }
+  pre.chunk-text {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    border-left: 3px solid var(--border-strong);
+    padding: 0.7rem 0.95rem;
+    background: var(--surface-alt);
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0.5rem 0 0.95rem 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .chunk-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .chunk-actions .labels { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; }
+  .chunk-actions .notes-row { display: grid; grid-template-columns: 3fr 1fr; gap: 6px; }
+  .chunk-actions input[type=text] {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    outline: none;
+  }
+  .chunk-actions input[type=text]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+  }
+  .saved-row { margin-top: 10px; }
+  .save-flash {
+    display: inline-block;
+    background: var(--binding-bg);
+    color: var(--binding);
+    border: 1px solid #b6e6c8;
+    border-radius: var(--radius-sm);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin-top: 8px;
+  }
+
+  /* History panel */
+  .hist-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    padding: 0.85rem 1rem 0.5rem 1rem;
+    min-height: 400px;
+    align-self: start;
+  }
+  .hist-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .hist-panel-head h3 {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+  .hist-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 4px 0 12px 0;
+  }
+  .hist-row {
+    display: block; width: 100%;
+    background: none; border: 0;
+    text-align: left;
+    padding: 10px 0;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    font-family: var(--font-sans);
+  }
+  .hist-row:hover { background: var(--accent-light); }
+  .hist-row:first-of-type { border-top: 0; }
+  .hist-row .hr-q {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.35;
+    margin-bottom: 4px;
+  }
+  .hist-row .hr-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+  .hist-row .hr-meta .sep { opacity: 0.5; }
+  .hist-row .hr-date { margin-left: auto; }
+
+  /* ---------- Chat page ---------- */
+  .chat-wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 120px 20px;
+    min-height: calc(100vh - 44px);
+  }
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 55vh;
+    text-align: center;
+  }
+  .empty-state .es-mark {
+    font-size: 2.6rem;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .empty-state h1 {
+    font-family: var(--font-serif);
+    font-size: 1.95rem;
+    font-weight: 400;
+    color: var(--accent);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .empty-state .es-rule {
+    width: 48px; height: 1px;
+    background: var(--border-strong);
+    margin: 0.85rem auto;
+  }
+  .empty-state p {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    margin: 0;
+  }
+  .chat-msg { display: flex; gap: 12px; margin: 18px 0; align-items: flex-start; }
+  .chat-msg .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-alt);
+    color: var(--text-primary);
+    font-size: 14px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .chat-msg.assistant .avatar {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .chat-msg .body {
+    flex: 1;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+  .chat-msg .body p { margin: 0 0 0.6em 0; }
+  .chat-msg .body p:last-child { margin-bottom: 0; }
+  .sources-row { margin-top: 10px; }
+
+  .chat-input-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg);
+    padding: 16px 20px 22px 20px;
+    z-index: 10;
+  }
+  .chat-input-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 6px 16px;
+    display: flex; align-items: center;
+    transition: outline 0.1s;
+  }
+  .chat-input-inner:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: var(--accent);
+  }
+  .chat-input-inner textarea {
+    flex: 1;
+    border: 0; outline: 0;
+    resize: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 8px 0;
+    min-height: 24px;
+    max-height: 120px;
+  }
+  .chat-input-inner textarea::placeholder { color: var(--text-muted); }
+  .chat-send {
+    background: var(--accent);
+    color: #fff; border: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+  .chat-send:hover { background: var(--accent-hover); }
+  .chat-send:disabled { background: var(--border-strong); cursor: not-allowed; }
+
+  /* ---------- Admin ---------- */
+  .admin-table-head, .admin-table-row {
+    display: grid;
+    grid-template-columns: 5fr 1fr 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 4px;
+  }
+  .admin-table-head {
+    border-bottom: 1px solid var(--border);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    padding-bottom: 6px;
+  }
+  .admin-table-head .center { text-align: center; }
+  .admin-table-row { border-bottom: 1px solid var(--border); font-family: var(--font-sans); }
+  .admin-table-row:last-child { border-bottom: 0; }
+  .admin-table-row .date { font-family: var(--font-mono); color: var(--text-muted); font-size: 0.82rem; }
+  .admin-table-row .check { text-align: center; color: var(--accent); font-weight: 700; }
+  .pending-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .pending-row .pr-info { flex: 1; }
+  .pending-row .pr-email { font-weight: 600; color: var(--text-primary); }
+  .pending-row .pr-meta { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+  .section-title {
+    font-family: var(--font-serif);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 24px 0 10px 0;
+  }
+  .section-title .count {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    margin-left: 6px;
+  }
+
+  hr.divider { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* misc helpers */
+  .row { display: flex; align-items: center; gap: 8px; }
+  .muted { color: var(--text-muted); }
+  .mono { font-family: var(--font-mono); }
+  .serif { font-family: var(--font-serif); }
+  .toast {
+    position: fixed;
+    top: 60px; right: 24px;
+    background: var(--text-primary);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    box-shadow: var(--shadow-card);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed;
+    bottom: 16px; right: 16px;
+    width: 260px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    padding: 14px;
+    z-index: 80;
+    font-size: 0.85rem;
+    font-family: var(--font-sans);
+  }
+  .tweaks h4 {
+    margin: 0 0 8px 0;
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tweaks .tw-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 8px 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+  .tweaks .tw-row .label { color: var(--text-primary); }
+  .tweaks .tw-toggle {
+    width: 32px; height: 18px;
+    background: var(--border-strong);
+    border-radius: 9px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .tweaks .tw-toggle.on { background: var(--accent); }
+  .tweaks .tw-toggle::after {
+    content: ""; position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left 0.15s;
+  }
+  .tweaks .tw-toggle.on::after { left: 16px; }
+</style>
+</head>
+<body>
+
+<!-- Preview chrome -->
+<div class="preview-bar">
+  <div class="pb-brand">⚖️ <b>EJP-RAG</b> · Redesign Preview</div>
+  <nav id="navTabs">
+    <button data-screen="login" class="active">01 Login</button>
+    <button data-screen="audit">02 Audit Dashboard</button>
+    <button data-screen="audit-hist">03 With History</button>
+    <button data-screen="chat-empty">04 Chat — Empty</button>
+    <button data-screen="chat-active">05 Chat — Active</button>
+    <button data-screen="admin">06 Admin Console</button>
+  </nav>
+  <div class="pb-meta" id="screenMeta">Streamlit overlay</div>
+</div>
+
+<!-- =================== 01 LOGIN =================== -->
+<section class="screen active" data-screen-label="01 Login" id="screen-login">
+  <div class="login-wrap">
+    <div class="login-wrap-inner">
+      <div class="ejp-brand">
+        <div class="ejp-mark">⚖️</div>
+        <h1 class="ejp-title">Illinois Legal Research</h1>
+        <div class="ejp-rule"></div>
+        <p class="ejp-subtitle">Expert Labeling Dashboard</p>
+      </div>
+
+      <div class="ejp-card">
+        <div class="tabs" id="loginTabs">
+          <button class="active" data-tab="login">Login</button>
+          <button data-tab="signup">Sign Up</button>
+          <button data-tab="admin">Admin</button>
+        </div>
+
+        <!-- Login pane -->
+        <div class="tab-pane" data-pane="login">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="you@firm.com" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••" />
+          </div>
+          <button class="btn btn-primary btn-block" onclick="showToast('Signed in (demo)')">Login</button>
+        </div>
+
+        <!-- Signup pane -->
+        <div class="tab-pane" data-pane="signup" style="display:none">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="you@firm.com" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" placeholder="At least 8 characters" />
+          </div>
+          <div class="field">
+            <label>Confirm Password</label>
+            <input type="password" />
+          </div>
+          <button class="btn btn-primary btn-block" onclick="showToast('Account submitted — pending approval')">Create Account</button>
+        </div>
+
+        <!-- Admin pane -->
+        <div class="tab-pane" data-pane="admin" style="display:none">
+          <p class="muted" style="font-size:0.9rem;margin:4px 0 14px 0;">Admin access only.</p>
+          <button class="btn btn-primary btn-block" onclick="goTo('admin')">Go to Admin Panel</button>
+        </div>
+      </div>
+
+      <p style="text-align:center;font-size:0.72rem;color:var(--text-muted);
+                margin-top:1.5rem;letter-spacing:0.04em;font-family:var(--font-mono);">
+        ILLINOIS COMPILED STATUTES · SUPREME COURT RULES · CASE LAW
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 02 AUDIT (no history) =================== -->
+<section class="screen" data-screen-label="02 Audit Dashboard" id="screen-audit">
+  <div class="page-wrap">
+    <div class="audit-header">
+      <div class="ah-title">
+        <h1>Retrieval Audit</h1>
+        <div class="ah-sub">Illinois Legal RAG · Expert Labeling</div>
+      </div>
+      <div class="ah-actions">
+        <button class="btn btn-small" onclick="goTo('audit-hist')">📋 History</button>
+        <button class="btn btn-small" onclick="goTo('login')">Logout</button>
+      </div>
+    </div>
+
+    <div class="audit-banner"><span class="dot">●</span> Hybrid retrieval active</div>
+
+    <div class="audit-search">
+      <textarea id="auditQuery">What is good-time credit in Illinois?</textarea>
+      <div class="audit-controls">
+        <div>
+          <span class="control-label">Retrieval Mode</span>
+          <div class="select">Hybrid (production)</div>
+        </div>
+        <div>
+          <span class="control-label">Candidates to show</span>
+          <div class="slider-shell">
+            <input type="range" min="5" max="60" step="5" value="20" />
+            <span class="val">20</span>
+          </div>
+        </div>
+        <div>
+          <span class="control-label">&nbsp;</span>
+          <button class="btn btn-primary btn-block" onclick="showToast('Searching... (demo)')">Search</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="audit-layout no-hist" id="auditLayoutNoHist">
+      <div>
+        <div class="query-echo">
+          <span class="query-label">Query</span>
+          <span class="query-text">What is good-time credit in Illinois?</span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-label">Candidates (pre-rerank)</div>
+            <div class="m-value">20</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">Survived reranking</div>
+            <div class="m-value">8</div>
+          </div>
+          <div class="metric">
+            <div class="m-label">Dropped</div>
+            <div class="m-value">12</div>
+          </div>
+        </div>
+
+        <div class="inner-tabs" id="resultsTabs">
+          <button class="active" data-tab="post">Post-Rerank (8 survived)</button>
+          <button data-tab="pre">Pre-Rerank (12 dropped)</button>
+        </div>
+        <p class="tab-caption">Chunks after CrossEncoder reranking — exactly what the LLM sees in production.</p>
+
+        <div id="chunkList">
+          <!-- chunks injected by JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 03 AUDIT WITH HISTORY =================== -->
+<section class="screen" data-screen-label="03 With History" id="screen-audit-hist">
+  <div class="page-wrap">
+    <div class="audit-header">
+      <div class="ah-title">
+        <h1>Retrieval Audit</h1>
+        <div class="ah-sub">Illinois Legal RAG · Expert Labeling</div>
+      </div>
+    </div>
+
+    <div class="audit-banner"><span class="dot">●</span> Hybrid retrieval active</div>
+
+    <div class="audit-search">
+      <textarea>Self-defense and the duty to retreat — Illinois</textarea>
+      <div class="audit-controls">
+        <div>
+          <span class="control-label">Retrieval Mode</span>
+          <div class="select">Hybrid (production)</div>
+        </div>
+        <div>
+          <span class="control-label">Candidates to show</span>
+          <div class="slider-shell">
+            <input type="range" min="5" max="60" step="5" value="25" />
+            <span class="val">25</span>
+          </div>
+        </div>
+        <div>
+          <span class="control-label">&nbsp;</span>
+          <button class="btn btn-primary btn-block" onclick="showToast('Searching... (demo)')">Search</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="audit-layout with-hist">
+      <div>
+        <div class="query-echo">
+          <span class="query-label">Query</span>
+          <span class="query-text">Self-defense and the duty to retreat — Illinois</span>
+        </div>
+
+        <div class="metrics">
+          <div class="metric"><div class="m-label">Candidates (pre-rerank)</div><div class="m-value">25</div></div>
+          <div class="metric"><div class="m-label">Survived reranking</div><div class="m-value">9</div></div>
+          <div class="metric"><div class="m-label">Dropped</div><div class="m-value">16</div></div>
+        </div>
+
+        <div class="inner-tabs">
+          <button class="active">Post-Rerank (9 survived)</button>
+          <button>Pre-Rerank (16 dropped)</button>
+        </div>
+        <p class="tab-caption">Chunks after CrossEncoder reranking — exactly what the LLM sees in production.</p>
+
+        <div id="chunkListHist"></div>
+      </div>
+
+      <aside class="hist-panel">
+        <div class="hist-panel-head">
+          <h3>Feedback History</h3>
+          <button class="btn btn-dark btn-small" onclick="goTo('audit')" title="Close panel">✕</button>
+        </div>
+        <div class="hist-meta">14 labels across 4 queries — all time</div>
+
+        <button class="hist-row">
+          <div class="hr-q">▶ Self-defense and the duty to retreat — Illinois</div>
+          <div class="hr-meta">
+            <span>🟢 4</span><span class="sep">·</span>
+            <span>🟡 3</span><span class="sep">·</span>
+            <span>🔴 1</span>
+            <span class="hr-date">May 18</span>
+          </div>
+        </button>
+        <button class="hist-row">
+          <div class="hr-q">▶ Good-time credit calculation for Class 1 felony</div>
+          <div class="hr-meta">
+            <span>🟢 2</span><span class="sep">·</span>
+            <span>🟡 1</span><span class="sep">·</span>
+            <span>🔴 1</span>
+            <span class="hr-date">May 17</span>
+          </div>
+        </button>
+        <button class="hist-row">
+          <div class="hr-q">▶ Mandatory supervised release violations…</div>
+          <div class="hr-meta">
+            <span>🟢 1</span><span class="sep">·</span>
+            <span>🟡 0</span><span class="sep">·</span>
+            <span>🔴 0</span>
+            <span class="hr-date">May 16</span>
+          </div>
+        </button>
+        <button class="hist-row">
+          <div class="hr-q">▶ Krankl v. People — successive collateral attack</div>
+          <div class="hr-meta">
+            <span>🟢 0</span><span class="sep">·</span>
+            <span>🟡 1</span><span class="sep">·</span>
+            <span>🔴 0</span>
+            <span class="hr-date">May 14</span>
+          </div>
+        </button>
+
+        <hr class="divider" />
+        <p class="muted" style="font-size:0.72rem;margin:0 0 8px 0;">
+          Labels as of when the panel opened.
+        </p>
+        <button class="btn btn-small btn-block" onclick="showToast('Refreshed history')">↻ Refresh</button>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 04 CHAT EMPTY =================== -->
+<section class="screen" data-screen-label="04 Chat — Empty" id="screen-chat-empty">
+  <div class="chat-wrap">
+    <div class="empty-state">
+      <div class="es-mark">⚖️</div>
+      <h1>Illinois Legal Research</h1>
+      <div class="es-rule"></div>
+      <p>Illinois Compiled Statutes · Supreme Court Rules · Case Law</p>
+    </div>
+  </div>
+  <div class="chat-input-bar">
+    <div class="chat-input-inner">
+      <textarea placeholder="Send a message"></textarea>
+      <button class="chat-send" onclick="goTo('chat-active')" title="Send">↑</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 05 CHAT ACTIVE =================== -->
+<section class="screen" data-screen-label="05 Chat — Active" id="screen-chat-active">
+  <div class="chat-wrap">
+    <div class="chat-msg user">
+      <div class="avatar">👤</div>
+      <div class="body">
+        What's the standard for good-time credit on a Class 2 felony in Illinois, and how does day-for-day calculation work?
+      </div>
+    </div>
+
+    <div class="chat-msg assistant">
+      <div class="avatar">⚖️</div>
+      <div class="body">
+        <p>Under Illinois law, good-conduct credit for most Class 2 felonies is awarded on a day-for-day basis — one day of credit for each day served — pursuant to <span class="pill">730 ILCS 5/3-6-3</span>. The credit applies to the sentence imposed, not the maximum statutory term.</p>
+        <p>Certain offenses are excluded from day-for-day eligibility and instead earn credit at a reduced rate (typically 4.5 days per month) under <span class="pill">730 ILCS 5/3-6-3(a)(2)</span>. These exclusions include first-degree murder, aggravated criminal sexual assault, and several specifically enumerated felonies.</p>
+        <p>The Illinois Department of Corrections has discretion to revoke earned good-time credit for disciplinary infractions; see <span class="pill">20 Ill. Adm. Code 107</span> for the procedural requirements.</p>
+        <div class="sources-row">
+          <span class="pill">730 ILCS 5/3-6-3</span>
+          <span class="pill">730 ILCS 5/3-6-3(a)(2)</span>
+          <span class="pill">20 Ill. Adm. Code 107</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="chat-input-bar">
+    <div class="chat-input-inner">
+      <textarea placeholder="Send a message"></textarea>
+      <button class="chat-send" title="Send">↑</button>
+    </div>
+  </div>
+</section>
+
+<!-- =================== 06 ADMIN =================== -->
+<section class="screen" data-screen-label="06 Admin" id="screen-admin">
+  <div class="page-wrap" style="max-width: 880px;">
+    <div class="audit-header">
+      <div class="ah-title">
+        <h1>Account Management</h1>
+        <div class="ah-sub">Illinois Legal Research · Admin Console</div>
+      </div>
+      <div class="ah-actions">
+        <button class="btn btn-small" onclick="goTo('login')">Logout</button>
+      </div>
+    </div>
+
+    <h3 class="section-title">Pending Approval <span class="count">(2)</span></h3>
+    <div class="pending-row">
+      <div class="pr-info">
+        <div class="pr-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="accd82c1c3decdc0c9dfeccfc3c3c7cfc3d9c2d8d5dcc882c3decb">[email&#160;protected]</a></div>
+        <div class="pr-meta">Registered 2026-05-17</div>
+      </div>
+      <button class="btn btn-primary btn-small" onclick="showToast('Approved a.morales@cookcountypd.org')">Approve</button>
+    </div>
+    <div class="pending-row">
+      <div class="pr-info">
+        <div class="pr-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c3a9a6adadbaedabb6a2ada483aaafafaaadacaab0eea2b3b3a6afafa2b7a6edacb1a4">[email&#160;protected]</a></div>
+        <div class="pr-meta">Registered 2026-05-15</div>
+      </div>
+      <button class="btn btn-primary btn-small" onclick="showToast('Approved jenny.huang@illinois-appellate.org')">Approve</button>
+    </div>
+
+    <h3 class="section-title">Approved Accounts <span class="count">(5)</span></h3>
+    <div class="admin-table-head">
+      <div>Email</div>
+      <div>Approved</div>
+      <div class="center">Status</div>
+    </div>
+    <div class="admin-table-row">
+      <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="e783c995829e8294a7828d97c98e8b8b8e89888e94c9828392">[email&#160;protected]</a></div>
+      <div class="date">2026-04-21</div>
+      <div class="check">✓</div>
+    </div>
+    <div class="admin-table-row">
+      <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="42296c3523312a2b2c25362d2c02242b303136262724272c31276c2d3025">[email&#160;protected]</a></div>
+      <div class="date">2026-04-03</div>
+      <div class="check">✓</div>
+    </div>
+    <div class="admin-table-row">
+      <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="aac784cbc6dccbd8cfd0eac3c6c6c3c4c5c3d984cfcedf">[email&#160;protected]</a></div>
+      <div class="date">2026-03-28</div>
+      <div class="check">✓</div>
+    </div>
+    <div class="admin-table-row">
+      <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8bfba5f8fef9eef8e3cbe8e4e4e0e8e4fee5fff2fbefa5e4f9ec">[email&#160;protected]</a></div>
+      <div class="date">2026-03-15</div>
+      <div class="check">✓</div>
+    </div>
+    <div class="admin-table-row">
+      <div><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ee8bc082819e8b94ae878282878081879dc38f9e9e8b82828f9a8bc0819c89">[email&#160;protected]</a></div>
+      <div class="date">2026-02-09</div>
+      <div class="check">✓</div>
+    </div>
+  </div>
+</section>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Tweaks -->
+<div class="tweaks" id="tweaksPanel">
+  <h4>Tweaks</h4>
+  <div class="tw-row">
+    <span class="label">Serif headings</span>
+    <div class="tw-toggle on" onclick="this.classList.toggle('on');toggleSerif(this);"></div>
+  </div>
+  <div class="tw-row">
+    <span class="label">Parchment background</span>
+    <div class="tw-toggle on" onclick="this.classList.toggle('on');togglePaper(this);"></div>
+  </div>
+  <div class="tw-row">
+    <span class="label">Mono citation pills</span>
+    <div class="tw-toggle on" onclick="this.classList.toggle('on');togglePillMono(this);"></div>
+  </div>
+  <div class="tw-row">
+    <span class="label">Show open chunk #1</span>
+    <div class="tw-toggle on" onclick="this.classList.toggle('on');toggleOpenFirst(this);"></div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  // ---------- Navigation ----------
+  function goTo(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById('screen-' + name);
+    if (el) el.classList.add('active');
+    document.querySelectorAll('#navTabs button').forEach(b => {
+      b.classList.toggle('active', b.dataset.screen === name);
+    });
+    // metadata
+    const meta = {
+      'login': 'audit_app.py · auth gate',
+      'audit': 'audit_app.py · main',
+      'audit-hist': 'audit_app.py · history panel open',
+      'chat-empty': 'app.py · empty state',
+      'chat-active': 'app.py · conversation',
+      'admin': 'pages/admin.py'
+    };
+    document.getElementById('screenMeta').textContent = meta[name] || '';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  document.querySelectorAll('#navTabs button').forEach(b => {
+    b.addEventListener('click', () => goTo(b.dataset.screen));
+  });
+
+  // ---------- Login tabs ----------
+  document.querySelectorAll('#loginTabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#loginTabs button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      document.querySelectorAll('[data-pane]').forEach(p => {
+        p.style.display = (p.dataset.pane === b.dataset.tab) ? 'block' : 'none';
+      });
+    });
+  });
+
+  // ---------- Results inner tabs ----------
+  document.querySelectorAll('#resultsTabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#resultsTabs button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const caption = document.querySelector('#screen-audit .tab-caption');
+      caption.textContent = b.dataset.tab === 'post'
+        ? 'Chunks after CrossEncoder reranking — exactly what the LLM sees in production.'
+        : 'Candidates dropped by the reranker. The 8 post-rerank survivors are excluded — label them in the Post-Rerank tab.';
+      renderChunks(b.dataset.tab === 'post' ? CHUNKS_POST : CHUNKS_PRE, 'chunkList');
+    });
+  });
+
+  // ---------- Mock chunks ----------
+  const CHUNKS_POST = [
+    {
+      cite: '730 ILCS 5/3-6-3',
+      source: 'ILCS · Corrections',
+      ce: 3.82,
+      rrf: 0.0413,
+      saved: 'BINDING',
+      text: 'The rules and regulations on early release shall provide, with respect to offenses listed in clause (i), (ii), or (iii) of this subparagraph (A) committed on or after June 19, 1998, that a prisoner who is serving a term of imprisonment shall receive one day of sentence credit for each day of his or her sentence of imprisonment or recommitment under Section 3-3-9.'
+    },
+    {
+      cite: 'Rule 431',
+      source: 'IL Supreme Court Rules',
+      ce: 2.41,
+      rrf: 0.0301,
+      saved: null,
+      text: 'In criminal cases, the court shall ask each potential juror, individually or in a group, whether that juror understands and accepts the following principles: (1) that the defendant is presumed innocent of the charge(s) against him or her; (2) that before a defendant can be convicted the State must prove the defendant guilty beyond a reasonable doubt...'
+    },
+    {
+      cite: '730 ILCS 5/5-4.5-35',
+      source: 'ILCS · Sentencing',
+      ce: 1.74,
+      rrf: 0.0265,
+      saved: 'RELEVANT',
+      text: 'SENTENCE OF IMPRISONMENT FOR CLASS 2 FELONY. The sentence of imprisonment for a Class 2 felony shall be a determinate sentence of not less than 3 years and not more than 7 years...'
+    },
+    {
+      cite: '20 Ill. Adm. Code 107',
+      source: 'Admin Code',
+      ce: 0.92,
+      rrf: 0.0218,
+      saved: null,
+      text: 'Section 107.150 Disciplinary Procedures. When a violation of Department rules occurs, staff shall complete a disciplinary report describing the incident and serve a copy on the offender within 8 days of the discovery of the alleged violation...'
+    },
+    {
+      cite: 'People v. Whitfield',
+      source: 'Case Law · Ill. 2005',
+      ce: -0.31,
+      rrf: 0.0182,
+      saved: null,
+      text: 'We hold that a defendant who pleads guilty in exchange for a specific sentence is entitled to the benefit of his bargain, including the application of good-time credits as they existed at the time of the plea agreement.'
+    }
+  ];
+  const CHUNKS_PRE = [
+    {
+      cite: '730 ILCS 5/3-3-9',
+      source: 'ILCS · Corrections',
+      ce: 0.12,
+      rrf: 0.0144,
+      saved: null,
+      text: 'Whenever any prisoner who is serving a sentence pursuant to the provisions of this Code violates the conditions of his parole or mandatory supervised release, the Prisoner Review Board may revoke the parole or release...'
+    },
+    {
+      cite: 'Rule 605',
+      source: 'IL Supreme Court Rules',
+      ce: -0.55,
+      rrf: 0.0119,
+      saved: null,
+      text: 'In all cases in which a judgment of conviction has been entered upon a plea of guilty, at the time of imposing sentence, the trial court shall advise the defendant substantially as follows...'
+    },
+    {
+      cite: '725 ILCS 5/110-2',
+      source: 'ILCS · Criminal Procedure',
+      ce: -1.21,
+      rrf: 0.0098,
+      saved: 'IRRELEVANT',
+      text: 'It is the policy of this State that the pretrial release of defendants should be the rule rather than the exception. In determining whether to release a defendant on personal recognizance...'
+    }
+  ];
+
+  function chunkHTML(c, idx, opened) {
+    const flag = c.saved
+      ? { BINDING:'🟢', RELEVANT:'🟡', IRRELEVANT:'🔴' }[c.saved]
+      : '';
+    const scoreClass =
+      c.ce == null ? '' :
+      c.ce >= 2.0 ? 'score-high' :
+      c.ce >= 0.0 ? 'score-mid' : 'score-low';
+    const ceLabel = c.ce == null ? 'no CE' : 'CE ' + c.ce.toFixed(2);
+    const savedRow = c.saved
+      ? `<div class="saved-row"><span class="badge-${c.saved.toLowerCase()}">✓ ${c.saved}</span></div>`
+      : '';
+    return `
+      <div class="chunk ${opened ? 'open' : ''}" data-idx="${idx}">
+        <div class="chunk-head" onclick="this.parentElement.classList.toggle('open')">
+          <span class="ch-flag">${flag}</span>
+          <span class="ch-pos">#${idx+1}</span>
+          <span class="ch-cite">${c.cite}</span>
+          <span class="ch-icon">▾</span>
+        </div>
+        <div class="chunk-body">
+          <div class="chunk-meta-row">
+            <span class="pill">${c.cite}</span>
+            <span class="pill pill-muted">${c.source}</span>
+            <span class="score-badge ${scoreClass}">${ceLabel}</span>
+            <span class="score-badge">RRF ${c.rrf.toFixed(4)}</span>
+          </div>
+          <pre class="chunk-text">${c.text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+          <div class="chunk-actions">
+            <div class="labels">
+              <button class="btn btn-primary btn-small" onclick="setLabel(this,${idx},'BINDING','chunkList')">BINDING</button>
+              <button class="btn btn-small" onclick="setLabel(this,${idx},'RELEVANT','chunkList')">RELEVANT</button>
+              <button class="btn btn-small" onclick="setLabel(this,${idx},'IRRELEVANT','chunkList')">IRREL.</button>
+            </div>
+            <div class="notes-row">
+              <input type="text" placeholder="Optional notes…" />
+              <button class="btn btn-small" onclick="showToast('Note saved')">Save</button>
+            </div>
+          </div>
+          ${savedRow}
+        </div>
+      </div>`;
+  }
+
+  function renderChunks(arr, target) {
+    const host = document.getElementById(target);
+    if (!host) return;
+    host.innerHTML = arr.map((c,i)=>chunkHTML(c,i, i===0 && OPEN_FIRST)).join('');
+  }
+
+  let OPEN_FIRST = true;
+  function toggleOpenFirst(el) {
+    OPEN_FIRST = el.classList.contains('on');
+    renderChunks(CHUNKS_POST, 'chunkList');
+    renderChunks(CHUNKS_POST.slice(0,4), 'chunkListHist');
+  }
+
+  function setLabel(btn, idx, lbl, target) {
+    const arr = target === 'chunkList' ? CHUNKS_POST : CHUNKS_POST;
+    arr[idx].saved = lbl;
+    renderChunks(arr, target);
+    // re-open the same chunk
+    const card = document.querySelector(`#${target} .chunk[data-idx="${idx}"]`);
+    if (card) card.classList.add('open');
+    showToast('✓ ' + lbl);
+  }
+
+  // initial render
+  renderChunks(CHUNKS_POST, 'chunkList');
+  renderChunks(CHUNKS_POST.slice(0,4), 'chunkListHist');
+
+  // ---------- Toast ----------
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+
+  // ---------- Tweaks ----------
+  function toggleSerif(el) {
+    const on = el.classList.contains('on');
+    document.querySelectorAll('.ejp-title, .audit-header h1, .query-text, .empty-state h1, .section-title, .hist-panel-head h3')
+      .forEach(h => h.style.fontFamily = on ? 'var(--font-serif)' : 'var(--font-sans)');
+  }
+  function togglePaper(el) {
+    const on = el.classList.contains('on');
+    document.body.style.background = on ? 'var(--bg)' : '#ffffff';
+  }
+  function togglePillMono(el) {
+    const on = el.classList.contains('on');
+    document.querySelectorAll('.pill').forEach(p => {
+      p.style.fontFamily = on ? 'var(--font-mono)' : 'var(--font-sans)';
+    });
+  }
+</script>
+
+</body>
+</html>

@@ -1,13 +1,41 @@
-import html
 import json
 from datetime import datetime
 import streamlit as st
 from mcp_server.server import _audit_retrieval, submit_feedback, is_bm25_ready, get_feedback_history
 from auth.accounts import signup, login
-from ui.styles import SHARED_CSS
 
 st.set_page_config(page_title="Retrieval Audit", page_icon="⚖️", layout="wide")
-st.markdown(SHARED_CSS, unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+    #MainMenu, footer, header { visibility: hidden; }
+    .stApp { background: #ffffff; }
+    .score-high  { background: #d1fae5; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; }
+    .score-mid   { background: #fef3c7; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; }
+    .score-low   { background: #fee2e2; border-radius: 6px; padding: 2px 8px; font-size: 0.8rem; }
+    .citation-badge {
+        display: inline-block; background: #f0f0f0; color: #374151;
+        font-size: 0.75rem; padding: 2px 10px; border-radius: 12px;
+        font-family: monospace; margin-bottom: 4px;
+    }
+    /* Gray background for the history panel column */
+    div[data-testid="stColumn"]:has(#hist-panel-root) {
+        background: #f3f4f6;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    /* Dark ✕ close button */
+    div:has(#hist-close-btn) button {
+        background: #1f2937;
+        color: #ffffff;
+        border-color: #1f2937;
+    }
+    div:has(#hist-close-btn) button:hover {
+        background: #111827;
+        border-color: #111827;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 
 _LABEL_ICON = {"BINDING": "🟢", "RELEVANT": "🟡", "IRRELEVANT": "🔴"}
@@ -141,7 +169,7 @@ def _render_history_panel(expert_id: str) -> None:
     st.markdown('<div id="hist-panel-root"></div>', unsafe_allow_html=True)
     col_title, col_close = st.columns([4, 1])
     with col_title:
-        st.markdown('<h3 class="ejp-section-title">📋 Feedback History</h3>', unsafe_allow_html=True)
+        st.markdown("**📋 Feedback History**")
     with col_close:
         st.markdown('<div id="hist-close-btn"></div>', unsafe_allow_html=True)
         if st.button("✕", key="hist_close", use_container_width=True, help="Close panel"):
@@ -203,15 +231,8 @@ def _show_signup():
 # -- Auth gate -----------------------------------------------------------------
 
 if not st.session_state.get("authenticated"):
-    st.markdown(
-        '<div class="ejp-brand">'
-        '<div class="ejp-mark">⚖️</div>'
-        '<h1 class="ejp-title">Illinois Legal Research</h1>'
-        '<div class="ejp-rule"></div>'
-        '<p class="ejp-subtitle">Expert Labeling Dashboard</p>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    st.title("Retrieval Audit")
+    st.caption("Illinois Legal RAG — Expert Labeling")
     tab_login, tab_signup, tab_admin = st.tabs(["Login", "Sign Up", "Admin"])
     with tab_login:
         _show_login()
@@ -237,14 +258,8 @@ expert_id = st.session_state["user_email"]
 
 _title_col, _logout_col = st.columns([5, 1])
 with _title_col:
-    st.markdown(
-        '<h1 style="font-family:Georgia,serif;color:#1e3a5f;'
-        'font-size:1.8rem;margin:0 0 0.15rem 0;font-weight:400;">Retrieval Audit</h1>'
-        '<p style="font-family:-apple-system,Segoe UI,sans-serif;'
-        'font-size:0.78rem;color:#6b6860;letter-spacing:0.05em;'
-        'text-transform:uppercase;margin:0 0 1rem 0;">Illinois Legal RAG · Expert Labeling</p>',
-        unsafe_allow_html=True,
-    )
+    st.title("Retrieval Audit")
+    st.caption("Illinois Legal RAG — Expert Labeling")
 with _logout_col:
     st.write("")
     _hist_open = st.session_state.get("history_open", False)
@@ -265,7 +280,7 @@ with _logout_col:
 # -- Layout: conditional right-panel split -----------------------------------
 
 if st.session_state.get("history_open"):
-    _main_col, _hist_col = st.columns([2.5, 1])
+    _main_col, _hist_col = st.columns([3, 1])
 else:
     _main_col = st.container()
 
@@ -322,43 +337,30 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
     if "saved_labels" not in st.session_state:
         st.session_state["saved_labels"] = {}
 
-    saved_label = st.session_state["saved_labels"].get(key)
-    header_icon = f"{_LABEL_ICON[saved_label]} " if saved_label in _LABEL_ICON else ""
-
     with st.expander(
-        f"{header_icon}#{position}  {chunk['citation']}",
+        f"#{position}  {chunk['citation']}  ·  {chunk['source']}  ·  {rrf_label}  ·  {ce_label}",
         expanded=False,
     ):
         st.markdown(
-            f'<div class="chunk-meta-row">'
-            f'<span class="pill">{html.escape(chunk["citation"])}</span>'
-            f'<span class="pill pill-muted">{html.escape(chunk["source"])}</span>'
-            f'<span class="score-badge {css_class}">{html.escape(ce_label)}</span>'
-            f'<span class="score-badge">{html.escape(rrf_label)}</span>'
-            f'</div>',
+            f'<span class="citation-badge">{chunk["citation"]}</span>  '
+            f'<span class="citation-badge">{chunk["source"]}</span>  '
+            f'<span class="{css_class}">{ce_label}</span>',
             unsafe_allow_html=True,
         )
-        st.markdown(
-            f'<pre class="chunk-text">{html.escape(chunk["text"])}</pre>',
-            unsafe_allow_html=True,
-        )
+        st.text(chunk["text"])
 
-        col_labels, col_note_area = st.columns([2, 3])
-        with col_labels:
-            lbl1, lbl2, lbl3 = st.columns(3)
-            with lbl1:
-                binding = st.button("BINDING", key=f"b_{key}", type="primary")
-            with lbl2:
-                relevant = st.button("RELEVANT", key=f"r_{key}")
-            with lbl3:
-                irrelevant = st.button("IRREL.", key=f"i_{key}")
-        with col_note_area:
-            note_col, save_col = st.columns([3, 1])
-            with note_col:
-                comment = st.text_input("Notes", key=f"c_{key}",
-                                        label_visibility="collapsed", placeholder="Optional notes...")
-            with save_col:
-                save_note = st.button("Save Note", key=f"n_{key}", use_container_width=True)
+        col1, col2, col3, col_note, col_save = st.columns([1, 1, 1, 3, 1])
+        with col1:
+            binding = st.button("BINDING", key=f"b_{key}", type="primary")
+        with col2:
+            relevant = st.button("RELEVANT", key=f"r_{key}")
+        with col3:
+            irrelevant = st.button("IRREL.", key=f"i_{key}")
+        with col_note:
+            comment = st.text_input("Notes", key=f"c_{key}",
+                                    label_visibility="collapsed", placeholder="Optional notes...")
+        with col_save:
+            save_note = st.button("Save Note", key=f"n_{key}", use_container_width=True)
 
         def _do_submit(lbl, cmt):
             submit_feedback(
@@ -434,13 +436,7 @@ with _main_col:
         saved_top_k = st.session_state.get("audit_top_k", top_k)
 
         st.divider()
-        st.markdown(
-            f'<div class="query-echo">'
-            f'<span class="query-label">Query</span>'
-            f'<span class="query-text">{html.escape(q)}</span>'
-            f'</div>',
-            unsafe_allow_html=True,
-        )
+        st.subheader(f"Results for: {q}")
         col_meta1, col_meta2, col_meta3 = st.columns(3)
         col_meta1.metric("Candidates (pre-rerank)", len(result["candidates"]))
         col_meta2.metric("Survived reranking", len(result["reranked"]))
