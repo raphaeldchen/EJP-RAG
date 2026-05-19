@@ -320,8 +320,8 @@ SHARED_CSS = """
         background: var(--surface) !important;
     }
 
-    /* Subtle close button — comes after the card-row rule so !important wins */
-    div:has(#hist-close-btn) button {
+    /* Subtle close button — higher specificity than card-row rule to override it */
+    div[data-testid="stColumn"]:has(#hist-panel-root) div:has(#hist-close-btn) button {
         background: none !important;
         color: var(--text-muted) !important;
         border: 1px solid var(--border) !important;
@@ -329,7 +329,7 @@ SHARED_CSS = """
         font-weight: 400 !important;
         font-size: 0.82rem !important;
     }
-    div:has(#hist-close-btn) button:hover {
+    div[data-testid="stColumn"]:has(#hist-panel-root) div:has(#hist-close-btn) button:hover {
         background: none !important;
         color: var(--text-primary) !important;
         border-color: var(--border-strong) !important;
