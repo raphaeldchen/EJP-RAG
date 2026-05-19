@@ -55,6 +55,13 @@ SHARED_CSS = """
         font-family: var(--font-sans);
     }
 
+    /* Protect Streamlit's Material icon spans from the broad font-family override above.
+       Without this, icon text (e.g. keyboard_arrow_right) renders as literal characters
+       when the icon font loses the cascade (common on servers with slow font loads). */
+    [data-testid="stIconMaterial"] {
+        font-family: 'Material Symbols Rounded', 'Material Symbols Outlined', 'Material Icons Sharp', 'Material Icons' !important;
+    }
+
     /* Headings — serif for legal authority */
     h1, h2, h3, h4 {
         font-family: var(--font-serif) !important;
