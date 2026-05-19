@@ -301,16 +301,38 @@ SHARED_CSS = """
         padding: 0.85rem 1rem 0.5rem 1rem;
         border-radius: 0;
     }
-    /* Dark close button in history panel */
+    /* History panel query-row buttons — clean card style with good contrast */
+    div[data-testid="stColumn"]:has(#hist-panel-root) .stButton > button {
+        text-align: left !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text-primary) !important;
+        border-radius: var(--radius-md) !important;
+        padding: 9px 12px !important;
+        font-family: var(--font-sans) !important;
+        font-size: 0.85rem !important;
+        line-height: 1.5 !important;
+        transition: border-color 0.15s, box-shadow 0.15s !important;
+    }
+    div[data-testid="stColumn"]:has(#hist-panel-root) .stButton > button:hover {
+        border-color: var(--accent) !important;
+        box-shadow: 0 1px 5px rgba(30,58,95,0.08) !important;
+        background: var(--surface) !important;
+    }
+
+    /* Subtle close button — comes after the card-row rule so !important wins */
     div:has(#hist-close-btn) button {
-        background: var(--text-primary);
-        color: #ffffff;
-        border-color: var(--text-primary);
-        font-family: var(--font-sans);
+        background: none !important;
+        color: var(--text-muted) !important;
+        border: 1px solid var(--border) !important;
+        font-family: var(--font-sans) !important;
+        font-weight: 400 !important;
+        font-size: 0.82rem !important;
     }
     div:has(#hist-close-btn) button:hover {
-        background: #000;
-        border-color: #000;
+        background: none !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-strong) !important;
     }
 
     /* History row cards */
