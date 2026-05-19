@@ -71,8 +71,7 @@ approved = [a for a in accounts if a["approved"]]
 if pending:
     st.markdown(
         f'<h3 class="ejp-section-title">Pending Approval '
-        f'<span style="color:#6b6860;font-weight:400;font-family:-apple-system,sans-serif;'
-        f'font-size:0.85rem;">({len(pending)})</span></h3>',
+        f'<span class="ejp-section-count">({len(pending)})</span></h3>',
         unsafe_allow_html=True,
     )
     for acct in pending:
@@ -81,11 +80,8 @@ if pending:
             with col_email:
                 registered = acct["created_at"][:10] if acct["created_at"] else "unknown"
                 st.markdown(
-                    f'<div style="font-family:-apple-system,sans-serif;">'
-                    f'<div style="font-weight:600;color:#1a1a18;">{acct["email"]}</div>'
-                    f'<div style="font-size:0.78rem;color:#6b6860;margin-top:2px;">'
-                    f'Registered {registered}</div>'
-                    f'</div>',
+                    f'<div class="ejp-account-email">{acct["email"]}</div>'
+                    f'<div class="ejp-account-date">Registered {registered}</div>',
                     unsafe_allow_html=True,
                 )
             with col_btn:
@@ -100,47 +96,25 @@ else:
 if approved:
     st.markdown(
         f'<h3 class="ejp-section-title" style="margin-top:1.5rem;">Approved Accounts '
-        f'<span style="color:#6b6860;font-weight:400;font-family:-apple-system,sans-serif;'
-        f'font-size:0.85rem;">({len(approved)})</span></h3>',
+        f'<span class="ejp-section-count">({len(approved)})</span></h3>',
         unsafe_allow_html=True,
     )
     # Table header
     h_email, h_date, h_ok = st.columns([5, 1, 1])
-    h_email.markdown(
-        '<div style="font-family:-apple-system,sans-serif;font-size:0.7rem;'
-        'text-transform:uppercase;letter-spacing:0.06em;color:#6b6860;">Email</div>',
-        unsafe_allow_html=True,
-    )
-    h_date.markdown(
-        '<div style="font-family:-apple-system,sans-serif;font-size:0.7rem;'
-        'text-transform:uppercase;letter-spacing:0.06em;color:#6b6860;">Approved</div>',
-        unsafe_allow_html=True,
-    )
-    h_ok.markdown(
-        '<div style="font-family:-apple-system,sans-serif;font-size:0.7rem;'
-        'text-transform:uppercase;letter-spacing:0.06em;color:#6b6860;text-align:center;">Status</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="border-bottom:1px solid #e2e0db;margin:4px 0 6px 0;"></div>',
-        unsafe_allow_html=True,
-    )
+    h_email.markdown('<div class="ejp-table-header">Email</div>', unsafe_allow_html=True)
+    h_date.markdown('<div class="ejp-table-header">Approved</div>', unsafe_allow_html=True)
+    h_ok.markdown('<div class="ejp-table-header" style="text-align:center;">Status</div>', unsafe_allow_html=True)
+    st.markdown('<div style="border-bottom:1px solid var(--border);margin:4px 0 6px 0;"></div>', unsafe_allow_html=True)
 
     for acct in approved:
         approved_date = acct["approved_at"][:10] if acct["approved_at"] else "—"
         c_email, c_date, c_ok = st.columns([5, 1, 1])
         c_email.markdown(
-            f'<div style="font-family:-apple-system,sans-serif;color:#1a1a18;'
-            f'padding:6px 0;">{acct["email"]}</div>',
+            f'<div class="ejp-account-email ejp-table-cell">{acct["email"]}</div>',
             unsafe_allow_html=True,
         )
         c_date.markdown(
-            f'<div style="font-family:Courier New,monospace;color:#6b6860;'
-            f'font-size:0.82rem;padding:6px 0;">{approved_date}</div>',
+            f'<div class="ejp-account-date ejp-table-cell">{approved_date}</div>',
             unsafe_allow_html=True,
         )
-        c_ok.markdown(
-            '<div style="text-align:center;color:#1e3a5f;font-weight:600;'
-            'padding:6px 0;">✓</div>',
-            unsafe_allow_html=True,
-        )
+        c_ok.markdown('<div class="ejp-check">✓</div>', unsafe_allow_html=True)
