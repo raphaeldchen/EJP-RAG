@@ -326,7 +326,7 @@ def _render_card(chunk, position, stage, query, mode_key, expert_id, post_rerank
     header_icon = f"{_LABEL_ICON[saved_label]} " if saved_label in _LABEL_ICON else ""
 
     with st.expander(
-        f"{header_icon}#{position}  {chunk['citation']}",
+        f"{header_icon}→ {position}.  {chunk['citation']}",
         expanded=False,
     ):
         st.markdown(
