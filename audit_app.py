@@ -55,7 +55,7 @@ def _render_history_list(rows: list[dict], expert_id: str) -> None:
             date_str = g["latest"][:10]
 
         truncated = g["query_text"][:55] + ("…" if len(g["query_text"]) > 55 else "")
-        btn_label = f"▶ {truncated}  \n🟢 {binding}  🟡 {relevant}  🔴 {irrelevant}  ·  {date_str}"
+        btn_label = f"{truncated}\n{binding}B  {relevant}R  {irrelevant}I  ·  {date_str}"
 
         if st.button(btn_label, key=f"hist_q_{g['query_id']}", use_container_width=True):
             st.session_state["history_view"] = "detail"
@@ -141,7 +141,7 @@ def _render_history_panel(expert_id: str) -> None:
     st.markdown('<div id="hist-panel-root"></div>', unsafe_allow_html=True)
     col_title, col_close = st.columns([4, 1])
     with col_title:
-        st.markdown('<h3 class="ejp-section-title">📋 Feedback History</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 class="ejp-section-title">Feedback History</h3>', unsafe_allow_html=True)
     with col_close:
         st.markdown('<div id="hist-close-btn"></div>', unsafe_allow_html=True)
         if st.button("✕", key="hist_close", use_container_width=True, help="Close panel"):
