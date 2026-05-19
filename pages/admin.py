@@ -36,7 +36,7 @@ if not st.session_state.get("admin_authenticated"):
             else:
                 st.error("Incorrect password.")
         if st.button("← Retrieval Audit", use_container_width=True):
-            st.switch_page("audit_app.py")
+            st.switch_page("audit_app.py")  # root-level entry point — no "pages/" prefix
     st.stop()
 
 # Admin authenticated
@@ -53,7 +53,7 @@ with _title_col:
     )
 with _back_col:
     if st.button("← Audit", use_container_width=True):
-        st.switch_page("audit_app.py")
+        st.switch_page("audit_app.py")  # root-level entry point — no "pages/" prefix
 with _logout_col:
     if st.button("Logout", use_container_width=True):
         st.session_state.pop("admin_authenticated", None)
