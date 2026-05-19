@@ -1,0 +1,256 @@
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-alt: #f4f2ee;
+    --border: #e2e0db;
+    --border-strong: #c9c6bf;
+    --text-primary: #1a1a18;
+    --text-muted: #6b6860;
+    --accent: #1e3a5f;
+    --accent-light: #eef2f7;
+    --font-serif: Georgia, "Times New Roman", serif;
+    --font-mono: "Courier New", Consolas, Menlo, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  body { font-family: var(--font-sans); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 1rem; }
+  .pane { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .pane-header { padding: 8px 14px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+  .pane-header.before { background: #fee2e2; color: #991b1b; border-bottom: 1px solid #f3c3c3; }
+  .pane-header.after  { background: #dcfce7; color: #166534; border-bottom: 1px solid #b6e6c8; }
+  .pane-body { background: var(--bg); padding: 0; }
+
+  /* ---- HISTORY PANEL MOCKS ---- */
+  .hist-panel {
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    padding: 14px 14px 10px;
+    height: 420px;
+    overflow-y: auto;
+    font-family: var(--font-sans);
+  }
+
+  /* BEFORE */
+  .hist-before-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .hist-before-title { font-size: 1rem; font-weight: 600; }
+  .hist-before-close {
+    background: #1f2937; color: #fff; border: none;
+    border-radius: 4px; padding: 4px 10px; font-size: 0.82rem; cursor: pointer;
+  }
+  .hist-before-btn {
+    display: block; width: 100%; background: #fff;
+    border: 1px solid #e5e7eb; border-radius: 6px;
+    padding: 8px 10px; text-align: left;
+    font-size: 0.83rem; margin-bottom: 6px; cursor: pointer;
+    color: #374151; line-height: 1.5; font-family: var(--font-sans);
+  }
+  .hist-before-btn .l1 { color: #111827; font-weight: 500; }
+  .hist-before-btn .l2 { color: #6b7280; font-size: 0.78rem; }
+  .hist-before-cap { font-size: 0.72rem; color: #6b7280; margin-bottom: 8px; }
+
+  /* AFTER */
+  .hist-after-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hist-after-title {
+    font-family: var(--font-serif);
+    font-size: 1rem; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.01em; margin: 0;
+  }
+  .hist-after-close {
+    background: none; color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 3px 10px; font-size: 0.82rem; cursor: pointer;
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .hist-after-close:hover { border-color: var(--border-strong); color: var(--text-primary); }
+  .hist-after-cap { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 10px; font-family: var(--font-mono); }
+
+  .hist-row {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 9px 11px; margin-bottom: 7px; background: var(--surface);
+    cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .hist-row:hover { border-color: var(--accent); box-shadow: 0 1px 5px rgba(30,58,95,0.09); }
+  .hist-row-query {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 0.86rem; color: var(--text-primary);
+    margin-bottom: 6px; line-height: 1.4;
+  }
+  .hist-row-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .lbl {
+    font-family: var(--font-mono); font-size: 0.68rem;
+    font-weight: 700; padding: 2px 7px; border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+  .lbl-b { background: #dcfce7; color: #166534; }
+  .lbl-r { background: #fef3c7; color: #92400e; }
+  .lbl-i { background: #fee2e2; color: #991b1b; }
+  .lbl-none { background: var(--surface-alt); color: var(--text-muted); }
+  .hist-date { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); margin-left: auto; }
+
+  /* ---- ADMIN LOGIN MOCKS ---- */
+  .admin-login-wrap { background: var(--bg); padding: 24px 16px; min-height: 300px; }
+
+  /* BEFORE — ghost white box */
+  .ghost-box { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 32px 24px 0; max-width: 420px; margin: 0 auto; }
+  .st-form-before {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    padding: 20px 24px; max-width: 420px; margin: 8px auto 0;
+  }
+  .field-label { font-size: 0.82rem; color: var(--text-primary); margin-bottom: 4px; font-weight: 500; }
+  .field-input { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; padding: 7px 10px; font-size: 0.88rem; background: #fff; margin-bottom: 12px; font-family: var(--font-sans); }
+  .field-input::placeholder { color: var(--text-muted); }
+  .btn-primary { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 4px; padding: 9px; font-size: 0.9rem; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+  .ghost-note { font-size: 0.75rem; color: #991b1b; text-align: center; margin: 4px auto; max-width: 420px; }
+
+  /* AFTER — centered columns, no wrapper div */
+  .st-form-after {
+    background: #fff; border: 1px solid var(--border); border-radius: 8px;
+    padding: 24px 24px 20px; max-width: 380px; margin: 0 auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .form-title { font-family: var(--font-serif); font-size: 1.05rem; font-weight: 600; color: var(--text-primary); margin: 0 0 16px; }
+  .back-link { display: inline-block; font-size: 0.8rem; color: var(--text-muted); text-decoration: none; margin-bottom: 18px; font-family: var(--font-sans); }
+  .back-link:hover { color: var(--accent); }
+  .brand-small { text-align: center; margin-bottom: 18px; }
+  .brand-small .mark { font-size: 1.8rem; color: var(--accent); }
+  .brand-small .title { font-family: var(--font-serif); font-size: 1.4rem; font-weight: 400; color: var(--accent); margin: 4px 0 2px; }
+  .brand-small .sub { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-weight: 600; margin: 0 0 10px; }
+</style>
+
+<h2>History Panel &amp; Admin Login — Full Redesign</h2>
+<p class="subtitle">Showing the entire panel, not just rows. Click to select your preferred direction.</p>
+
+<div class="section">
+  <div class="section-label">History Panel — full panel view</div>
+  <div class="split">
+
+    <div class="pane" data-choice="hist-before" onclick="toggleSelect(this)">
+      <div class="pane-header before">Before — emojis, dark close button, no clear structure</div>
+      <div class="pane-body">
+        <div class="hist-panel">
+          <div class="hist-before-head">
+            <span class="hist-before-title">📋 Feedback History</span>
+            <button class="hist-before-close">✕</button>
+          </div>
+          <div class="hist-before-cap">12 labels across 3 queries — all time</div>
+          <button class="hist-before-btn">
+            <div class="l1">▶ What is good-time credit in Illinois?…</div>
+            <div class="l2">🟢 2  🟡 1  🔴 0  ·  May 14</div>
+          </button>
+          <button class="hist-before-btn">
+            <div class="l1">▶ Does IDOC have mandatory education prog…</div>
+            <div class="l2">🟢 0  🟡 3  🔴 2  ·  May 12</div>
+          </button>
+          <button class="hist-before-btn">
+            <div class="l1">▶ Sentencing guidelines for Class X…</div>
+            <div class="l2">🟢 1  🟡 1  🔴 1  ·  May 10</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" data-choice="hist-after" onclick="toggleSelect(this)">
+      <div class="pane-header after">After — serif title, subtle close, color-coded text labels</div>
+      <div class="pane-body">
+        <div class="hist-panel">
+          <div class="hist-after-head">
+            <span class="hist-after-title">Feedback History</span>
+            <button class="hist-after-close">Close</button>
+          </div>
+          <div class="hist-after-cap">12 labels across 3 queries</div>
+          <div class="hist-row">
+            <div class="hist-row-query">What is good-time credit in Illinois?</div>
+            <div class="hist-row-meta">
+              <span class="lbl lbl-b">Binding 2</span>
+              <span class="lbl lbl-r">Relevant 1</span>
+              <span class="hist-date">May 14</span>
+            </div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-row-query">Does IDOC have mandatory education programs for inmates?</div>
+            <div class="hist-row-meta">
+              <span class="lbl lbl-r">Relevant 3</span>
+              <span class="lbl lbl-i">Irrelevant 2</span>
+              <span class="hist-date">May 12</span>
+            </div>
+          </div>
+          <div class="hist-row">
+            <div class="hist-row-query">Sentencing guidelines for Class X felonies in Illinois</div>
+            <div class="hist-row-meta">
+              <span class="lbl lbl-b">Binding 1</span>
+              <span class="lbl lbl-r">Relevant 1</span>
+              <span class="lbl lbl-i">Irrelevant 1</span>
+              <span class="hist-date">May 10</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <div class="section-label">Admin Login Page</div>
+  <div class="split">
+
+    <div class="pane" data-choice="admin-before" onclick="toggleSelect(this)">
+      <div class="pane-header before">Before — ghost white box above form, no back button</div>
+      <div class="pane-body">
+        <div class="admin-login-wrap">
+          <div class="brand-small">
+            <div class="mark">⚖️</div>
+            <div class="title">Illinois Legal Research</div>
+            <div class="sub">Admin Console</div>
+          </div>
+          <!-- Ghost box — the ejp-card div that Streamlit renders as empty -->
+          <div class="ghost-box"></div>
+          <div class="ghost-note">↑ This empty white box is what the .ejp-card wrapper renders as in Streamlit (the form appears separately below it)</div>
+          <div class="st-form-before" style="margin-top:4px;">
+            <div class="field-label">Admin password</div>
+            <input class="field-input" type="password" placeholder="••••••••" />
+            <button class="btn-primary">Login</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane" data-choice="admin-after" onclick="toggleSelect(this)">
+      <div class="pane-header after">After — centered with st.columns, back button, no ghost box</div>
+      <div class="pane-body">
+        <div class="admin-login-wrap">
+          <div class="brand-small">
+            <div class="mark">⚖️</div>
+            <div class="title">Illinois Legal Research</div>
+            <div class="sub">Admin Console</div>
+          </div>
+          <div class="st-form-after">
+            <div class="form-title">Admin Login</div>
+            <div class="field-label">Password</div>
+            <input class="field-input" type="password" placeholder="••••••••" />
+            <button class="btn-primary">Login</button>
+          </div>
+          <div style="text-align:center;margin-top:12px;">
+            <a class="back-link" href="#">← Back to Retrieval Audit</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p style="margin-top:1.5rem;font-size:0.9rem;color:var(--text-muted);">Two separate choices above — click whichever you prefer, or just tell me in the terminal. One note on the history rows: since Streamlit buttons can't contain HTML, the colored labels (Binding / Relevant / Irrelevant) are achieved via CSS injected into SHARED_CSS targeting buttons inside the history panel.</p>

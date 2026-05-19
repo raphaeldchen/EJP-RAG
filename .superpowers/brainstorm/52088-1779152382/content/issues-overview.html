@@ -1,0 +1,70 @@
+<h2>Audit App — Issues Found</h2>
+<p class="subtitle">Here's what I spotted across audit_app.py, admin.py, and ui/styles.py</p>
+
+<div class="section">
+  <div class="label" style="color:#c0392b;margin-bottom:8px;">🔴 Consistency problems</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #c0392b;border-radius:6px;padding:14px 16px;">
+      <strong>Inline styles in headers</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">audit_app.py and admin.py both hardcode <code>font-family:Georgia,serif;color:#1e3a5f</code> inline instead of using the CSS token variables from SHARED_CSS. If you update --accent in styles.py, the headers won't follow.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #c0392b;border-radius:6px;padding:14px 16px;">
+      <strong>Admin page has no CSS classes</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">admin.py hard-codes every color and font as inline styles (~30 occurrences). SHARED_CSS defines tokens and classes that admin doesn't use at all — making the two pages visually inconsistent at the detail level.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="label" style="color:#e67e22;margin-bottom:8px;">🟠 Labeling UX issues</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #e67e22;border-radius:6px;padding:14px 16px;">
+      <strong>Label buttons are colorless</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">BINDING is navy (primary), but RELEVANT and IRREL. are plain gray. The CSS already has <code>--binding: #166534</code>, <code>--relevant: #92400e</code>, <code>--irrelevant: #991b1b</code> — none of which reach the buttons. Labeling is the core action of the app, so these should be visually distinct.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #e67e22;border-radius:6px;padding:14px 16px;">
+      <strong>"IRREL." is truncated</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">The third label button reads "IRREL." — truncated awkwardly. This is the full width of the button in the tight 3-column layout. Either fix the truncation or rethink the layout so all three labels fit properly.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #e67e22;border-radius:6px;padding:14px 16px;">
+      <strong>No persistent saved-label highlight on card</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">After labeling, the expander header gets a small emoji icon, but the card itself has no color change. When reviewing many chunks, it's hard to tell at a glance which have been labeled and which haven't.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #e67e22;border-radius:6px;padding:14px 16px;">
+      <strong>History list buttons are awkward</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">The history panel uses <code>st.button()</code> with <code>\n</code> in the label for a two-line layout. Streamlit doesn't render this consistently — the result looks rough and cramped. Label/date stats should be rendered separately from the query text.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="label" style="color:#2980b9;margin-bottom:8px;">🔵 Minor polish gaps</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #2980b9;border-radius:6px;padding:14px 16px;">
+      <strong>st.write("") vertical-align hacks</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">Both files use <code>st.write("")</code> as a spacer to push buttons down. This creates invisible gaps and is fragile across Streamlit versions.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #2980b9;border-radius:6px;padding:14px 16px;">
+      <strong>Login/Signup forms are full-width</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">The login and signup forms stretch the full page width. SHARED_CSS already defines an <code>.ejp-card</code> class (max-width 480px, centered) but neither form uses it, so they look very wide on large screens.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e0db;border-left:3px solid #2980b9;border-radius:6px;padding:14px 16px;">
+      <strong>Sidebar is minimal</strong>
+      <p style="margin:6px 0 0;font-size:0.88rem;color:#555;">Shows email + Admin Panel button. The Admin Panel button is visible to all logged-in users, not just admins. The sidebar also has no back-to-audit-app button when you're on the admin page.</p>
+    </div>
+
+  </div>
+</div>
+
+<p style="margin-top:1.5rem;font-size:0.9rem;color:#555;">Does this match what you're seeing? Anything missing or not worth fixing? Let me know in the terminal.</p>

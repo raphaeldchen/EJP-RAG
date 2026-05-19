@@ -1,0 +1,6 @@
+{"type":"server-started","port":63195,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:63195","screen_dir":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/content","state_dir":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/state"}
+{"type":"screen-added","file":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/content/issues-overview.html"}
+{"type":"screen-added","file":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/content/history-admin-redesign.html"}
+{"type":"screen-added","file":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/content/history-panel-admin-full.html"}
+{"type":"screen-added","file":"/Users/raphaelchen/Desktop/legal_rag/.superpowers/brainstorm/52088-1779152382/content/waiting-1.html"}
+{"type":"server-stopped","reason":"owner process exited"}

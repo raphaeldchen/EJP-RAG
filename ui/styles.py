@@ -259,9 +259,10 @@ SHARED_CSS = """
         margin-bottom: 0.5rem;
     }
 
-    /* Primary buttons — navy */
+    /* Primary buttons — navy (Streamlit 1.55: form submits use kind="primaryFormSubmit") */
     .stButton button[kind="primary"],
-    button[kind="primary"] {
+    button[kind="primary"],
+    button[kind="primaryFormSubmit"] {
         background-color: var(--accent) !important;
         border-color: var(--accent) !important;
         color: #ffffff !important;
@@ -269,14 +270,19 @@ SHARED_CSS = """
         font-weight: 600 !important;
         letter-spacing: 0.02em;
     }
-    .stButton button[kind="primary"]:hover {
+    .stButton button[kind="primary"]:hover,
+    button[kind="primary"]:hover,
+    button[kind="primaryFormSubmit"]:hover {
         background-color: var(--accent-hover) !important;
         border-color: var(--accent-hover) !important;
     }
     .stButton button[kind="secondary"],
-    .stButton button {
+    .stButton button,
+    button[kind="secondary"],
+    button[kind="secondaryFormSubmit"] {
         font-family: var(--font-sans);
         border-radius: var(--radius-sm) !important;
+        color: var(--text-primary) !important;
     }
 
     /* Form inputs — replace orange focus with navy */

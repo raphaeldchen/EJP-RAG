@@ -1,0 +1,217 @@
+<style>
+  .panel { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+  /* Token mirrors from SHARED_CSS */
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-alt: #f4f2ee;
+    --border: #e2e0db;
+    --border-strong: #c9c6bf;
+    --text-primary: #1a1a18;
+    --text-muted: #6b6860;
+    --accent: #1e3a5f;
+    --accent-light: #eef2f7;
+    --font-serif: Georgia, "Times New Roman", serif;
+    --font-mono: "Courier New", Consolas, Menlo, monospace;
+  }
+
+  .split-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 1rem; }
+  .pane { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .pane-header { padding: 10px 14px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+  .pane-header.before { background: #fee2e2; color: #991b1b; border-bottom: 1px solid #f3c3c3; }
+  .pane-header.after  { background: #dcfce7; color: #166534; border-bottom: 1px solid #b6e6c8; }
+  .pane-body { background: var(--surface); padding: 12px 14px; }
+
+  /* --- HISTORY PANEL — BEFORE --- */
+  .hist-before-btn {
+    display: block; width: 100%; background: #fff; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 8px 10px; text-align: left; font-size: 0.82rem;
+    margin-bottom: 6px; cursor: pointer; color: #374151; line-height: 1.5;
+  }
+  .hist-before-btn .line1 { color: #111; }
+  .hist-before-btn .line2 { color: #6b7280; font-size: 0.78rem; margin-top: 2px; }
+
+  /* --- HISTORY PANEL — AFTER --- */
+  .hist-row {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .hist-row:hover { border-color: var(--accent); box-shadow: 0 1px 4px rgba(30,58,95,0.08); }
+  .hist-row-query { font-size: 0.88rem; color: var(--text-primary); margin-bottom: 6px; line-height: 1.4; font-family: var(--font-serif); font-style: italic; }
+  .hist-row-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hist-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72rem; padding: 1px 7px; border-radius: 4px; font-family: var(--font-mono); font-weight: 600; }
+  .hist-badge-green  { background: #dcfce7; color: #166534; }
+  .hist-badge-yellow { background: #fef3c7; color: #92400e; }
+  .hist-badge-red    { background: #fee2e2; color: #991b1b; }
+  .hist-row-date { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); margin-left: auto; }
+
+  /* --- ADMIN PAGE — BEFORE --- */
+  .admin-before-acct { border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+  .admin-before-email { font-weight: 600; font-size: 0.88rem; color: #111; }
+  .admin-before-date  { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+  .admin-before-btn { float: right; margin-top: -24px; background: #1e3a5f; color: #fff; border: none; border-radius: 4px; padding: 4px 14px; font-size: 0.82rem; cursor: pointer; }
+
+  /* --- ADMIN PAGE — AFTER --- */
+  .admin-section-title {
+    font-family: var(--font-serif);
+    font-size: 1rem; font-weight: 600; color: var(--text-primary);
+    margin: 0 0 10px; letter-spacing: -0.005em;
+  }
+  .admin-section-title .count {
+    font-family: -apple-system, sans-serif;
+    font-size: 0.82rem; font-weight: 400; color: var(--text-muted); margin-left: 6px;
+  }
+  .admin-acct {
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; margin-bottom: 8px; background: var(--surface);
+  }
+  .admin-acct-email { font-size: 0.9rem; color: var(--text-primary); font-weight: 500; }
+  .admin-acct-date  { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+  .admin-approve-btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 4px; padding: 5px 14px; font-size: 0.82rem;
+    font-family: -apple-system, sans-serif; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  }
+  .admin-approved-row {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 12px;
+    align-items: center; padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  .admin-approved-row.header { font-family: -apple-system, sans-serif; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); padding-bottom: 4px; }
+  .admin-approved-row .check { color: var(--accent); font-weight: 700; font-size: 1rem; text-align: center; }
+  .admin-approved-date { font-family: var(--font-mono); color: var(--text-muted); font-size: 0.78rem; }
+
+  .section-label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin: 0 0 12px; font-weight: 600; }
+</style>
+
+<h2>History Panel & Admin Page — Before / After</h2>
+<p class="subtitle">Current state vs. proposed redesign using the existing design tokens</p>
+
+<div class="section">
+  <div class="section-label">History Panel — query rows</div>
+  <div class="split-wrap">
+
+    <div class="pane">
+      <div class="pane-header before">Before — multi-line st.button with \n</div>
+      <div class="pane-body">
+        <button class="hist-before-btn">
+          <div class="line1">▶ What is good-time credit in Illinois?…</div>
+          <div class="line2">🟢 2  🟡 1  🔴 0  ·  May 14</div>
+        </button>
+        <button class="hist-before-btn">
+          <div class="line1">▶ Does IDOC have mandatory education programs…</div>
+          <div class="line2">🟢 0  🟡 3  🔴 2  ·  May 12</div>
+        </button>
+        <button class="hist-before-btn">
+          <div class="line1">▶ What are sentencing guidelines for Class X…</div>
+          <div class="line2">🟢 1  🟡 1  🔴 1  ·  May 10</div>
+        </button>
+        <p style="font-size:0.78rem;color:#991b1b;margin-top:8px;">The \n doesn't render as markdown inside buttons — it just creates an awkward text break. Label badges are plain emoji, no visual weight.</p>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="pane-header after">After — card rows with styled badges</div>
+      <div class="pane-body">
+        <div class="hist-row">
+          <div class="hist-row-query">What is good-time credit in Illinois?</div>
+          <div class="hist-row-meta">
+            <span class="hist-badge hist-badge-green">🟢 2 binding</span>
+            <span class="hist-badge hist-badge-yellow">🟡 1 relevant</span>
+            <span class="hist-row-date">May 14</span>
+          </div>
+        </div>
+        <div class="hist-row">
+          <div class="hist-row-query">Does IDOC have mandatory education programs?</div>
+          <div class="hist-row-meta">
+            <span class="hist-badge hist-badge-yellow">🟡 3 relevant</span>
+            <span class="hist-badge hist-badge-red">🔴 2 irrelevant</span>
+            <span class="hist-row-date">May 12</span>
+          </div>
+        </div>
+        <div class="hist-row">
+          <div class="hist-row-query">What are sentencing guidelines for Class X felonies?</div>
+          <div class="hist-row-meta">
+            <span class="hist-badge hist-badge-green">🟢 1 binding</span>
+            <span class="hist-badge hist-badge-yellow">🟡 1 relevant</span>
+            <span class="hist-badge hist-badge-red">🔴 1 irrelevant</span>
+            <span class="hist-row-date">May 10</span>
+          </div>
+        </div>
+        <p style="font-size:0.78rem;color:#166534;margin-top:8px;">Query text uses the serif italic style. Color-coded badges. Date right-aligned. Hover border highlight. No truncation hacks.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-label">Admin Page — account lists</div>
+  <div class="split-wrap">
+
+    <div class="pane">
+      <div class="pane-header before">Before — inline styles everywhere, float hacks</div>
+      <div class="pane-body">
+        <p style="font-size:0.72rem;color:#991b1b;margin-bottom:8px;">30+ inline style="font-family:..., color:#..." attributes — none using CSS variables</p>
+        <div class="admin-before-acct">
+          <div class="admin-before-email">lawyer@cookcounty.gov</div>
+          <div class="admin-before-date">Registered 2026-05-15</div>
+          <button class="admin-before-btn">Approve</button>
+        </div>
+        <div class="admin-before-acct">
+          <div class="admin-before-email">researcher@law.illinois.edu</div>
+          <div class="admin-before-date">Registered 2026-05-14</div>
+          <button class="admin-before-btn">Approve</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="pane-header after">After — CSS classes, consistent tokens</div>
+      <div class="pane-body">
+        <div class="admin-section-title">Pending Approval <span class="count">(2)</span></div>
+        <div class="admin-acct">
+          <div>
+            <div class="admin-acct-email">lawyer@cookcounty.gov</div>
+            <div class="admin-acct-date">Registered 2026-05-15</div>
+          </div>
+          <button class="admin-approve-btn">Approve</button>
+        </div>
+        <div class="admin-acct">
+          <div>
+            <div class="admin-acct-email">researcher@law.illinois.edu</div>
+            <div class="admin-acct-date">Registered 2026-05-14</div>
+          </div>
+          <button class="admin-approve-btn">Approve</button>
+        </div>
+
+        <div class="admin-section-title" style="margin-top:16px;">Approved Accounts <span class="count">(3)</span></div>
+        <div class="admin-approved-row header">
+          <span>Email</span><span>Approved</span><span style="text-align:center;">Status</span>
+        </div>
+        <div class="admin-approved-row">
+          <span>defender@pubdef.org</span>
+          <span class="admin-approved-date">2026-05-10</span>
+          <span class="check">✓</span>
+        </div>
+        <div class="admin-approved-row">
+          <span>prof@uillinois.edu</span>
+          <span class="admin-approved-date">2026-05-08</span>
+          <span class="check">✓</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p style="margin-top:1.5rem;font-size:0.9rem;color:#555;">Does this direction look right? Let me know in the terminal — any tweaks to the card style, badge design, or layout before I implement.</p>

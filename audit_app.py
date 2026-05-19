@@ -165,7 +165,7 @@ def _show_login():
     with st.form("login_form"):
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Login", use_container_width=True)
+        submitted = st.form_submit_button("Login", use_container_width=True, type="primary")
     if submitted:
         if not email:
             st.error("Email is required.")
@@ -184,7 +184,7 @@ def _show_signup():
         email = st.text_input("Email")
         password = st.text_input("Password", type="password")
         confirm = st.text_input("Confirm Password", type="password")
-        submitted = st.form_submit_button("Create Account", use_container_width=True)
+        submitted = st.form_submit_button("Create Account", use_container_width=True, type="primary")
     if submitted:
         if not email:
             st.error("Email is required.")

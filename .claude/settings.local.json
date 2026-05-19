@@ -4,7 +4,15 @@
       "Read(//c/Users/eshan/OneDrive/Desktop/ObsidianNotes/claudebrain\" 2>/dev/**)",
       "Read(//c/Users/eshan/OneDrive/Desktop/ObsidianNotes/claudebrain/entities\" 2>/dev/**)",
       "PowerShell(Copy-Item *)",
-      "Bash(python -c \"from ui.styles import SHARED_CSS; print\\(len\\(SHARED_CSS\\)\\)\")"
+      "Bash(python -c \"from ui.styles import SHARED_CSS; print\\(len\\(SHARED_CSS\\)\\)\")",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_click",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_evaluate",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_type",
+      "Bash(pkill -f \"streamlit run audit_app\")"
     ]
   }
 }
