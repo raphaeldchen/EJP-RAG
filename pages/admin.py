@@ -24,22 +24,24 @@ if not st.session_state.get("admin_authenticated"):
     if ADMIN_PASSWORD in ("", "CHANGE_ME_BEFORE_DEPLOY"):
         st.error("ADMIN_PASSWORD is not configured. Replace the placeholder in your .env file.")
         st.stop()
-    st.markdown('<div class="ejp-card">', unsafe_allow_html=True)
-    with st.form("admin_login"):
-        pwd = st.text_input("Admin password", type="password")
-        submitted = st.form_submit_button("Login", use_container_width=True, type="primary")
-    if submitted:
-        if pwd and pwd == ADMIN_PASSWORD:
-            st.session_state["admin_authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Incorrect password.")
-    st.markdown('</div>', unsafe_allow_html=True)
+    _, col_mid, _ = st.columns([1, 2, 1])
+    with col_mid:
+        with st.form("admin_login"):
+            pwd = st.text_input("Admin password", type="password")
+            submitted = st.form_submit_button("Login", use_container_width=True, type="primary")
+        if submitted:
+            if pwd and pwd == ADMIN_PASSWORD:
+                st.session_state["admin_authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect password.")
+        if st.button("← Retrieval Audit", use_container_width=True):
+            st.switch_page("audit_app.py")
     st.stop()
 
 # Admin authenticated
 
-_title_col, _logout_col = st.columns([5, 1])
+_title_col, _back_col, _logout_col = st.columns([4, 1, 1])
 with _title_col:
     st.markdown(
         '<h1 style="font-family:Georgia,serif;color:#1e3a5f;'
@@ -49,8 +51,10 @@ with _title_col:
         'text-transform:uppercase;margin:0 0 1rem 0;">Illinois Legal Research · Admin Console</p>',
         unsafe_allow_html=True,
     )
+with _back_col:
+    if st.button("← Audit", use_container_width=True):
+        st.switch_page("audit_app.py")
 with _logout_col:
-    st.write("")
     if st.button("Logout", use_container_width=True):
         st.session_state.pop("admin_authenticated", None)
         st.rerun()
