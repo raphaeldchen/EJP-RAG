@@ -276,6 +276,12 @@ SHARED_CSS = """
         background-color: var(--accent-hover) !important;
         border-color: var(--accent-hover) !important;
     }
+    /* Force white on all Streamlit wrapper elements inside primary buttons
+       so [class*="st-"] dark-text rule doesn't leak through the nested divs/spans */
+    button[kind="primary"] *,
+    button[kind="primaryFormSubmit"] * {
+        color: #ffffff !important;
+    }
     .stButton button[kind="secondary"],
     .stButton button,
     button[kind="secondary"],
