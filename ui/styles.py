@@ -282,7 +282,6 @@ SHARED_CSS = """
     button[kind="secondaryFormSubmit"] {
         font-family: var(--font-sans);
         border-radius: var(--radius-sm) !important;
-        color: var(--text-primary) !important;
     }
 
     /* Form inputs — replace orange focus with navy */
