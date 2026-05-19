@@ -439,5 +439,39 @@ SHARED_CSS = """
         background: var(--surface-alt) !important;
         border-right: 1px solid var(--border);
     }
+
+    /* ---------- Admin account management ---------- */
+    .ejp-section-count {
+        color: var(--text-muted);
+        font-weight: 400;
+        font-family: var(--font-sans);
+        font-size: 0.85rem;
+        margin-left: 4px;
+    }
+    .ejp-table-header {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        font-family: var(--font-sans);
+    }
+    .ejp-account-email {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+    }
+    .ejp-account-date {
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+    .ejp-table-cell { padding: 6px 0; }
+    .ejp-check {
+        color: var(--accent);
+        font-weight: 700;
+        text-align: center;
+        padding: 6px 0;
+    }
 </style>
 """
